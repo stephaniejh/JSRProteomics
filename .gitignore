@@ -23,6 +23,9 @@ logs/*
 *.txt
 *.png
 *.pdf
+*.jpg
+*.tif
+*.tiff
 
 # History files
 .Rhistory
