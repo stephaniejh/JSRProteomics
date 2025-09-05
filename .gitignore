@@ -11,7 +11,7 @@
 # Data input & output folders
 input/*
 output/*
-logs/*
+logs/* 
 
 # ignore rproj
 *.Rproj
