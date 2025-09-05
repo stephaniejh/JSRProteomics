@@ -1,0 +1,58 @@
+---
+title: "MSstatsTMT_2025_09_v3.1.1_sp"
+author: "stephaniejh"
+date: "2025_09_05"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Vignette Title}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+# MSstatsTMT 2025 09 v3.1.1 sp
+
+This is
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>")
+
+# Set working directory - *Session \> Set Working Directory \> To Source File Location*
+# setwd("~/RProjects/JSRProteomics/MSstatsTMT/v3")
+
+# Load packages 
+library(MSstatsTMT) # for conversion, protein summarization & group comparisons.
+library(MSstats) # some dependencies from above? / other functions
+library(readr) # data import & export e.g. read_tsv() or write_csv()
+library(dplyr) # wrangling data e.g. %>% & bind_rows()
+library(ggplot2) # not really used? but for plots 
+```
+
+## Import & Setup Data
+
+### Import PSMs
+
+Import the .txt PSMs from each .pdresult file.
+
+```{r}
+mydir = 'input/PSMs/'
+```
+
+#### Export megafile
+
+### Import Annotation File & Contrast Matrix
+
+The annotation file was created using the R script titled \`EE_SH\_\_F_M_TMTpro_annotation_v2\` in the v2 folder. The generated csv files have been put under input \> anno here.
+
+Annotation
+
+```{r}
+
+```
+
+Contrast Matrix
+
+```{r}
+
+```

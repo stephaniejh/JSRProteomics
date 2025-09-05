@@ -12,6 +12,7 @@
 input/*
 output/*
 logs/* 
+plots/*
 
 # ignore rproj
 *.Rproj
