@@ -1,7 +1,7 @@
 ---
 title: "MSstatsTMT_2025_09_v3.1.1_sp"
 author: "stephaniejh"
-date: "2025_09_05"
+date: "2025_09_08"
 output: rmarkdown::html_vignette
 vignette: >
   %\VignetteIndexEntry{Vignette Title}
@@ -11,7 +11,11 @@ vignette: >
 
 # MSstatsTMT 2025 09 v3.1.1 sp
 
-This is
+Super basic run of MSstatsTMT. Just to check the output using SwissProt database (canonical only \~8215). For comparison with the RP 1pspg (\>20000) & SwissProt w isoforms (\>9000).
+
+1.  v3.1.1_t1 - is Condition EE vs SH only - all defaults pairwise SwissProt. (2025_09_08)
+
+2.  v3.1.1_t2 - is Condition Housing x Age - all defaults contrast matrix SwissProt. (2025_09_08)
 
 ```{r setup, include = FALSE}
 knitr::opts_chunk$set(
@@ -36,23 +40,201 @@ library(ggplot2) # not really used? but for plots
 Import the .txt PSMs from each .pdresult file.
 
 ```{r}
-mydir = 'input/PSMs/'
+# set up mydir - input location relative to script
+mydir = 'input/2025_09_sp_Steph_TMTpro_PSMs_MSstatsTMT_EEvsSH_for_PhD/txt_exports/'
+
+# list out files that contain "PSM" & end with .txt 
+myfiles_PSMs = list.files(path = mydir,
+                          pattern = ".*PSM.*\\.txt$",
+                          full.names = TRUE)
+
+# batch read in
+df_list_PSMs <- setNames(lapply(myfiles_PSMs, read_tsv),
+                         myfiles_PSMs)
+```
+
+#### Make Mega PSMs df called raw.pd
+
+```{r}
+# bind into master file/df called raw.pd 
+raw.pd <- bind_rows(df_list_PSMs,
+                    .id = 'pdresults_file_id') # .id = file name as col
+```
+
+lil check
+
+```{r}
+colnames(raw.pd)
+str(raw.pd)
+head(raw.pd)
+tail(raw.pd)
 ```
 
 #### Export megafile
 
-### Import Annotation File & Contrast Matrix
+```{r}
+# write_tsv(raw.pd, "output/PSMs/combined_PSMs_2025_09_04_sp.txt")
+# write_csv(raw.pd, "output/PSMs/combined_PSMs_2025_09_04_sp.csv")
+```
+
+### Import Annotation File
 
 The annotation file was created using the R script titled \`EE_SH\_\_F_M_TMTpro_annotation_v2\` in the v2 folder. The generated csv files have been put under input \> anno here.
 
-Annotation
+Import Annotation
 
 ```{r}
+# t1 - Housing - EE vs SH 
+# annotation <- read_csv(
+#   "input/anno/Steph_TMT_all_EE&SH_F&M_final_annotation_file_v2_2025_08.csv")
 
+# OR
+
+# t2 - Housing x Age
+annotation <- read_csv(
+  "input/anno/TMT_EE_annotation_HA_2025_08.csv")
+
+dim(annotation) #prints dimensions of csv (1536 rows & 21 columns)
+head(annotation) #prints first few rows of data (preview)
 ```
 
-Contrast Matrix
+## Set up dataframe for MSstatsTMT Analysis
+
+Note
+
+1.  MSstatsTMT uses protein accession as the default rather than the master protein accession. Apparently, you can use either; not explicitly stated why, but I suspect that protein accession is more appropriate, as you are summarising the proteins from the PSMs here from multiple fractions? Whereas PD is treating it as a single run rather than a fraction?
+
+Random PSM df checks
 
 ```{r}
+# total no. of unique protein names. does not account for ; ?
+# sp 5586
+length(unique(raw.pd$"Protein Accessions"))
 
+# total no. of unique protein names (master). does not account for ; ?
+# sp 5395
+length(unique(raw.pd$"Master Protein Accessions")) 
+
+# total no. of unique peptide sequences
+# sp 58194
+length(unique(raw.pd$"Annotated Sequence"))
+
+# unique Spectrum.File, which is TMT run.
+# 96
+length(unique(raw.pd$"Spectrum File"))
+
+# no. of observations with contaminants TRUE vs FALSE
+# sp - F = 779667	& T = 4843
+raw.pd %>%
+  count(Contaminant) 
+```
+
+### PDtoMSstatsTMTFormat()
+
+Using all defaults. Done in \~3min on Jennifer (prev 10 min on laptop!)
+
+```{r}
+# all defaults 
+input.pd <- PDtoMSstatsTMTFormat(input = raw.pd, 
+                                 annotation = annotation,
+                                 which.proteinid = "Protein Accessions",
+                                 useNumProteinsColumn = TRUE, 
+                                 useUniquePeptide = TRUE,
+                                 rmPSM_withfewMea_withinRun = TRUE,
+                                 rmProtein_with1Feature = FALSE,
+                                 summaryforMultipleRows = sum,
+                                 use_log_file = TRUE,
+                                 append = FALSE)
+```
+
+```{r}
+# # save as rda if desired. 
+# save(input.pd, file = 'output/MSstatsTMT/2025_09_08_sp_input_pd_v3.1.1_t2.rda')
+```
+
+## proteinSummarization()
+
+Summarises the PSMs into protein groups with abundance values.
+
+```{r}
+# all defaults
+quant.msstats <- proteinSummarization(input.pd,
+                                      method="msstats",
+                                      global_norm=TRUE,
+                                      reference_norm=TRUE,
+                                      remove_norm_channel = TRUE,
+                                      remove_empty_channel = TRUE,
+                                      MBimpute = TRUE, #only 4 MSstats method?
+                                      maxQuantileforCensored = NULL,
+                                      use_log_file = TRUE,
+                                      append = FALSE) 
+```
+
+### Save output
+
+Save .rda file
+
+```{r}
+# #SAVE!!! rda
+# save(quant.msstats,
+#      file = 'output/MSstatsTMT/psum/2025_09_08_sp_Protein_Summarization_v3.1.1_t2.rda')
+```
+
+Save csv files
+
+```{r}
+# write_csv(quant.msstats$FeatureLevelData,
+#           file='output/MSstatsTMT/psum/2025_09_08_sp_ProteinAbnd_featurelvl_v3.1.1_t2.csv')
+# 
+# write_csv(quant.msstats$ProteinLevelData,
+#           file='output/MSstatsTMT/psum/2025_09_08_sp_ProteinAbnd_proteinlvl_v3.1.1_t2.csv')
+```
+
+## groupComparisonTMT
+
+Import Contrast Matrix
+
+```{r}
+contrast_matrix <- read.csv("input/anno/2025_09_04_HA_matrix.csv", 
+                            header = TRUE)
+```
+
+Setup as a matrix df (for t2)
+
+```{r}
+#from sams
+row.names(contrast_matrix) <- contrast_matrix[,1]
+contrast_matrix <- contrast_matrix[,-1]
+contrast_matrix <- as.matrix(contrast_matrix)
+```
+
+### groupComparisonTMT
+
+```{r}
+# all defaults
+test.pairwise.msstats <- groupComparisonTMT(data = quant.msstats, 
+                             contrast.matrix = contrast_matrix, # t2
+                             # contrast.matrix = "pairwise", # t1
+                             moderated = FALSE, # default F
+                             adj.method = "BH", # multiple compa adj
+                             save_fitted_models = TRUE) #otherwise not saved
+```
+
+save comparisons output
+
+```{r}
+# save(test.pairwise.msstats,
+#      file = 'output/MSstatsTMT/comp/2025_09_08_sp_test_pairwise_msstats_v3.1.1_t2.rda')
+# 
+# #write_csv gives weird ' apostrophe by value but write.csv doesn't?
+# write.csv(test.pairwise.msstats$ComparisonResult,
+#     file='output/MSstatsTMT/comp/2025_09_08_sp_test_pairwise_msstats_v3.1.1_t2.csv')
+```
+
+Volcano Plots
+
+```{r}
+# oops saves over if address specified??? not sure?
+groupComparisonPlots(data = test.pairwise.msstats$ComparisonResult,
+                    type="VolcanoPlot")
 ```
