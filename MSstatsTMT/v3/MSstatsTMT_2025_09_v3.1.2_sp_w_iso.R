@@ -10,8 +10,9 @@
 
 # t3 - sp w iso - MSstatsTMT defaults - just basic check - housing ee vs sh
 # t4 - same except pairwise comp does moderated
-# t5 - 
-# t6 - 
+# t5 - master protein accession, otherwise default
+# t6 - same as t5, except moderature = TRUE.
+# t7 - closest to Nov 2024, raw.pd.nc + master protein accession + moderated = TRUE.
 
 # This script is similar to MSstatsTMT_2025_09_v3.1.1.1_sp.Rmd but as a less detailed .R
 # Just for a quick check! 
@@ -224,7 +225,7 @@ groupComparisonPlots(data = test.pairwise.msstats.t5$ComparisonResult,
 
 
 
-## - T6  ~ ~ ~ ~ ~ ~
+## - T6  ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 # all defaults but uses protein sum with master protein accession & mod = TRUE
 test.pairwise.msstats.t6 <- groupComparisonTMT(data = quant.msstats.t5, 
                                                contrast.matrix = "pairwise", # EE vs SH
@@ -251,3 +252,75 @@ groupComparisonPlots(data = test.pairwise.msstats.t6$ComparisonResult,
                      address = "")
 
 
+## - T7 - NC & master protein ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
+# no. of observations with contaminants TRUE vs FALSE
+raw.pd %>%
+  count(Contaminant) # 763459 FALSE & 4767 TRUE
+
+# raw PSM pd file with contaminants removed. 
+raw.pd.nc <- raw.pd %>% 
+  filter(Contaminant == FALSE)
+
+# no. of observations with contaminants TRUE vs FALSE
+raw.pd.nc %>%
+  count(Contaminant) # should be all FALSE
+
+input.pd.t7 <- PDtoMSstatsTMTFormat(input = raw.pd.nc, # t7 no contaminants
+                                 annotation = annotation,
+                                 which.proteinid = "Master Protein Accessions", # t7 master
+                                 useNumProteinsColumn = TRUE, 
+                                 useUniquePeptide = TRUE,
+                                 rmPSM_withfewMea_withinRun = TRUE,
+                                 rmProtein_with1Feature = FALSE,
+                                 summaryforMultipleRows = sum,
+                                 use_log_file = TRUE,
+                                 append = FALSE)
+
+
+quant.msstats.t7 <- proteinSummarization(input.pd.t7,
+                                      method="msstats",
+                                      global_norm=TRUE,
+                                      reference_norm=TRUE,
+                                      remove_norm_channel = TRUE,
+                                      remove_empty_channel = TRUE,
+                                      MBimpute = TRUE, #only 4 MSstats method?
+                                      maxQuantileforCensored = NULL,
+                                      use_log_file = TRUE,
+                                      append = FALSE) 
+
+# # save psum
+# save(quant.msstats.t7,
+#      file = 'output/MSstatsTMT/psum/2025_09_09_sp_w_iso_Protein_Summarization_v3.1.2_t7.rda')
+# 
+# write_csv(quant.msstats.t7$FeatureLevelData,
+#           file='output/MSstatsTMT/psum/2025_09_09_sp_w_iso_ProteinAbnd_featurelvl_v3.1.2_t7.csv')
+# 
+# write_csv(quant.msstats.t7$ProteinLevelData,
+#           file='output/MSstatsTMT/psum/2025_09_09_sp_w_iso_ProteinAbnd_proteinlvl_v3.1.2_t7.csv')
+
+
+# t7 - MPA & raw.pd.nc = model fitting 4718 proteins
+test.pairwise.msstats.t7 <- groupComparisonTMT(data = quant.msstats.t7, 
+                                            contrast.matrix = "pairwise", #EE vs SH
+                                            moderated = TRUE, # t7
+                                            adj.method = "BH", # multiple compa adj
+                                            save_fitted_models = TRUE) #otherwise not saved
+
+
+# # save comp
+# save(test.pairwise.msstats.t7,
+#      file = 'output/MSstatsTMT/comp/2025_09_09_sp_w_iso_test_pairwise_msstats_v3.1.2_t7.rda')
+# 
+# #write_csv gives weird ' apostrophe by value but write.csv doesn't?
+# write.csv(test.pairwise.msstats.t7$ComparisonResult,
+#           file='output/MSstatsTMT/comp/2025_09_09_sp_w_iso_test_pairwise_msstats_v3.1.2_t7.csv')
+
+
+# volcano plot
+groupComparisonPlots(data = test.pairwise.msstats.t7$ComparisonResult,
+                     type="VolcanoPlot",
+                     dot.size = 2,
+                     text.size = 3,
+                     width = 800,
+                     height = 800,
+                     address = "")
