@@ -119,7 +119,7 @@ groupComparisonPlots(data = test.pairwise.msstats$ComparisonResult,
                      address = "")
 
 
-
+# * ~ ` *  ~ * `
 ## ~ T4  -  all same except try moderated = TRUE ~ ~ ~ ~ ~ 
 # load in protein sum from above
 # groupComparisonTMT() ~  * ~  * ~ * ~
@@ -152,3 +152,70 @@ groupComparisonPlots(data = test.pairwise.msstats.t4$ComparisonResult,
 
 
 
+
+
+## - T5 - try with master protein accession 
+# all defaults, except master protein accession instead
+input.pd.t5 <- PDtoMSstatsTMTFormat(input = raw.pd, 
+                                 annotation = annotation,
+                                 which.proteinid = "Master Protein Accessions", # t5
+                                 useNumProteinsColumn = TRUE, 
+                                 useUniquePeptide = TRUE,
+                                 rmPSM_withfewMea_withinRun = TRUE,
+                                 rmProtein_with1Feature = FALSE,
+                                 summaryforMultipleRows = sum,
+                                 use_log_file = TRUE,
+                                 append = FALSE)
+
+
+# all defaults
+quant.msstats.t5 <- proteinSummarization(input.pd.t5,
+                                      method="msstats",
+                                      global_norm=TRUE,
+                                      reference_norm=TRUE,
+                                      remove_norm_channel = TRUE,
+                                      remove_empty_channel = TRUE,
+                                      MBimpute = TRUE, #only 4 MSstats method?
+                                      maxQuantileforCensored = NULL,
+                                      use_log_file = TRUE,
+                                      append = FALSE) 
+
+# # save psum
+# save(quant.msstats.t5,
+#      file = 'output/MSstatsTMT/psum/2025_09_09_sp_w_iso_Protein_Summarization_v3.1.2_t5.rda')
+# 
+# write_csv(quant.msstats.t5$FeatureLevelData,
+#           file='output/MSstatsTMT/psum/2025_09_09_sp_w_iso_ProteinAbnd_featurelvl_v3.1.2_t5.csv')
+# 
+# write_csv(quant.msstats.t5$ProteinLevelData,
+#           file='output/MSstatsTMT/psum/2025_09_09_sp_w_iso_ProteinAbnd_proteinlvl_v3.1.2_t5.csv')
+
+
+# note w/ protein accession - model fitting for 4230 proteins (t4) 
+# note w/ 4758 proteins (t5) master protein accession (huh! why is this more?)
+# 5 - groupComparisonTMT() ~  * ~  * ~ * ~
+# all defaults but uses protein sum with master protein accession
+test.pairwise.msstats.t5 <- groupComparisonTMT(data = quant.msstats.t5, 
+                                            contrast.matrix = "pairwise", # EE vs SH
+                                            moderated = FALSE, # default F
+                                            adj.method = "BH", # multiple compa adj
+                                            save_fitted_models = TRUE) #otherwise not saved
+
+
+# # save comp
+# save(test.pairwise.msstats.t5,
+#      file = 'output/MSstatsTMT/comp/2025_09_09_sp_w_iso_test_pairwise_msstats_v3.1.2_t5.rda')
+# 
+# #write_csv gives weird ' apostrophe by value but write.csv doesn't?
+# write.csv(test.pairwise.msstats.t5$ComparisonResult,
+#           file='output/MSstatsTMT/comp/2025_09_09_sp_w_iso_test_pairwise_msstats_v3.1.2_t5.csv')
+
+
+# volcano plot
+groupComparisonPlots(data = test.pairwise.msstats.t5$ComparisonResult,
+                     type="VolcanoPlot",
+                     dot.size = 2,
+                     text.size = 3,
+                     width = 800,
+                     height = 800,
+                     address = "")
