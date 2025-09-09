@@ -40,9 +40,9 @@ df_list_PSMs <- setNames(lapply(myfiles_PSMs, read_tsv),
 raw.pd <- bind_rows(df_list_PSMs,
                     .id = 'pdresults_file_id') 
 
-# write out combined PSMs
-write_tsv(raw.pd, "output/PSMs/combined_PSMs_2025_09_05_sp_w_iso.txt")
-write_csv(raw.pd, "output/PSMs/combined_PSMs_2025_09_05_sp_w_iso.csv")
+# # write out combined PSMs
+# write_tsv(raw.pd, "output/PSMs/combined_PSMs_2025_09_05_sp_w_iso.txt")
+# write_csv(raw.pd, "output/PSMs/combined_PSMs_2025_09_05_sp_w_iso.csv")
 
 
 # Annotation File
@@ -78,15 +78,15 @@ quant.msstats <- proteinSummarization(input.pd,
                                       use_log_file = TRUE,
                                       append = FALSE) 
 
-# save psum
-save(quant.msstats,
-     file = 'output/MSstatsTMT/psum/2025_09_09_sp_w_iso_Protein_Summarization_v3.1.2_t3.rda')
-
-write_csv(quant.msstats$FeatureLevelData,
-          file='output/MSstatsTMT/psum/2025_09_09_sp_w_iso_ProteinAbnd_featurelvl_v3.1.2_t3.csv')
-
-write_csv(quant.msstats$ProteinLevelData,
-          file='output/MSstatsTMT/psum/2025_09_09_sp_w_iso_ProteinAbnd_proteinlvl_v3.1.2_t3.csv')
+# # save psum
+# save(quant.msstats,
+#      file = 'output/MSstatsTMT/psum/2025_09_09_sp_w_iso_Protein_Summarization_v3.1.2_t3.rda')
+# 
+# write_csv(quant.msstats$FeatureLevelData,
+#           file='output/MSstatsTMT/psum/2025_09_09_sp_w_iso_ProteinAbnd_featurelvl_v3.1.2_t3.csv')
+# 
+# write_csv(quant.msstats$ProteinLevelData,
+#           file='output/MSstatsTMT/psum/2025_09_09_sp_w_iso_ProteinAbnd_proteinlvl_v3.1.2_t3.csv')
 
 
 
@@ -99,13 +99,13 @@ test.pairwise.msstats <- groupComparisonTMT(data = quant.msstats,
                                             save_fitted_models = TRUE) #otherwise not saved
 
 
-# save comp
-save(test.pairwise.msstats,
-     file = 'output/MSstatsTMT/comp/2025_09_09_sp_w_iso_test_pairwise_msstats_v3.1.2_t3.rda')
-
-#write_csv gives weird ' apostrophe by value but write.csv doesn't?
-write.csv(test.pairwise.msstats$ComparisonResult,
-          file='output/MSstatsTMT/comp/2025_09_09_sp_w_iso_test_pairwise_msstats_v3.1.2_t3.csv')
+# # save comp
+# save(test.pairwise.msstats,
+#      file = 'output/MSstatsTMT/comp/2025_09_09_sp_w_iso_test_pairwise_msstats_v3.1.2_t3.rda')
+# 
+# #write_csv gives weird ' apostrophe by value but write.csv doesn't?
+# write.csv(test.pairwise.msstats$ComparisonResult,
+#           file='output/MSstatsTMT/comp/2025_09_09_sp_w_iso_test_pairwise_msstats_v3.1.2_t3.csv')
 
 
 # volcano plot
