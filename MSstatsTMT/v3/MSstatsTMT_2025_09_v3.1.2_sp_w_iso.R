@@ -10,6 +10,8 @@
 
 # t3 - sp w iso - MSstatsTMT defaults - just basic check - housing ee vs sh
 # t4 - same except pairwise comp does moderated
+# t5 - 
+# t6 - 
 
 # This script is similar to MSstatsTMT_2025_09_v3.1.1.1_sp.Rmd but as a less detailed .R
 # Just for a quick check! 
@@ -219,3 +221,33 @@ groupComparisonPlots(data = test.pairwise.msstats.t5$ComparisonResult,
                      width = 800,
                      height = 800,
                      address = "")
+
+
+
+## - T6  ~ ~ ~ ~ ~ ~
+# all defaults but uses protein sum with master protein accession & mod = TRUE
+test.pairwise.msstats.t6 <- groupComparisonTMT(data = quant.msstats.t5, 
+                                               contrast.matrix = "pairwise", # EE vs SH
+                                               moderated = TRUE, #t6
+                                               adj.method = "BH", # multiple compa adj
+                                               save_fitted_models = TRUE) #otherwise not saved
+
+# # save comp
+# save(test.pairwise.msstats.t6,
+#      file = 'output/MSstatsTMT/comp/2025_09_09_sp_w_iso_test_pairwise_msstats_v3.1.2_t6.rda')
+# 
+# #write_csv gives weird ' apostrophe by value but write.csv doesn't?
+# write.csv(test.pairwise.msstats.t6$ComparisonResult,
+#           file='output/MSstatsTMT/comp/2025_09_09_sp_w_iso_test_pairwise_msstats_v3.1.2_t6.csv')
+
+
+# volcano plot
+groupComparisonPlots(data = test.pairwise.msstats.t6$ComparisonResult,
+                     type="VolcanoPlot",
+                     dot.size = 2,
+                     text.size = 3,
+                     width = 800,
+                     height = 800,
+                     address = "")
+
+
