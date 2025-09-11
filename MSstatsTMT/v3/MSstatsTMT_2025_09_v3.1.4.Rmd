@@ -3,28 +3,79 @@ title: "MSstatsTMT_2025_09_v3.1.4"
 author: "Stephanie Huang"
 date: "2025-09-11"
 output: html_document
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
+```{r}
+library(readr)
+library(dplyr)
+library(stringr)
 ```
 
-## Including Plots
+-   **7.4 Reading data from multiple files -** <https://r4ds.hadley.nz/data-import.html#sec-readr-directory>
 
-You can also embed plots, for example:
+```{r}
+# Individual .txt from 2025_09_sp_w_iso
+# Using method from R4ds 2e (7.4) - simpler than before as no bind_rows is required.
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+mydir = 'input/2025_09_sp_w_iso_Steph_TMTpro_PSMs_MSstatsTMT_EEvsSH_for_PhD/txt_exports/'
+
+PSMs_F1_8_files <- list.files(
+  path = mydir, 
+  pattern = ".*DEC2021_B1_TR1.*PSM.*\\.txt$", # DEC2021 1st then PSM 2nd & end .txt
+  full.names = TRUE)
+
+# Can also have pattern below if order varies
+# pattern = ".*PSM.*DEC2021_B1_TR1_.*\\.txt$|.*DEC2021_B1_TR1_.*PSM.*\\.txt$",
+
+PSMs_2025 <- read_tsv(PSMs_F1_8_files)
+
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+-   filter with str_detect() - <https://r4ds.hadley.nz/regexps.html#sec-stringr-regex-funs>
+
+```{r}
+# 2024 mega PSMs from PD
+df_2024 <- read_tsv("input/Steph_01NOV2024_all_EE-SH_M-F_MSstatsTMT/NOV2024_PSMs__Steph_TMTpro-16plex_all.txt")
+  
+colnames(df_2024)
+
+# 
+PSMs_2024 <- df_2024 %>%
+  filter(str_detect(`Spectrum File`,  "DEC2021_B1_TR1"))
+```
+
+```{r}
+# check it has the correct spectrum files.
+unique(PSMs_2024$`Spectrum File`)
+unique(PSMs_2025$`Spectrum File`)
+
+dim(PSMs_2024) # 73250 x 54
+dim(PSMs_2025) # 77233 x 54
+```
+
+```{r}
+summary(PSMs_2024)
+summary(PSMs_2025)
+```
+
+```{r}
+length(unique(PSMs_2024$`Annotated Sequence`)) #33688
+length(unique(PSMs_2025$`Annotated Sequence`)) #36343
+
+length(unique(PSMs_2024$`Protein Accessions`)) #4238
+length(unique(PSMs_2025$`Protein Accessions`)) #4554
+
+length(unique(PSMs_2024$`Master Protein Accessions`)) #3808
+length(unique(PSMs_2025$`Master Protein Accessions`)) #4045
+
+```
+
+```{r}
+
+```
