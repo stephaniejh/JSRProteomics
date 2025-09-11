@@ -33,21 +33,42 @@ PSMs_F1_8_files <- list.files(
 # Can also have pattern below if order varies
 # pattern = ".*PSM.*DEC2021_B1_TR1_.*\\.txt$|.*DEC2021_B1_TR1_.*PSM.*\\.txt$",
 
-PSMs_2025 <- read_tsv(PSMs_F1_8_files)
-
+PSMs_2025 <- read_tsv(PSMs_F1_8_files, id = "file_path")
 ```
 
 -   filter with str_detect() - <https://r4ds.hadley.nz/regexps.html#sec-stringr-regex-funs>
 
 ```{r}
 # 2024 mega PSMs from PD
-df_2024 <- read_tsv("input/Steph_01NOV2024_all_EE-SH_M-F_MSstatsTMT/NOV2024_PSMs__Steph_TMTpro-16plex_all.txt")
+df_2024 <- read_tsv("input/Steph_01NOV2024_all_EE-SH_M-F_MSstatsTMT/NOV2024_PSMs__Steph_TMTpro-16plex_all.txt",
+                    id = "file_path")
   
 colnames(df_2024)
 
 # 
 PSMs_2024 <- df_2024 %>%
   filter(str_detect(`Spectrum File`,  "DEC2021_B1_TR1"))
+```
+
+```{r}
+# 2024 rrb (DEC2021_B1_TR1_F1-8 batch .pdresults - rrb_2025_09_11)
+PSMs_2024_rrb <- read_tsv('input/Steph_01NOV2024_all_EE-SH_M-F_MSstatsTMT_2025_09_rr/txt_exports/Steph_TMTpro-16plex_DEC2021_B1_TR1_HpHF_F1-8_rrb_2025_09_11_PSMs.txt',
+                          id = "file_path")
+```
+
+```{r}
+# 2024 rro (DEC2021_B1_TR1_F1-8 individual .pdresults - rr0_2025_09_11)
+mydir_rro = 'input/Steph_01NOV2024_all_EE-SH_M-F_MSstatsTMT_2025_09_rr/txt_exports/'
+
+PSMs_rro_files <- list.files(path = mydir_rro,
+                             pattern = ".*rro.*PSM.*\\.txt$",
+                             full.names = TRUE)
+
+
+PSMs_2024_rro <- read_tsv(PSMs_rro_files,
+                          id = "file_path")
+  
+
 ```
 
 ```{r}
@@ -66,16 +87,17 @@ summary(PSMs_2025)
 
 ```{r}
 length(unique(PSMs_2024$`Annotated Sequence`)) #33688
+length(unique(PSMs_2024_rrb$`Annotated Sequence`)) #34781
+length(unique(PSMs_2024_rro$`Annotated Sequence`)) #36268
 length(unique(PSMs_2025$`Annotated Sequence`)) #36343
 
 length(unique(PSMs_2024$`Protein Accessions`)) #4238
+length(unique(PSMs_2024_rrb$`Protein Accessions`)) #4393
+length(unique(PSMs_2024_rro$`Protein Accessions`)) #4565
 length(unique(PSMs_2025$`Protein Accessions`)) #4554
 
 length(unique(PSMs_2024$`Master Protein Accessions`)) #3808
+length(unique(PSMs_2024_rrb$`Master Protein Accessions`)) #3844
+length(unique(PSMs_2024_rro$`Master Protein Accessions`)) #4058
 length(unique(PSMs_2025$`Master Protein Accessions`)) #4045
-
-```
-
-```{r}
-
 ```
