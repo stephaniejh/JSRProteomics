@@ -12,9 +12,13 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r}
-library(readr)
-library(dplyr)
-library(stringr)
+library(readr) # read_tsv(), write_csv etc
+library(dplyr) # %>% + other wrangling
+library(stringr) # strings e.g. str_detect()
+library(ggplot2) # plots 
+library(paletteer) # color palette
+library(tidyr) # pivot
+library(VennDiagram)
 ```
 
 -   **7.4 Reading data from multiple files -** <https://r4ds.hadley.nz/data-import.html#sec-readr-directory>
@@ -86,18 +90,76 @@ summary(PSMs_2025)
 ```
 
 ```{r}
-length(unique(PSMs_2024$`Annotated Sequence`)) #33688
-length(unique(PSMs_2024_rrb$`Annotated Sequence`)) #34781
-length(unique(PSMs_2024_rro$`Annotated Sequence`)) #36268
-length(unique(PSMs_2025$`Annotated Sequence`)) #36343
+# length(unique(PSMs_2024$`Annotated Sequence`)) #33688
+# length(unique(PSMs_2024_rrb$`Annotated Sequence`)) #34781
+# length(unique(PSMs_2024_rro$`Annotated Sequence`)) #36268
+# length(unique(PSMs_2025$`Annotated Sequence`)) #36343
+# 
+# length(unique(PSMs_2024$`Protein Accessions`)) #4238
+# length(unique(PSMs_2024_rrb$`Protein Accessions`)) #4393
+# length(unique(PSMs_2024_rro$`Protein Accessions`)) #4565
+# length(unique(PSMs_2025$`Protein Accessions`)) #4554
+# 
+# length(unique(PSMs_2024$`Master Protein Accessions`)) #3808
+# length(unique(PSMs_2024_rrb$`Master Protein Accessions`)) #3844
+# length(unique(PSMs_2024_rro$`Master Protein Accessions`)) #4058
+# length(unique(PSMs_2025$`Master Protein Accessions`)) #4045
+```
 
-length(unique(PSMs_2024$`Protein Accessions`)) #4238
-length(unique(PSMs_2024_rrb$`Protein Accessions`)) #4393
-length(unique(PSMs_2024_rro$`Protein Accessions`)) #4565
-length(unique(PSMs_2025$`Protein Accessions`)) #4554
+Part 2
 
-length(unique(PSMs_2024$`Master Protein Accessions`)) #3808
-length(unique(PSMs_2024_rrb$`Master Protein Accessions`)) #3844
-length(unique(PSMs_2024_rro$`Master Protein Accessions`)) #4058
-length(unique(PSMs_2025$`Master Protein Accessions`)) #4045
+-   <https://stats.oarc.ucla.edu/r/faq/how-can-i-generate-a-venn-diagram-in-r/>
+
+Make combined df. Get unique sequences in each df. then do venn diagram
+
+```{r}
+#https://dplyr.tidyverse.org/reference/bind_rows.html
+# bind_rows() .id alone doesn't work (just gives 1,2,3,4). need list & var name = df
+cPSMs <- bind_rows(list(PSMs_2024 = PSMs_2024, 
+                        PSMs_2024_rrb = PSMs_2024_rrb, 
+                        PSMs_2024_rro = PSMs_2024_rro, 
+                        PSMs_2025 = PSMs_2025),
+                   .id = "df_id")
+```
+
+cPSMs_u_aseq
+
+```{r}
+# https://dplyr.tidyverse.org/reference/distinct.html
+# get distinct/unique annotated sequences by df group
+cPSMs_u_aseq <- cPSMs %>%
+  group_by(df_id) %>%
+  distinct(`Annotated Sequence`) 
+
+# dim(cPSMs_u_aseq) # 141080 x 2
+# length(unique(cPSMs_u_aseq$`Annotated Sequence`)) # 37343
+```
+
+```{r fig.height=4, fig.width=8}
+# https://r-charts.com/color-palettes/
+# https://r-graph-gallery.com/package/paletteer.html
+# plot no. of unique annotated seqeunces per df/group
+cPSMs_u_aseq_plot <- cPSMs_u_aseq %>%
+  group_by(df_id) %>%
+  tally() %>%  # get tally of unique sequences by df for plot
+  ggplot(aes(x = df_id, y = n, fill = df_id)) +
+  geom_col(color = "grey10", alpha = .7) + 
+  geom_text(aes(label = paste0(n)), # annotate count on graph
+            vjust = -.3) +
+  scale_fill_paletteer_d("ggthemes::excel_Organic") +
+  # labs(x = ,
+  #      y = ,
+  #      title = ,
+  #      subtitle = ) +
+  theme_bw()
+
+
+plot(cPSMs_u_aseq_plot)
+```
+
+Venn diagram
+
+```{r}
+# https://r-graph-gallery.com/14-venn-diagramm
+
 ```
