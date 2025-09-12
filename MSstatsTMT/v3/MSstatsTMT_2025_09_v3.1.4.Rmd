@@ -143,15 +143,26 @@ cPSMs_u_aseq_plot <- cPSMs_u_aseq %>%
   group_by(df_id) %>%
   tally() %>%  # get tally of unique sequences by df for plot
   ggplot(aes(x = df_id, y = n, fill = df_id)) +
-  geom_col(color = "grey10", alpha = .7) + 
+  geom_col(width = 0.6, color = "grey10", alpha = .7) + 
+  ylim(0,40000) + 
   geom_text(aes(label = paste0(n)), # annotate count on graph
-            vjust = -.3) +
+            vjust = -.2) +
   scale_fill_paletteer_d("ggthemes::excel_Organic") +
-  # labs(x = ,
-  #      y = ,
-  #      title = ,
-  #      subtitle = ) +
-  theme_bw()
+  labs(x = "PSM dataframe set (different PD analysis)",
+       y = "no. of unique annotated sequences (n)",
+       title = "Count of distinct annotated sequences in each PD PSM set (df_id)",
+       subtitle = "Analysing as batch drops the no. of unique annotated sequences!",
+       caption = "Each set has the SAME 8 LC-MS files! These are DEC2021_B1_TR1_F1-8.\n 
+       PSMs_2024, PSMs_2024_rrb & PSMs_2024_rro all use the SAME FASTA & PD method! \n         The ONLY DIFFERENCE is that PSMs_2024 was analysed as batch (96 files submitted),
+       PSMs_2024_rrb was analysed as batch (8 files submitted), while PSMs_2024_rro was submitted one by one (not as batch). \n 
+       PSMs_2025 also submitted files one by one like PSMs_2024_rro & used the same PD method, but had a slightly newer SwissProt db (23 more seq).\n
+       The mild increase between PSMs_2025 & PSMs_2024_rro of 75 seems reasonable for increasing the FASTA db by 23 sequences.
+       However, the change between the other 3 based on running individually or by batch is bizzare. 
+       The LC-MS raw files were input as files not fractions in PD & the PSMs table from PD shows PSMs by separate LCMS runs. So it should not be grouping it!
+       Also the PD userguide does not indicate grouping PSMs (it groups at the peptide & protein grouping level!)
+       Also the bizzare thing is that changing the no. of files submitted changes the no. of PSMs observed!?!?!?! WHY? Could it be their weird ") +
+  theme_bw() + 
+  theme(legend.position = "bottom")
 
 
 plot(cPSMs_u_aseq_plot)
