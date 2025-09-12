@@ -1,7 +1,7 @@
 ---
 title: "MSstatsTMT_2025_09_v3.1.4"
 author: "Stephanie Huang"
-date: "2025-09-11"
+date: "2025-09-11-12"
 output: html_document
 editor_options: 
   chunk_output_type: console
@@ -11,14 +11,16 @@ editor_options:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 library(readr) # read_tsv(), write_csv etc
 library(dplyr) # %>% + other wrangling
 library(stringr) # strings e.g. str_detect()
 library(ggplot2) # plots 
 library(paletteer) # color palette
-library(tidyr) # pivot
-library(VennDiagram)
+library(purrr) # for map()
+# library(VennDiagram) # i am confused
+library(ggvenn) # use old one instead
+library(cowplot) #plot_grid()
 ```
 
 -   **7.4 Reading data from multiple files -** <https://r4ds.hadley.nz/data-import.html#sec-readr-directory>
@@ -76,17 +78,24 @@ PSMs_2024_rro <- read_tsv(PSMs_rro_files,
 ```
 
 ```{r}
-# check it has the correct spectrum files.
+# check it has the correct spectrum files. all the same!
 unique(PSMs_2024$`Spectrum File`)
+unique(PSMs_2024_rrb$`Spectrum File`)
+unique(PSMs_2024_rro$`Spectrum File`)
 unique(PSMs_2025$`Spectrum File`)
 
-dim(PSMs_2024) # 73250 x 54
-dim(PSMs_2025) # 77233 x 54
+# no. of annotated sequences/PSMs differ!?!?
+dim(PSMs_2024) #73250 x 55
+dim(PSMs_2024_rrb) #76101 x 55
+dim(PSMs_2024_rro) #77117 x 55
+dim(PSMs_2025) #77233 x 55
 ```
 
 ```{r}
-summary(PSMs_2024)
-summary(PSMs_2025)
+# summary(PSMs_2024)
+# summary(PSMs_2024_rrb)
+# summary(PSMs_2024_rro)
+# summary(PSMs_2025)
 ```
 
 ```{r}
@@ -106,11 +115,9 @@ summary(PSMs_2025)
 # length(unique(PSMs_2025$`Master Protein Accessions`)) #4045
 ```
 
-Part 2
+## Looking at Unique Annotated Sequences (PSMs)
 
--   <https://stats.oarc.ucla.edu/r/faq/how-can-i-generate-a-venn-diagram-in-r/>
-
-Make combined df. Get unique sequences in each df. then do venn diagram
+Make combined df. Get unique sequences in each df. Then do barplot & then vennys
 
 ```{r}
 #https://dplyr.tidyverse.org/reference/bind_rows.html
@@ -135,7 +142,9 @@ cPSMs_u_aseq <- cPSMs %>%
 # length(unique(cPSMs_u_aseq$`Annotated Sequence`)) # 37343
 ```
 
-```{r fig.height=4, fig.width=8}
+### Barplot
+
+```{r fig.height=6, fig.width=9}
 # https://r-charts.com/color-palettes/
 # https://r-graph-gallery.com/package/paletteer.html
 # plot no. of unique annotated seqeunces per df/group
@@ -156,7 +165,7 @@ cPSMs_u_aseq_plot <- cPSMs_u_aseq %>%
        PSMs_2024, PSMs_2024_rrb & PSMs_2024_rro all use the SAME FASTA & PD method! \n         The ONLY DIFFERENCE is that PSMs_2024 was analysed as batch (96 files submitted),
        PSMs_2024_rrb was analysed as batch (8 files submitted), while PSMs_2024_rro was submitted one by one (not as batch). \n 
        PSMs_2025 also submitted files one by one like PSMs_2024_rro & used the same PD method, but had a slightly newer SwissProt db (23 more seq).\n
-       The mild increase between PSMs_2025 & PSMs_2024_rro of 75 seems reasonable for increasing the FASTA db by 23 sequences.
+       The mild increase between PSMs_2025 & PSMs_2024_rro of 75 seems reasonable for increasing the FASTA db by 23 sequences (although need to look at seq ID too in venny!). 
        However, the change between the other 3 based on running individually or by batch is bizzare. 
        The LC-MS raw files were input as files not fractions in PD & the PSMs table from PD shows PSMs by separate LCMS runs. So it should not be grouping it!
        Also the PD userguide does not indicate grouping PSMs (it groups at the peptide & protein grouping level!)
@@ -168,9 +177,75 @@ cPSMs_u_aseq_plot <- cPSMs_u_aseq %>%
 plot(cPSMs_u_aseq_plot)
 ```
 
-Venn diagram
+### Vennys
 
 ```{r}
-# https://r-graph-gallery.com/14-venn-diagramm
-
+# make venny function 
+# see old folder in R_WD > thesis_dev > L&H2 > L&H2_LCMS_protein_counts_for_PhD_2025_v2
+venny <- function(data, colors = NULL) {
+  v <- ggvenn(data,
+              digits = 0,
+              stroke_alpha = 0.7,
+              fill_alpha = 0.45,
+              stroke_size = 0.5,
+              set_name_size = 4,
+              text_size = 3.5,
+              fill_color = colors)
+  }
 ```
+
+```{r}
+# prep data
+# map() function from purrr https://purrr.tidyverse.org/reference/map.html
+#split_u_aseq <- split(cPSMs_u_aseq, f = cPSMs_u_aseq$df_id) # nvm 
+
+lists_u_aseq <- cPSMs_u_aseq %>%
+  split(.$df_id) %>% # split by df group
+  map(~pull(., `Annotated Sequence`)) # makes mini func ~ to pull aseq & applies 2 all 
+
+str(lists_u_aseq) # large list with 4 elements
+```
+
+```{r}
+# v1 - all 4 
+v1 <- venny(data = lists_u_aseq,
+            colors = c('#83992A', '#3C9770', '#44709D', '#A23C33'))
+
+# v2 - difference is just FASTA
+c1 <- lists_u_aseq[c('PSMs_2024_rro', 'PSMs_2025')] # select elements/lists
+v2 <- venny(data = c1,
+            colors = c('#44709D', '#A23C33'))
+
+# v3 - difference is processed in set of 96 or 1 by 1
+c2 <- lists_u_aseq[c('PSMs_2024' ,'PSMs_2024_rro')] # select elements/lists
+v3 <- venny(data = c2,
+            colors = c('#83992A', '#44709D'))
+
+# v4 - difference is processed in set of 8 or 1 by 1
+c3 <- lists_u_aseq[c('PSMs_2024_rrb' ,'PSMs_2024_rro')] # select elements/lists
+v4 <- venny(data = c3,
+            colors = c('#3C9770', '#44709D'))
+
+# v4 - difference is processed in set of 96 or 8
+c4 <- lists_u_aseq[c('PSMs_2024','PSMs_2024_rrb')] # select elements/lists
+v5 <- venny(data = c4,
+            colors = c('#83992A', '#3C9770'))
+
+# v6 - comparing all 2024 - only difference is no. of files submitted 
+c5 <- lists_u_aseq[c('PSMs_2024', 'PSMs_2024_rrb' ,'PSMs_2024_rro')]
+v6 <- venny(data = c5,
+            colors = c('#83992A', '#3C9770', '#44709D'))
+```
+
+```{r fig.height=12, fig.width=10}
+# cowplot all vennys
+plot_grid(v1, v2, v3, v4, v5, v6,
+          ncol = 2,
+          labels = c('A','B', 'C', 'D', 'E', 'F'))
+```
+
+### Interim Summary (2025-09-12)
+
+Overall, it seems that processing as batch (aka not clicking the as batch button on the analysis tab) drops the number of unique PSMs/annotated sequences compared to processing 1 by 1. And that the larger the number of files submitted as a batch are, the more the PSMs drop.
+
+The PD 2.4 userguide is confusing & is the opposite of what they mean. The new PD 3.1 user guide has at least changed this button to ['by file'](https://docs.thermofisher.com/r/Proteome-Discoverer-3.1-User-Guide/en-US1410394507v1) now, and somewhat gives [more info on what it is doing in the search](https://docs.thermofisher.com/r/Proteome-Discoverer-3.1-User-Guide/en-US1297231499v1). Still why should processing as batch & increasing the number of files affect the PSMs identified? The separate spectrum file is retained in the PSM sheet. I thought batch affects the grouping level, e.g. (peptide groups to protein group sheets)?!?! Confused! -\> CONT next week -\> to email thermo.
