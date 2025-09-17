@@ -244,6 +244,10 @@ plot_grid(v1, v2, v3, v4, v5, v6,
           labels = c('A','B', 'C', 'D', 'E', 'F'))
 ```
 
+```{r}
+
+```
+
 ### Interim Summary (2025-09-12)
 
 Overall, it seems that processing as batch (aka not clicking the as batch button on the analysis tab) drops the number of unique PSMs/annotated sequences compared to processing 1 by 1. And that the larger the number of files submitted as a batch are, the more the PSMs drop.
@@ -421,6 +425,22 @@ setdiff(list_P19493$PSMs_2024_rro,list_P19493$PSMs_2025)
 setdiff(list_P19493$PSMs_2024_rro, list_P19493$PSMs_2024_rrb) 
 
 
+
+```
+
+```{r}
+# present but assigned to different protein accessions
+# ambiguity is inherent since part of same protein family plus use of isoform db.
+# but not sure why assignment differs based on running as batch & as file
+cont_setdiff <- cPSMs %>%
+  filter(`Annotated Sequence` %in% c("[K].vGGNLDSk.[G]",
+                                     "[K].gYGVATPk.[G]",
+                                     "[R].kPcDTMk.[V]",
+                                     "[R].kPcDTmk.[V]",
+                                     "[K].iAVYEk.[M]"))
+```
+
+```{r}
 
 ```
 
