@@ -15,15 +15,15 @@ knitr::opts_chunk$set(echo = TRUE)
 library(readr) # read_tsv(), write_csv etc
 library(dplyr) # %>% + other wrangling
 library(stringr) # strings e.g. str_detect()
+library(tidyr) # pivot_wider
 library(ggplot2) # plots 
 library(paletteer) # color palette
 library(purrr) # for map()
-# library(VennDiagram) # i am confused
 library(ggvenn) # use old one instead
 library(cowplot) #plot_grid()
 ```
 
--   **7.4 Reading data from multiple files -** <https://r4ds.hadley.nz/data-import.html#sec-readr-directory>
+-   [**7.4 Reading data from multiple files**](https://r4ds.hadley.nz/data-import.html#sec-readr-directory)
 
 ```{r}
 # Individual .txt from 2025_09_sp_w_iso
@@ -42,7 +42,7 @@ PSMs_F1_8_files <- list.files(
 PSMs_2025 <- read_tsv(PSMs_F1_8_files, id = "file_path")
 ```
 
--   filter with str_detect() - <https://r4ds.hadley.nz/regexps.html#sec-stringr-regex-funs>
+-   [filter with str_detect()](https://r4ds.hadley.nz/regexps.html#sec-stringr-regex-funs) - <https://r4ds.hadley.nz/regexps.html#sec-stringr-regex-funs>
 
 ```{r}
 # 2024 mega PSMs from PD
@@ -135,7 +135,7 @@ cPSMs_u_aseq
 # https://dplyr.tidyverse.org/reference/distinct.html
 # get distinct/unique annotated sequences by df group
 cPSMs_u_aseq <- cPSMs %>%
-  group_by(df_id) %>%
+  group_by(df_id) %>% 
   distinct(`Annotated Sequence`) 
 
 # dim(cPSMs_u_aseq) # 141080 x 2
@@ -153,7 +153,7 @@ cPSMs_u_aseq_plot <- cPSMs_u_aseq %>%
   tally() %>%  # get tally of unique sequences by df for plot
   ggplot(aes(x = df_id, y = n, fill = df_id)) +
   geom_col(width = 0.6, color = "grey10", alpha = .7) + 
-  ylim(0,40000) + 
+  ylim(0,50000) + 
   geom_text(aes(label = paste0(n)), # annotate count on graph
             vjust = -.2) +
   scale_fill_paletteer_d("ggthemes::excel_Organic") +
@@ -169,7 +169,7 @@ cPSMs_u_aseq_plot <- cPSMs_u_aseq %>%
        However, the change between the other 3 based on running individually or by batch is bizzare. 
        The LC-MS raw files were input as files not fractions in PD & the PSMs table from PD shows PSMs by separate LCMS runs. So it should not be grouping it!
        Also the PD userguide does not indicate grouping PSMs (it groups at the peptide & protein grouping level!)
-       Also the bizzare thing is that changing the no. of files submitted changes the no. of PSMs observed!?!?!?! WHY? Could it be their weird ") +
+       Also the bizzare thing is that changing the no. of files submitted changes the no. of PSMs observed?!? ") +
   theme_bw() + 
   theme(legend.position = "bottom")
 
@@ -249,3 +249,179 @@ plot_grid(v1, v2, v3, v4, v5, v6,
 Overall, it seems that processing as batch (aka not clicking the as batch button on the analysis tab) drops the number of unique PSMs/annotated sequences compared to processing 1 by 1. And that the larger the number of files submitted as a batch are, the more the PSMs drop.
 
 The PD 2.4 userguide is confusing & is the opposite of what they mean. The new PD 3.1 user guide has at least changed this button to ['by file'](https://docs.thermofisher.com/r/Proteome-Discoverer-3.1-User-Guide/en-US1410394507v1) now, and somewhat gives [more info on what it is doing in the search](https://docs.thermofisher.com/r/Proteome-Discoverer-3.1-User-Guide/en-US1297231499v1). Still why should processing as batch & increasing the number of files affect the PSMs identified? The separate spectrum file is retained in the PSM sheet. I thought batch affects the grouping level, e.g. (peptide groups to protein group sheets)?!?! Confused! -\> CONT next week -\> to email thermo.
+
+\~ \~ \~ \~ \~ \~ \~ \~ \~ \~ \~ \~ \~ \~ \~ \~ \~ \~ \~
+
+## Part 2 - 2025-09-16
+
+### Check MS/MS Spectrum Info File too.
+
+```{r}
+# 2025 sp w iso 
+MSMS_2025_files <- list.files(
+  path = 'input/2025_09_sp_w_iso_Steph_TMTpro_PSMs_MSstatsTMT_EEvsSH_for_PhD/txt_exports/',
+  pattern = '.*DEC2021_B1_TR1.*MSMSSpectrumInfo.*\\.txt$',
+  full.names = TRUE
+)
+
+MSMS_2025 <- read_tsv(MSMS_2025_files, id = "file_path")
+
+dim(MSMS_2025)
+```
+
+```{r}
+# Nov 2024 sp w iso rb as 96
+MSMS_2024_file <- read_tsv('input/Steph_01NOV2024_all_EE-SH_M-F_MSstatsTMT/NOV2024_MSMSSpectrumInfo__Steph_TMTpro-16plex_all.txt', id = "file_path")
+
+# filter to just DEC_2021_TR1
+MSMS_2024 <- MSMS_2024_file %>%
+  filter(str_detect(`Spectrum File`, "DEC2021_B1_TR1"))
+
+dim(MSMS_2024)
+```
+
+```{r}
+# Nov 24 sp w iso rrb F1-8
+MSMS_2024_rrb <- read_tsv('input/Steph_01NOV2024_all_EE-SH_M-F_MSstatsTMT_2025_09_rr/txt_exports/Steph_TMTpro-16plex_DEC2021_B1_TR1_HpHF_F1-8_rrb_2025_09_11_MSMSSpectrumInfo.txt',
+                          id = "file_path")
+
+dim(MSMS_2024_rrb)
+```
+
+```{r}
+# Nov 24 sp w iso rro F1-8
+MSMS_2024_rro_file <- list.files(path = 'input/Steph_01NOV2024_all_EE-SH_M-F_MSstatsTMT_2025_09_rr/txt_exports/',
+                             pattern = ".*rro.*MSMSSpectrumInfo.*\\.txt$",
+                             full.names = TRUE)
+
+MSMS_2024_rro <- read_tsv(MSMS_2024_rro_file,
+                          id = "file_path")
+
+dim(MSMS_2024_rro)
+```
+
+All the same dimensions - 333979 x 20 (19)
+
+Next make master file & determine if the precursor identifed are different (
+
+```{r}
+cMSMS <- bind_rows(list(MSMS_2024 = MSMS_2024,
+                        MSMS_2024_rrb = MSMS_2024_rrb,
+                        MSMS_2024_rro = MSMS_2024_rro,
+                        MSMS_2025 = MSMS_2025),
+                   .id = "df_id")
+```
+
+```{r}
+colnames(cMSMS)
+
+# No. of Precursors -#333979 same across all (as expected since they're the same files!)
+cMSMS %>%
+  group_by(df_id) %>%
+  count(`Number of Precursors`)
+  
+# Differs despite the same files - links to issue shown in the analysis above.
+# note this is total annotated sequences & not unique - hence larger number than above.
+no_id_pc <- cMSMS %>%
+  group_by(df_id) %>%
+  # count(`Number of PSMs`) # same metric as No. of Identified Precursors.
+  count(`Number of Identified Precursors`) %>%
+  pivot_wider(names_from = `Number of Identified Precursors`,
+              values_from = n) %>%
+  rename(ID_precursor_0 = '0', # in quote otherwise does column order.
+         ID_precursor_1 = '1') %>%
+  mutate(no_precursors = ID_precursor_0 + ID_precursor_1)
+  
+no_id_pc
+```
+
+### Interim Summary (2025-09-16)
+
+This bit doesn't add much, but essentially shows that MSMS spectra are not being lost; rather, something is happening when running as a batch, in which PSMs/Precursors are no longer identified in some of the MS/MS spectra.
+
+\~ \~ \~ \~ \~ \~ \~ \~ \~ \~ \~ \~ \~ \~ \~
+
+### (2025-09-17) Additional Calculations
+
+```{r}
+colnames(cPSMs)
+
+# count of annotated sequences (nrow) in each raw file by analysis/df_id
+anno_seq <- cPSMs %>%
+  group_by(df_id) %>% 
+  count(`Spectrum File`) %>%
+  mutate(fraction = gsub("Steph_TMTpro-16plex_DEC2021_B1_TR1_HpHF_|\\.raw$",
+                         "", # trim file name to just keep fraction info
+                         `Spectrum File`))
+```
+
+```{r}
+anno_seq_plot <- anno_seq %>%
+  ggplot(aes(x = fraction,
+             y = n,
+             fill = df_id)) +
+  geom_col(position = position_dodge(),
+           width = 0.8, color = "grey10", alpha = .7) + 
+  scale_fill_paletteer_d("ggthemes::excel_Organic") +
+  labs(
+    x = "Fraction No.",
+    y = "No. of Annotated Sequences (PSMs)",
+    title = "",
+    subtitle = ""
+  ) +
+  theme_bw() +
+  theme(legend.position = "bottom")
+  
+anno_seq_plot
+```
+
+\~ \~ \~ \~ \~ \~ \~ \~ \~ \~ \~ \~ \~ \~
+
+```{r}
+# P19493_all <- cPSMs %>%
+#   filter(str_detect(`Protein Accessions`, "P19493")) %>%
+#   group_by(df_id, `Spectrum File`)
+
+
+P19493_mp <- cPSMs %>%
+  filter(str_starts(`Master Protein Accessions`, "P19493"))
+  
+unique(P19493_mp$`Annotated Sequence`) # 13
+
+P19493_mp %>%
+  count(`Annotated Sequence`, sort = TRUE)
+```
+
+```{r}
+# prep data
+
+list_P19493 <- P19493_mp %>%
+  split(.$df_id) %>%
+  map(~pull(., `Annotated Sequence`))
+
+
+str(list_P19493)
+```
+
+```{r}
+v_P19493 <- venny(data = list_P19493,
+                 colors = c('#83992A', '#3C9770', '#44709D', '#A23C33'))
+
+v_P19493
+```
+
+```{r}
+#dplyr set diff
+
+# 2025 vs 2024 run by files has no differences despite slightly diff FASTA
+setdiff(list_P19493$PSMs_2024_rro,list_P19493$PSMs_2025) 
+
+
+# 8 files run as batch vs by file differ despite exact same FASTA & pWF & cWF!
+setdiff(list_P19493$PSMs_2024_rro, list_P19493$PSMs_2024_rrb) 
+
+
+
+```
+
+# Correspondence with Thermo (2025-09-17)

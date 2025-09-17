@@ -665,6 +665,138 @@ identified? The separate spectrum file is retained in the PSM sheet. I
 thought batch affects the grouping level, e.g. (peptide groups to
 protein group sheets)?!?! Confused! -&gt; CONT next week -&gt; to email
 thermo.</p>
+<p>~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~</p>
+</div>
+</div>
+<div id="part-2---2025-09-16" class="section level2">
+<h2>Part 2 - 2025-09-16</h2>
+<div id="check-msms-spectrum-info-file-too." class="section level3">
+<h3>Check MS/MS Spectrum Info File too.</h3>
+<pre class="r"><code># 2025 sp w iso 
+MSMS_2025_files &lt;- list.files(
+  path = &#39;input/2025_09_sp_w_iso_Steph_TMTpro_PSMs_MSstatsTMT_EEvsSH_for_PhD/txt_exports/&#39;,
+  pattern = &#39;.*DEC2021_B1_TR1.*MSMSSpectrumInfo.*\\.txt$&#39;,
+  full.names = TRUE
+)
+
+MSMS_2025 &lt;- read_tsv(MSMS_2025_files, id = &quot;file_path&quot;)</code></pre>
+<pre><code>## Rows: 333979 Columns: 20
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;\t&quot;
+## chr  (5): File ID, Mass Analyzer, Activation Type, MS Order, Spectrum File
+## dbl (13): MSMS Spectrum Info Workflow ID, MSMS Spectrum Info Spectrum ID, RT...
+## lgl  (1): Checked
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.</code></pre>
+<pre class="r"><code>dim(MSMS_2025)</code></pre>
+<pre><code>## [1] 333979     20</code></pre>
+<pre class="r"><code># Nov 2024 sp w iso rb as 96
+MSMS_2024_file &lt;- read_tsv(&#39;input/Steph_01NOV2024_all_EE-SH_M-F_MSstatsTMT/NOV2024_MSMSSpectrumInfo__Steph_TMTpro-16plex_all.txt&#39;, id = &quot;file_path&quot;)</code></pre>
+<pre><code>## Rows: 3769151 Columns: 20
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;\t&quot;
+## chr  (5): File ID, Mass Analyzer, Activation Type, MS Order, Spectrum File
+## dbl (13): MSMS Spectrum Info Workflow ID, MSMS Spectrum Info Spectrum ID, RT...
+## lgl  (1): Checked
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.</code></pre>
+<pre class="r"><code># filter to just DEC_2021_TR1
+MSMS_2024 &lt;- MSMS_2024_file %&gt;%
+  filter(str_detect(`Spectrum File`, &quot;DEC2021_B1_TR1&quot;))
+
+dim(MSMS_2024)</code></pre>
+<pre><code>## [1] 333979     20</code></pre>
+<pre class="r"><code># Nov 24 sp w iso rrb F1-8
+MSMS_2024_rrb &lt;- read_tsv(&#39;input/Steph_01NOV2024_all_EE-SH_M-F_MSstatsTMT_2025_09_rr/txt_exports/Steph_TMTpro-16plex_DEC2021_B1_TR1_HpHF_F1-8_rrb_2025_09_11_MSMSSpectrumInfo.txt&#39;,
+                          id = &quot;file_path&quot;)</code></pre>
+<pre><code>## Rows: 333979 Columns: 20
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;\t&quot;
+## chr  (5): File ID, Mass Analyzer, Activation Type, MS Order, Spectrum File
+## dbl (13): MSMS Spectrum Info Workflow ID, MSMS Spectrum Info Spectrum ID, RT...
+## lgl  (1): Checked
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.</code></pre>
+<pre class="r"><code>dim(MSMS_2024_rrb)</code></pre>
+<pre><code>## [1] 333979     20</code></pre>
+<pre class="r"><code># Nov 24 sp w iso rro F1-8
+MSMS_2024_rro_file &lt;- list.files(path = &#39;input/Steph_01NOV2024_all_EE-SH_M-F_MSstatsTMT_2025_09_rr/txt_exports/&#39;,
+                             pattern = &quot;.*rro.*MSMSSpectrumInfo.*\\.txt$&quot;,
+                             full.names = TRUE)
+
+MSMS_2024_rro &lt;- read_tsv(MSMS_2024_rro_file,
+                          id = &quot;file_path&quot;)</code></pre>
+<pre><code>## Rows: 333979 Columns: 20
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;\t&quot;
+## chr  (5): File ID, Mass Analyzer, Activation Type, MS Order, Spectrum File
+## dbl (13): MSMS Spectrum Info Workflow ID, MSMS Spectrum Info Spectrum ID, RT...
+## lgl  (1): Checked
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.</code></pre>
+<pre class="r"><code>dim(MSMS_2024_rro)</code></pre>
+<pre><code>## [1] 333979     20</code></pre>
+<p>All the same dimensions - 333979 x 20 (19)</p>
+<p>Next make master file &amp; determine if the precursor identifed are
+different (</p>
+<pre class="r"><code>cMSMS &lt;- bind_rows(list(MSMS_2024 = MSMS_2024,
+                        MSMS_2024_rrb = MSMS_2024_rrb,
+                        MSMS_2024_rro = MSMS_2024_rro,
+                        MSMS_2025 = MSMS_2025),
+                   .id = &quot;df_id&quot;)</code></pre>
+<pre class="r"><code>colnames(cMSMS)</code></pre>
+<pre><code>##  [1] &quot;df_id&quot;                             &quot;file_path&quot;                        
+##  [3] &quot;MSMS Spectrum Info Workflow ID&quot;    &quot;MSMS Spectrum Info Spectrum ID&quot;   
+##  [5] &quot;Checked&quot;                           &quot;File ID&quot;                          
+##  [7] &quot;RT in min&quot;                         &quot;First Scan&quot;                       
+##  [9] &quot;Mass Analyzer&quot;                     &quot;Activation Type&quot;                  
+## [11] &quot;MS Order&quot;                          &quot;Number of PSMs&quot;                   
+## [13] &quot;Number of Peptide Groups&quot;          &quot;Isolation Interference in Percent&quot;
+## [15] &quot;Ion Inject Time in ms&quot;             &quot;Number of Precursors&quot;             
+## [17] &quot;Number of Identified Precursors&quot;   &quot;Precursor mz in Da&quot;               
+## [19] &quot;Precursor MHplus in Da&quot;            &quot;Precursor Charge&quot;                 
+## [21] &quot;Spectrum File&quot;</code></pre>
+<pre class="r"><code># No. of Precursors - same across all (as expected since they&#39;re the same files!)
+cMSMS %&gt;%
+  group_by(df_id) %&gt;%
+  count(`Number of Precursors`)</code></pre>
+<pre><code>## # A tibble: 4 × 3
+## # Groups:   df_id [4]
+##   df_id         `Number of Precursors`      n
+##   &lt;chr&gt;                          &lt;dbl&gt;  &lt;int&gt;
+## 1 MSMS_2024                          1 333979
+## 2 MSMS_2024_rrb                      1 333979
+## 3 MSMS_2024_rro                      1 333979
+## 4 MSMS_2025                          1 333979</code></pre>
+<pre class="r"><code># Differs despite the same files - links to issue shown in the analysis above.
+# note this is total annotated sequences &amp; not unique - hence larger number than above.
+cMSMS %&gt;%
+  group_by(df_id) %&gt;%
+  # count(`Number of PSMs`) # same metric as No. of Identified Precursors.
+  count(`Number of Identified Precursors`)</code></pre>
+<pre><code>## # A tibble: 8 × 3
+## # Groups:   df_id [4]
+##   df_id         `Number of Identified Precursors`      n
+##   &lt;chr&gt;                                     &lt;dbl&gt;  &lt;int&gt;
+## 1 MSMS_2024                                     0 260729
+## 2 MSMS_2024                                     1  73250
+## 3 MSMS_2024_rrb                                 0 257878
+## 4 MSMS_2024_rrb                                 1  76101
+## 5 MSMS_2024_rro                                 0 256862
+## 6 MSMS_2024_rro                                 1  77117
+## 7 MSMS_2025                                     0 256746
+## 8 MSMS_2025                                     1  77233</code></pre>
+</div>
+<div id="interim-summary-2025-09-16" class="section level3">
+<h3>Interim Summary (2025-09-16)</h3>
+<p>This bit doesn’t add much, but essentially shows that MSMS spectra
+are not being lost; rather, something is happening when running as a
+batch, in which PSMs/Precursors are no longer identified in some of the
+MS/MS spectra.</p>
 </div>
 </div>
 
