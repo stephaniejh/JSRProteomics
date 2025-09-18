@@ -7,6 +7,46 @@ editor_options:
   chunk_output_type: console
 ---
 
+# Checking PD 2.4's As Batch Function.
+
+### Background
+
+This is a part of the re-analysis of my EE-exp LCMS data (96 raw files) collected from 2021-2022 for my PhD write-up (2025-08 to 2025-09). In this re-analysis series, I tested different UniProt databases/FASTAs in PD2.4, including using the UniProt rat reference proteome (1 protein sequence per gene 1pspg - 22400s), Swiss-Prot (8215s - cannonical only), and Swiss-Prot with isoforms (9878s). As expected, differences prevail as a result of using different search databases. I compared this to an analysis done in Nov 2024 for a conference poster (ANS), which used identical search parameters except a slightly older Swiss-Prot with isoforms FASTA (9855s). Strangely, I could not replicate my results and got different significantly regulated proteins in MSstatsTMT (same parameters). Upon closer inspection, I noticed that the number of PSMs from the 2024 run was lower than 2025. For example...
+
+-   2024 - Swiss-Prot with isoforms FASTA (9855s) - 788953 PSMs identified across 96 raw files.
+
+-   2025 - Swiss-Prot with isoforms FASTA (9878s) - 768226 PSMs identified across 96 raw files.
+
+-   [Side Note: Yes, aware of caveats with using isoforms & challenges with protein grouping. Will likely stick to Swiss-Prot canonical only or Reference Proteome (1protein sequence per gene) for further analyses.]{.smallcaps}
+
+I was quite surprised because the new FASTA only had 22 more sequences, and the search method was the same. However, I remember that in the 2024 analysis was accidentally run with as a batch unchecked (forgot it was the opposite at the time) which produced one large .pdresults file (no run errors & all 96 raw files in PSM sheet). Whereas all the analyses in 2025 were run one by one (as File/as batch checked). Because of this, I decided to double-check as see whether.
+
+Using the exact same .pdstudy (processingWF + consensusWF + FASTAs) I re-ran a subset of 8 raw files, either with as batch checked (by file/one by one) or as batch unchecked (by batch/1 result file)
+
+### Current Analysis
+
+This finally brings me to the current analyses presented in this R script. Here I run a quick analysis on the PSMs and MSMS Spectrum Info outputs from PD2.4 analysis of those same 8 raw files.
+
+#### Key
+
+-   **2024** - *e.g. PSMs_2024 or MSMS_2024*
+
+    -   Data from the 8 raw files extracted from the large .pdresults file export produced by the PD2.4 analysis that submitted 96 files run as a batch (As batch unchecked). PD analysis submitted on 01 Nov 2024.
+
+-   **2024_rrb** - *e.g. PSMs_2024_rrb or MSMS_2024_rrb*
+
+    -   Here, those same 8 raw files were re–run as a batch of 8 (as batch unchecked) in PD2.4 with the exact same method. PD analysis submitted on 11 Sept 2025.
+
+-   **2024_rro** - *e.g. PSMs_2024_rro or MSMS_2024_rro*
+
+    -   Again, those same 8 raw files were re–run but one by one (as batch checked/by file) in PD2.4 with the exact same method. The individual .pdresults were exported & pulled in R, and appended together. PD analysis submitted on 11 Sept 2025.
+
+-   **2025** - *e.g. PSMs_2025 or MSMS_2025*
+
+    -   The exported results from the 2025 runs of those 8 files were pulled in and appended together. This is similar to 2024_rro in the sense that all analyses here were submitted one by one (as batched checked/by file). However, different from all the 3 2024 analyses above in the sense that it uses a slightly new search database with 22 more sequences (see info above), but otherwise uses the exact same analysis method.
+
+## Setup
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
@@ -21,6 +61,7 @@ library(paletteer) # color palette
 library(purrr) # for map()
 library(ggvenn) # use old one instead
 library(cowplot) #plot_grid()
+library(knitr) # kable()
 ```
 
 -   [**7.4 Reading data from multiple files**](https://r4ds.hadley.nz/data-import.html#sec-readr-directory)
@@ -77,6 +118,8 @@ PSMs_2024_rro <- read_tsv(PSMs_rro_files,
 
 ```
 
+#### Quick Checks
+
 ```{r}
 # check it has the correct spectrum files. all the same!
 unique(PSMs_2024$`Spectrum File`)
@@ -99,23 +142,26 @@ dim(PSMs_2025) #77233 x 55
 ```
 
 ```{r}
-# length(unique(PSMs_2024$`Annotated Sequence`)) #33688
-# length(unique(PSMs_2024_rrb$`Annotated Sequence`)) #34781
-# length(unique(PSMs_2024_rro$`Annotated Sequence`)) #36268
-# length(unique(PSMs_2025$`Annotated Sequence`)) #36343
-# 
-# length(unique(PSMs_2024$`Protein Accessions`)) #4238
-# length(unique(PSMs_2024_rrb$`Protein Accessions`)) #4393
-# length(unique(PSMs_2024_rro$`Protein Accessions`)) #4565
-# length(unique(PSMs_2025$`Protein Accessions`)) #4554
-# 
-# length(unique(PSMs_2024$`Master Protein Accessions`)) #3808
-# length(unique(PSMs_2024_rrb$`Master Protein Accessions`)) #3844
-# length(unique(PSMs_2024_rro$`Master Protein Accessions`)) #4058
-# length(unique(PSMs_2025$`Master Protein Accessions`)) #4045
+# No. of unique annotated Sequences ()
+length(unique(PSMs_2024$`Annotated Sequence`)) #33688
+length(unique(PSMs_2024_rrb$`Annotated Sequence`)) #34781
+length(unique(PSMs_2024_rro$`Annotated Sequence`)) #36268
+length(unique(PSMs_2025$`Annotated Sequence`)) #36343
+
+# No of unique Protein Accessions (note does account for ; ;)
+length(unique(PSMs_2024$`Protein Accessions`)) #4238
+length(unique(PSMs_2024_rrb$`Protein Accessions`)) #4393
+length(unique(PSMs_2024_rro$`Protein Accessions`)) #4565
+length(unique(PSMs_2025$`Protein Accessions`)) #4554
+
+# No. of unique Master Protein Accessions (note does account for ; ;)
+length(unique(PSMs_2024$`Master Protein Accessions`)) #3808
+length(unique(PSMs_2024_rrb$`Master Protein Accessions`)) #3844
+length(unique(PSMs_2024_rro$`Master Protein Accessions`)) #4058
+length(unique(PSMs_2025$`Master Protein Accessions`)) #4045
 ```
 
-## Looking at Unique Annotated Sequences (PSMs)
+## Part 1 - Looking at Unique Annotated Sequences (PSMs)
 
 Make combined df. Get unique sequences in each df. Then do barplot & then vennys
 
@@ -242,10 +288,6 @@ v6 <- venny(data = c5,
 plot_grid(v1, v2, v3, v4, v5, v6,
           ncol = 2,
           labels = c('A','B', 'C', 'D', 'E', 'F'))
-```
-
-```{r}
-
 ```
 
 ### Interim Summary (2025-09-12)
@@ -440,8 +482,55 @@ cont_setdiff <- cPSMs %>%
                                      "[K].iAVYEk.[M]"))
 ```
 
+# Part 3 - Email to Thermo (2025-09-18)
+
 ```{r}
 
 ```
 
-# Correspondence with Thermo (2025-09-17)
+```{r}
+kable(anno_seq)
+```
+
+```{r}
+anno_seq_plot
+```
+
+### Barplot of unique annotated sequences
+
+```{r fig.height=12, fig.width=9, message=FALSE, warning=FALSE}
+cPSMs_u_aseq_plot
+```
+
+### Venn Diagrams showing similarities and differences of the unique annotated sequences across the analysis
+
+#### All 4 analyses.
+
+Note -
+
+```{r fig.height=5, fig.width=9, message=FALSE, warning=FALSE}
+v1
+```
+
+#### The 3 2024 analyses. 
+
+This Venn diagram shows that the number of unique identified annotated sequences (PSMs) from the same 8 raw files differs depending on whether it was submitted as batch (2024) or by file (2024_rro) in PD2.4. And also based on the size of the batch submitted - 2024 - 96 files vs 2024_rrb - 8 files.
+
+*Note the analysis method and database were exactly the same for all.*
+
+```{r fig.height=5, fig.width=9, message=FALSE, warning=FALSE}
+v6
+```
+
+### MS/MS Spectrum Info Tables - ID precursors
+
+Shows that the MS/MS info is the same but the PSMs/precursors identified differ.
+
+```{r}
+kable(no_id_pc)
+```
+
+```{r}
+
+
+```
