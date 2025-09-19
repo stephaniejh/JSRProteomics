@@ -1,0 +1,215 @@
+---
+title: "BioIn_2025_09_v3.3.1_fgsea_BSS_tut"
+output: html_document
+---
+
+# **Easy Gene Set Enrichment Analysis in R with fgsea() - Biostatsquid tutorial**
+
+-   <https://bioconductor.org/packages/release/bioc/html/fgsea.html>
+
+-   <https://biostatsquid.com/fgsea-tutorial-gsea/>
+
+-   Other useful details
+
+    -   <https://biostatsquid.com/pathway-enrichment-analysis-explained/>
+
+    -   <https://igordot.github.io/msigdbr/articles/msigdbr-intro.html>
+
+    -   <https://pnnl-comp-mass-spec.github.io/proteomics-data-analysis-tutorial/gsea.html>
+
+Using data from 2025_09_12_rp_1pspg_test_pairwise_msstats_v3.1.5_t8.csv computed via R script 'MSstatsTMT_2025_09_v3.1.5_rp_1pspg_PSMs_from_2025_08.R in JSRProteomics \> MSstatsTMT \> v3 on 2025-09-12'
+
+## Setup
+
+Install if needed
+
+```{r}
+# if (!require("BiocManager", quietly = TRUE))
+#     install.packages("BiocManager")
+# 
+# BiocManager::install("fgsea")
+# BiocManager::install("msigdbr")
+# BiocManager::install("org.Rn.eg.db")
+# BiocManager::install("org.Hs.eg.db")
+```
+
+Clean environment & Set seed - skipped
+
+Load Packages
+
+```{r}
+library(org.Rn.eg.db) # Rat genome annotation package
+library(org.Hs.eg.db) # human genome annotation package
+# library(AnnotationDbi) # technically already loaded with org.Rn.eg.db 
+library(fgsea) # for gsea 
+library(msigdbr) # for genesets
+library(dplyr) # wrangling etc, %>%, filter(), select()
+library(readr) # for read_csv()
+library(stringr) # for str_detect()
+library(ggplot2) # for ggplot()
+```
+
+Set paths (not really needed here) - skipped
+
+## fgsea
+
+fgsea() takes two main parameters
+
+1.  Pathways - a list of gene sets or pathways to check
+2.  Statistics - a named vector of our genes of interest we want to perform gsea on.
+    1.  These must match the ones for the pathways (e.g. ENTREZ or gene names).
+
+Additional Parameters
+
+-   minSize - minimal size of a gene set to test (all pathways that are less than are excluded).
+
+-   maxSize - maximum size of a gene set to test.
+
+-   scoreType - the default is std (normal enrichment score).
+
+    -   But can also do one tail if only interested in positive (over-represented) or negative enrichment (underepresented).
+
+-   
+
+-   ds
+
+### 1. Prepare genesets/pathways
+
+Note this follows the web tutorial rather than the youtube tutorial.
+
+#### Get your gene set .gmt file via msigdbr package - [see article](https://igordot.github.io/msigdbr/articles/msigdbr-intro.html)
+
+```{r}
+# # msigdbr helper functions
+# 
+# msigdbr_species() # 20 species
+# msigdbr_collections() # 33730584 bytes?
+# 
+# # check version
+# unique(msigdbr_df$db_version)
+# 
+# #how to cite
+# citation("msigdbr")
+
+```
+
+#### Prepare Background Genes
+
+Need set of background genes that are only present in our df to reduce bias.
+
+Should I use the mouse collection???
+
+```{r}
+# humans & hallmark category/collection
+gene_sets_df <- msigdbr(species = 'Homo sapiens',
+                        collection = 'H')
+
+# gene_sets_df <- msigdbr(species = 'Homo sapiens',
+#                         category = 'C5',
+#                         subcollection = 'GO:BP')
+
+head(gene_sets_df)
+str(gene_sets_df)
+```
+
+Convert gene sets into a format required for fgsea
+
+```{r}
+# convert in 2 name list format required for fgsea()
+
+# Splits in separate lists containing gene symbols grouped by the geneset name (gs_name)
+gene_sets <- gene_sets_df %>%
+  split(x = .$gene_symbol, f = .$gs_name)
+
+# prints out no. of loaded gene sets (can remove code if desired)
+cat(paste("Loaded", length(gene_sets), "gene sets\n"))
+```
+
+### 2. Prepare protein lists to gene IDs
+
+Instructions/Guidance - <https://biostatsquid.com/pathway-enrichment-analysis-explained/>
+
+#### Import Protein List
+
+```{r}
+# set working direction to source file location
+
+# read in protein list df from MSstatsTMT comparison
+df <- read_csv("input/protein_lists/2025_09_12_rp_1pspg_test_pairwise_msstats_v3.1.5_t8.csv")
+```
+
+```{r}
+head(df) # peak
+str(df) # structure
+colnames(df) # column names
+dim(df)
+
+# lil checks (bit messy)
+unique(df$issue) # if = na in issue column then good. if not exclude
+df %>% filter(str_detect(Protein, "Cont_")) # rows with contaminants - to exlude
+df %>% filter(str_detect(log2FC, "Inf")) # rows with Infinity /no log fold - to exclude
+df %>% filter(is.na(pvalue)) # same observation as the "Inf" in log2FC
+df %>% filter(is.na(adj.pvalue)) # same observation as the "Inf" in log2FC
+```
+
+Clean up protein list
+
+```{r}
+protein_list <- df %>%
+  filter(is.na(issue)) %>% # keeps rows with issue == na
+  filter(!str_detect(Protein, "Cont_")) %>% # removes contaminants 
+  filter(!str_detect(log2FC, "Inf")) %>% # removes missing log value. 
+  select(Protein:adj.pvalue) # removes weird ...1 col & issue col, can prob skip this...
+
+
+head(protein_list)
+dim(protein_list)
+str(protein_list)
+colnames(protein_list)
+```
+
+convert to protein list to gene list using org.Rn.eg.db
+
+See How to use bimaps from the ".db" annotation packages - Marc Carlson, Hervé Pagès, Seth Falcon, Nianhua Li  - April 15, 2025
+
+```{r}
+ids = as.list(org.Rn.egUNIPROT) # as Large list of 47817 elements
+
+#ls(org.Rn.egUNIPROT) # list out 
+
+# BiocGenerics toTable() function 
+toTable(org.Rn.egUNIPROT) # as a table instead! so dataframe!!! yay!
+
+entrez_rat <- toTable(org.Rn.egUNIPROT)
+
+entrez_human <- toTable(org.Hs.egUNIPROT)
+
+# inpIDMapper(ids, srcSpecies, destSpecies, srcIDType="UNIPROT", destIDType="EG", keepMultGeneMatches=FALSE, keepMultProtMatches=FALSE, keepMultDestIDMatches = TRUE
+
+```
+
+```{r}
+
+
+```
+
+```{r}
+
+```
+
+\
+\
+
+```{r}
+## Ranking Metric vector for GSEA
+geneList <- df_ee %>%
+  filter(!is.na(ENTREZID), !is.na(log2FC)) %>%
+  mutate(ranking_metric = -log10(adj.pvalue)*sign(log2FC)) %>%
+  group_by(ENTREZID) %>% # this deals with duplicates?
+  summarise(ranking_metric = mean(ranking_metric, na.rm = TRUE)) %>%
+  arrange(-ranking_metric) %>% # sort descending (important!)
+  tibble::deframe() # convert to a named vector
+
+head(geneList)
+tail(geneList)
+```
