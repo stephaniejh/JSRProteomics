@@ -1,9 +1,13 @@
 ---
-title: "BioIn_2025_09_v3.3.1_fgsea_BSS_tut"
+title: "BioIn_2025_09_v3.3.1_fgsea_BSS_tut.Rmd"
+author: "Stephanie Huang"
+date: "`r Sys.Date()`"
 output: html_document
 ---
 
-# **Easy Gene Set Enrichment Analysis in R with fgsea() - Biostatsquid tutorial**
+# **Easy Gene Set Enrichment Analysis in R with fgsea()**
+
+**Tutorial generally follows Biostatsquid blog but also uses the pnnl (GSEA 8.3) one & elements of AnnotationsDbi documentation.**
 
 -   <https://bioconductor.org/packages/release/bioc/html/fgsea.html>
 
@@ -17,7 +21,39 @@ output: html_document
 
     -   <https://pnnl-comp-mass-spec.github.io/proteomics-data-analysis-tutorial/gsea.html>
 
+    -   [Introduction To Bioconductor Annotation Packages](https://bioconductor.org/packages/release/bioc/html/AnnotationDbi.html)
+
+    -   [A novel significance score for gene selection and ranking](https://pmc.ncbi.nlm.nih.gov/articles/PMC3957066/)
+
 Using data from 2025_09_12_rp_1pspg_test_pairwise_msstats_v3.1.5_t8.csv computed via R script 'MSstatsTMT_2025_09_v3.1.5_rp_1pspg_PSMs_from_2025_08.R in JSRProteomics \> MSstatsTMT \> v3 on 2025-09-12'
+
+### 2025-09-22 Interim Summary
+
+-   Tested basic GSEA using fgsea() using MSigDB Mouse Hallmark Genesets (50). Prepared using gene symbols.
+
+    -   Gene symbols mapped with AnnotationDbi & org.. Rn.eg.db (assuming rat & mice are the same - fix later).
+
+    -   Set up protein list from MSstatTMT 3.1.5 t8 Housing - EE vs SH (1pspg) - e.g. trimmed any col with issues, or missing pvalues, proteins with Cont\_. Went from 7746 to 7724.
+
+    -   Annotated protein list with gene symbols + EntrezID, gene name, etc. Why 7780?
+
+    -   Then ranked using sign(log2fc)\*(-log10(pval)  - resulted in 7153 ranked genes available for fgsea(). Made into vector for basic fgsea()
+
+    -   Ran basic fgsea() with ranked list, mouse hallmark geneset, min 15, max 500. Note slightly different ranking cause based on setting different & also write_csv does not properly write out leading edge column.
+
+    -   Visualised with fgsea plotGseaTable() to plot top 15 paths & did plotEnrichment for 4/5 top ones.
+
+#### To look into/fix
+
+1.  Look Proteins that fail to map onto genes (around 8%).
+2.  Look at which gene IDs to convert to & use.
+3.  Look into why annotated list gets bigger - 7724 to 7780
+4.  Look at other MSigDB genesets (e.g. brain/neuro/synaptic & development etc)
+5.  Look into ranking metric (e.g. comp to just log2FC, also adj.p-val vs p-val)
+6.  Look at saving file to keep leading edge.
+7.  Look at other fgsea settings & comps (e.g. fgseaMultilevel & collapsePathways)
+8.  Look at other plot types
+9.  look at other saving files etc
 
 ## Setup
 
@@ -37,13 +73,13 @@ Clean environment & Set seed - skipped
 
 Load Packages
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 library(org.Rn.eg.db) # Rat genome annotation package
 library(org.Hs.eg.db) # human genome annotation package
 # library(AnnotationDbi) # technically already loaded with org.Rn.eg.db 
 library(fgsea) # for gsea 
 library(msigdbr) # for genesets
-library(dplyr) # wrangling etc, %>%, filter(), select()
+library(dplyr) # wrangling etc, %>%, filter(), select() - conflict w/ some AnnotationDbi
 library(readr) # for read_csv()
 library(stringr) # for str_detect()
 library(ggplot2) # for ggplot()
@@ -69,10 +105,6 @@ Additional Parameters
 
     -   But can also do one tail if only interested in positive (over-represented) or negative enrichment (underepresented).
 
--   
-
--   ds
-
 ### 1. Prepare genesets/pathways
 
 Note this follows the web tutorial rather than the youtube tutorial.
@@ -97,12 +129,15 @@ Note this follows the web tutorial rather than the youtube tutorial.
 
 Need set of background genes that are only present in our df to reduce bias.
 
-Should I use the mouse collection???
+Using mouse collection since gene symbols are lower case (similar to rats)
+
+Note humans have capitalized gene symbols!
 
 ```{r}
-# humans & hallmark category/collection
-gene_sets_df <- msigdbr(species = 'Homo sapiens',
+# mouse & hallmark category/collection
+gene_sets_df <- msigdbr(species = 'Mus musculus',
                         collection = 'H')
+# Using human MSigDB with ortholog mapping to mouse. Use `db_species = "MM"` for mouse-native gene sets.
 
 # gene_sets_df <- msigdbr(species = 'Homo sapiens',
 #                         category = 'C5',
@@ -152,14 +187,14 @@ df %>% filter(is.na(pvalue)) # same observation as the "Inf" in log2FC
 df %>% filter(is.na(adj.pvalue)) # same observation as the "Inf" in log2FC
 ```
 
-Clean up protein list
+#### Clean up protein list
 
 ```{r}
 protein_list <- df %>%
   filter(is.na(issue)) %>% # keeps rows with issue == na
   filter(!str_detect(Protein, "Cont_")) %>% # removes contaminants 
   filter(!str_detect(log2FC, "Inf")) %>% # removes missing log value. 
-  select(Protein:adj.pvalue) # removes weird ...1 col & issue col, can prob skip this...
+  dplyr::select(Protein:adj.pvalue) # rm weird ...1 col & issue col, can prob skip this
 
 
 head(protein_list)
@@ -170,46 +205,283 @@ colnames(protein_list)
 
 convert to protein list to gene list using org.Rn.eg.db
 
-See How to use bimaps from the ".db" annotation packages - Marc Carlson, Hervé Pagès, Seth Falcon, Nianhua Li  - April 15, 2025
-
 ```{r}
-ids = as.list(org.Rn.egUNIPROT) # as Large list of 47817 elements
+# see AnnotationDbi: Introduction To Bioconductor Annotation Packages PDF
+# take a look
+org.Rn.eg.db
 
-#ls(org.Rn.egUNIPROT) # list out 
+columns(org.Rn.eg.db)
 
-# BiocGenerics toTable() function 
-toTable(org.Rn.egUNIPROT) # as a table instead! so dataframe!!! yay!
+help("SYMBOL")
 
-entrez_rat <- toTable(org.Rn.egUNIPROT)
+keytypes(org.Rn.eg.db) 
 
-entrez_human <- toTable(org.Hs.egUNIPROT)
-
-# inpIDMapper(ids, srcSpecies, destSpecies, srcIDType="UNIPROT", destIDType="EG", keepMultGeneMatches=FALSE, keepMultProtMatches=FALSE, keepMultDestIDMatches = TRUE
+head(keys(org.Rn.eg.db, keytype="SYMBOL"))
 
 ```
 
 ```{r}
+# see AnnotationDbi: Intro To Bioconductor Annotation Packages PDF pg 5-7
+# Ex 1 - use keys to extract uniprot ID then pass through keys in select to get gene
+#        symbol & KEGG pathway.
 
+uniKeys <- head(keys(org.Rn.eg.db, keytype = "UNIPROT"))
+cols <- c("SYMBOL", "PATH")
 
+AnnotationDbi::select(org.Rn.eg.db, keys = uniKeys, columns = cols, keytype = "UNIPROT")
+# message 'select()' returned 1:many mapping between keys and columns
 ```
 
 ```{r}
+# THIS IS WHAT I WANT!!!
+# see AnnotationDbi: Intro To Bioconductor Annotation Packages PDF pg 7-8
+# Ex 2 - 1st run though example data ()
+
+# Gives data with differential analysis - fold change & pvalues with entrez IDs (rowID)!
+load(system.file("extdata","resultTable.Rda",package="AnnotationDbi"))
+head(resultTable)
+
+# find the gene symbol & gene name for each of the rows in resultsTable 
+# & use merge to attach those annotations to it. 
+annots <- AnnotationDbi::select(org.Hs.eg.db, keys=rownames(resultTable),
+                 columns=c("SYMBOL", "GENENAME"), keytype="ENTREZID")
+
+# 'select()' returned 1:1 mapping between keys and columns
+
+resultTable <- merge(resultTable, annots, by.x=0, by.y="ENTREZID")
+head(resultTable)
+# note some with na
+```
+
+#### Annotated Gene IDs to Protein IDs
+
+```{r}
+# TRY ABOVE EXAMPLE WITH MY OWN DATA FROM PROTEIN LIST! EE vs SH! 
+head(protein_list) # sneak peak 
+
+# use protein_list$Protein arguement instead since not rownames! 
+# grab ENTREZ, gene symbol & gene name! & specify key tpe
+anno_db <- AnnotationDbi::select(org.Rn.eg.db, keys = protein_list$Protein,
+                  columns=c("ENTREZID", "SYMBOL", "GENENAME"), 
+                  keytype = "UNIPROT")
+
+# 'select()' returned 1:many mapping between keys and columns
+# returns df with Uniprot IDS mapped to annotations, note some missing na
+
+# check no of nas
+sum(is.na(anno_db$ENTREZID)) #622 ENTREZID NA 
+# 622/7780 = 7.99% matches ~8% missing seen with the mapping done with 
+
+# now merge to protein_list with log FC & pvalue etcs...
+protein_list_a <- merge(protein_list, anno_db, by.x="Protein", by.y = "UNIPROT") 
+head(protein_list_a)
+```
+
+```{r}
+#export
+# write_csv(protein_list_a, "output/2025_09_22_Protein_list_EEvsSH_genes_anno_MSstatsTMT_v3.1.5_t8_BioIn_3.3.1_t1.csv")
+```
+
+```{r}
+# See How to use bimaps from the ".db" annotation pkgs - Carlson et al - Apr 15, 2025
+# NOTE "The ‘bimap’ interface to annotation resources is not recommend; instead, use the approach in the vignette Introduction To Bioconductor Annotation Packages."
+# ids = as.list(org.Rn.egUNIPROT) # as Large list of 47817 elements
+# 
+# #ls(org.Rn.egUNIPROT) # list out 
+# 
+# # BiocGenerics toTable() function 
+# toTable(org.Rn.egUNIPROT) # as a table instead! so dataframe!!! yay!
+# 
+# entrez_rat <- toTable(org.Rn.egUNIPROT)
+# 
+# entrez_human <- toTable(org.Hs.egUNIPROT)
+# 
+# # inpIDMapper(ids, srcSpecies, destSpecies, srcIDType="UNIPROT", destIDType="EG", keepMultGeneMatches=FALSE, keepMultProtMatches=FALSE, keepMultDestIDMatches = TRUE
+```
+
+Hmmm note to self - maps on to gene symbol but 8% missing
+
+Perhaps convert from UNIPROT RAT to UNIPROT HUMAN & THEN TO GENE???
+
+Check similarity of rat & mouse gene symbols!
+
+\~ \~ \~ \~ \~ \~ \~
+
+Resuming Biostatsquid tutorial...
+
+#### Prepare the ranked list of genes
+
+Hmm look into whether I should use adj pvalue or not? I'm assuming not, since the adjusted p-value is doing multi-comparison correction. Which would then result in double multi-comprison correction in gsea?
+
+```{r}
+# THIS CODE IS A MIX OF BSS & PNNL 8.3! pnnl code uses tidyverse func & more efficient
+# use sign(df$log2fc)*(-log10(df$pval))
+# some just use fold change but this is better
+# linked article https://pmc.ncbi.nlm.nih.gov/articles/PMC3957066/ for calc
+
+# using the signed p-values from MSstatsTMT comparisons 
+ranked_list <- protein_list_a %>%
+  
+  # make ranking metric based on fold change & pvalue
+  mutate(ranking = sign(protein_list_a$log2FC)*(-log10(protein_list_a$pvalue))) %>%
+  
+  #group by gene symbol & then...
+  group_by(SYMBOL) %>%
+  
+  # remove NAs values + get mean of duplicate observations! #7154
+  summarise(ranking = mean(ranking, na.rm = TRUE)) %>%
+  
+  # still 1 more na in SYMBOL -> remove! | #7153 | look in to where it comes from???
+  filter(!(is.na(SYMBOL))) %>%
+  
+  # arrange from largest postive to negative
+  arrange(-ranking) %>% 
+  
+  # convert into a named vector to supply to fgsea()
+  tibble::deframe()
+
+
+head(ranked_list)
+tail(ranked_list)
+
+min(ranked_list) # pvalue-7.619261
+max(ranked_list) # pvalue 4.559848
+
+sum(is.na(ranked_list)) # 0
+
+plot(ranked_list) # each dot is a gene symbol, x index list of genes <8000, y = ranking
+
+# BSS version
+# rankings <- sign(protein_list_a$log2fc)*(-log10(protein_list_a$pval))
+# names(rankings) <- protein_list_a$SYMBOL # add gene symbol to value
+# rankings <- sort(rankings, decreasing = TRUE) #sort by from largest pos to neg
+# plot(rankings) # each dot is a gene symbol, x index list of genes <8000, y = ranking
+# max(rankings) # max = 4.559848 | note we do not have Inf because already cleaned!
+# min(rankings) # min = -7.619261 | fgsea() does not accept non-finite no. as rankings!
+# # also see their version of removing infinite rankings on blog if needed! 
+
+# Squidtip - Another note on rankings… You can just use the log2(fold-change) as a ranking – but it will not take into account genes with a large fold change but non-significant. However, if you have already selected your significant genes, this may be a good option for you.
+```
+
+### 3. Run GSEA
+
+```{r}
+# run gsea with hallmark pathways! 
+GSEA_hm <- fgsea(pathways = gene_sets, # list of genes 2 check (50 hallmark genesets,
+                 stats = ranked_list, # data were computing on
+                 scoreType = 'std', #standard since we have positive & negitive
+                 minSize = 15, # mini gene set size
+                 maxSize = 500, # max gene set size
+                 nproc = 1 # for parallelisation
+                 )
+
+# cant have NAs! also gives watning on preranked ties (only 0.73% of list - mostly ns)
+# Note! Changing maxSize seems to affect pvalues?
+
+head(GSEA_hm)
+```
+
+```{r}
+# # export GSEA msigdb hallmark results
+# write_csv(GSEA_hm, "output/2025_09_22_GSEA_hm_results_EEvsSH_MSstatsTMT_v3.1.5_t8_BioIn_3.3.1_t1.csv")
+
+# write_csv does not write leading edge?
+```
+
+### 4. Visualise your GSEA results
+
+```{r}
+# Quick checks
+str(GSEA_hm)
+colnames(GSEA_hm)
+
+# look @ top 6 
+head(GSEA_hm[order(pval), ])
+
+# no. of significant pathways
+sum(GSEA_hm[, padj<0.01]) # 3 pathways with adj.p-value <0.01
+sum(GSEA_hm[, padj<0.05]) # 10 pathways with adj.p-value <0.05
+sum(GSEA_hm[, pval<0.01]) # 10 pathways with p-value <0.01
+sum(GSEA_hm[, pval<0.05]) # 14 pathways with p-value <0.05
 
 ```
 
-\
-\
+#### GSEA Table of Top Pathways
+
+```{r fig.height=6, fig.width=11}
+# error in Biostatssquid 
+# top_paths_up <- GSEA_hm[ES > 0][head(order(padj), n = no_of_top_paths), pathway]
+# Error in .checkTypos(e, names_x) :
+#Object 'number_of_top_pathways_up' not found amongst [pathway, pval, padj, log2err, ES, # NES, size, leadingEdge]
+
+# use fgsea() package example code intead
+#topPathways <- fgseaRes[head(order(pval), n=15)][order(NES), pathway]
+topPathways <- GSEA_hm[head(order(pval), n=15)][order(NES), pathway] #top 15 NES scores
+
+# plotGseaTable(examplePathways[topPathways], exampleRanks,
+#               fgseaRes, gseaParam=0.5)
+plotGseaTable(pathways = gene_sets[topPathways],
+              stats = ranked_list,
+              fgseaRes = GSEA_hm,
+              gseaParam = 0.5)
+
+# also see bss - collapsePathways() - (not needed for hallmark set)
+```
+
+#### plotEnrichment
+
+```{r fig.height=5, fig.width=10}
+# POSITIVE ENRICHMENT SCORE
+# plot the most significantly enriched pathway - hallmark oxidative phosphorylation
+plotEnrichment(gene_sets[[head(GSEA_hm[order(padj), ], 1)$pathway]],
+               ranked_list) +
+  labs(title = head(GSEA_hm[order(padj), ], 1)$pathway) 
+```
+
+```{r fig.height=6, fig.width=10}
+# NEGATIVE ENRICHMENT SCORE
+# plot the 2nd most significantly enriched pathway - hallmark MYC Targets
+plotEnrichment(gene_sets[[head(GSEA_hm[order(padj), ], 2)$pathway[2]]],
+               ranked_list) +
+  labs(title = head(GSEA_hm[order(padj), ], 2)$pathway[2]) + 
+  theme_classic() + # can add other ggplot theming/aesthetics
+  scale_x_continuous('Rank', breaks = seq(0, 10000, 2000)) +
+  scale_y_continuous('Enrichment score (ES)') 
+  
+```
 
 ```{r}
-## Ranking Metric vector for GSEA
-geneList <- df_ee %>%
-  filter(!is.na(ENTREZID), !is.na(log2FC)) %>%
-  mutate(ranking_metric = -log10(adj.pvalue)*sign(log2FC)) %>%
-  group_by(ENTREZID) %>% # this deals with duplicates?
-  summarise(ranking_metric = mean(ranking_metric, na.rm = TRUE)) %>%
-  arrange(-ranking_metric) %>% # sort descending (important!)
-  tibble::deframe() # convert to a named vector
+# Alternative indexing without using head()
+# NEGATIVE ENRICHMENT SCORE
+# plot the 3rd most significantly enriched pathway - hallmark E2F Targets
+plotEnrichment(gene_sets[[GSEA_hm[order(padj), ][3, ]$pathway]],
+               ranked_list) +
+  labs(title = GSEA_hm[order(padj), ][3, ]$pathway)
+```
 
-head(geneList)
-tail(geneList)
+```{r}
+# tidyverse indexing! 
+# POSITIVE ENRICHMENT SCORE
+# plot the 5th most significantly enriched pathway - Inflammatory response
+fifth_path <- GSEA_hm %>%
+  arrange(padj) %>%
+  dplyr::slice(5) %>% 
+  pull(pathway)
+
+plotEnrichment(gene_sets[[fifth_path]], ranked_list) +
+  labs(title = fifth_path)
+```
+
+### 5. End
+
+Save results
+
+```{r}
+# see bss saving | leave for now
+```
+
+SessionInfo()
+
+```{r}
+sessionInfo()
 ```
