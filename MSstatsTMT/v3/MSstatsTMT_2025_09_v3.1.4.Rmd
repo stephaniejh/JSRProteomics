@@ -9,9 +9,9 @@ editor_options:
 
 # Checking PD 2.4's As Batch Function.
 
-### Background
+### Background Information
 
-This is a part of the re-analysis of my EE-exp LCMS data (96 raw files) collected from 2021-2022 for my PhD write-up (2025-08 to 2025-09). In this re-analysis series, I tested different UniProt databases/FASTAs in PD2.4, including using the UniProt rat reference proteome (1 protein sequence per gene 1pspg - 22400s), Swiss-Prot (8215s - cannonical only), and Swiss-Prot with isoforms (9878s). As expected, differences prevail as a result of using different search databases. I compared this to an analysis done in Nov 2024 for a conference poster (ANS), which used identical search parameters except a slightly older Swiss-Prot with isoforms FASTA (9855s). Strangely, I could not replicate my results and got different significantly regulated proteins in MSstatsTMT (same parameters). Upon closer inspection, I noticed that the number of PSMs from the 2024 run was lower than 2025. For example...
+This is a part of the re-analysis of my EE-exp LCMS data (96 raw files) collected from 2021-2022 for my PhD write-up (2025-08 to 2025-09). In this re-analysis series, I tested different UniProt databases/FASTAs in PD2.4, including using the UniProt rat reference proteome (1 protein sequence per gene 1pspg - 22400s), Swiss-Prot (8215s - canonical only), and Swiss-Prot with isoforms (9878s). As expected, differences prevail as a result of using different search databases. I compared this to an analysis done in Nov 2024 for a conference poster (ANS), which used identical search parameters except a slightly older Swiss-Prot with isoforms FASTA (9855s). Strangely, I could not replicate my results and got different significantly regulated proteins in MSstatsTMT (same parameters). Upon closer inspection, I noticed that the number of PSMs from the 2024 run was lower than 2025. For example...
 
 -   2024 - Swiss-Prot with isoforms FASTA (9855s) - 788953 PSMs identified across 96 raw files.
 
@@ -19,13 +19,17 @@ This is a part of the re-analysis of my EE-exp LCMS data (96 raw files) collecte
 
 -   [Side Note: Yes, aware of caveats with using isoforms & challenges with protein grouping. Will likely stick to Swiss-Prot canonical only or Reference Proteome (1protein sequence per gene) for further analyses.]{.smallcaps}
 
-I was quite surprised because the new FASTA only had 22 more sequences, and the search method was the same. However, I remember that in the 2024 analysis was accidentally run with as a batch unchecked (forgot it was the opposite at the time) which produced one large .pdresults file (no run errors & all 96 raw files in PSM sheet). Whereas all the analyses in 2025 were run one by one (as File/as batch checked). Because of this, I decided to double-check as see whether.
+I was quite surprised because the new FASTA only had 23 more sequences, and the search method was the same. However, I remember that in the 2024 analysis was accidentally run with as a batch unchecked (forgot it was the opposite at the time) which produced one large .pdresults file (no run errors & all 96 raw files in PSM sheet). Whereas all the analyses in 2025 were run one by one (as File/as batch checked). Because of this, I decided to double-check to see whether the 'as batch' function affects the PSM results.
 
-Using the exact same .pdstudy (processingWF + consensusWF + FASTAs) I re-ran a subset of 8 raw files, either with as batch checked (by file/one by one) or as batch unchecked (by batch/1 result file)
+Using the exact same .pdstudy (processingWF + consensusWF + FASTAs), I re-ran a subset of 8 raw files, either with 'as batch' checked (by file/one by one) or 'as batch' unchecked (by batch/1 mega result file)
+
+-   [Note - raw files were input as File (not fractions) in PD2.4 (not that this should affect the PSMs...). Followed Enzo's instructions from 2021/22.]{.smallcaps}
+
+    -   [Also note - I only care about the PSMs results as I export that from PD2.4 and pull into R for the protein Summarization & Statistical Analysis using MSstatsTMT in R.]{.smallcaps}
 
 ### Current Analysis
 
-This finally brings me to the current analyses presented in this R script. Here I run a quick analysis on the PSMs and MSMS Spectrum Info outputs from PD2.4 analysis of those same 8 raw files.
+This finally brings me to the current analyses presented in this R script. Here, I run a quick analysis on the PSMs and MS/MS Spectrum Info outputs from PD2.4 analysis of those same 8 raw files.
 
 #### Key
 
@@ -43,7 +47,9 @@ This finally brings me to the current analyses presented in this R script. Here 
 
 -   **2025** - *e.g. PSMs_2025 or MSMS_2025*
 
-    -   The exported results from the 2025 runs of those 8 files were pulled in and appended together. This is similar to 2024_rro in the sense that all analyses here were submitted one by one (as batched checked/by file). However, different from all the 3 2024 analyses above in the sense that it uses a slightly new search database with 22 more sequences (see info above), but otherwise uses the exact same analysis method.
+    -   The exported results from the 2025 runs of those 8 files were pulled in and appended together. This is similar to 2024_rro in the sense that all analyses here were submitted one by one (as batched checked/by file). However, this differs from the 3 2024 analyses above in the sense that it uses a slightly newer search database with 22 more sequences (see info above). Otherwise uses the exact same analysis method.
+
+### ***Skip to Part 3 - Email to Thermo (2025-09-22) for the key info!***
 
 ## Setup
 
@@ -412,8 +418,8 @@ anno_seq_plot <- anno_seq %>%
   labs(
     x = "Fraction No.",
     y = "No. of Annotated Sequences (PSMs)",
-    title = "",
-    subtitle = ""
+    title = "No. of Annotated Sequences by Fraction split by df_id (PD analysis set)",
+    subtitle = "See Key at the top of doc for more info. Data from PSMs txt exports"
   ) +
   theme_bw() +
   theme(legend.position = "bottom")
@@ -421,106 +427,71 @@ anno_seq_plot <- anno_seq %>%
 anno_seq_plot
 ```
 
-\~ \~ \~ \~ \~ \~ \~ \~ \~ \~ \~ \~ \~ \~
+#### Testing Gria4
+
+Ignore for now - commented out (2025-09-22)
 
 ```{r}
 # P19493_all <- cPSMs %>%
 #   filter(str_detect(`Protein Accessions`, "P19493")) %>%
 #   group_by(df_id, `Spectrum File`)
 
-
-P19493_mp <- cPSMs %>%
-  filter(str_starts(`Master Protein Accessions`, "P19493"))
-  
-unique(P19493_mp$`Annotated Sequence`) # 13
-
-P19493_mp %>%
-  count(`Annotated Sequence`, sort = TRUE)
+# 
+# P19493_mp <- cPSMs %>%
+#   filter(str_starts(`Master Protein Accessions`, "P19493"))
+#   
+# unique(P19493_mp$`Annotated Sequence`) # 13
+# 
+# P19493_mp %>%
+#   count(`Annotated Sequence`, sort = TRUE)
 ```
 
 ```{r}
 # prep data
-
-list_P19493 <- P19493_mp %>%
-  split(.$df_id) %>%
-  map(~pull(., `Annotated Sequence`))
-
-
-str(list_P19493)
+# 
+# list_P19493 <- P19493_mp %>%
+#   split(.$df_id) %>%
+#   map(~pull(., `Annotated Sequence`))
+# 
+# 
+# str(list_P19493)
 ```
 
 ```{r}
-v_P19493 <- venny(data = list_P19493,
-                 colors = c('#83992A', '#3C9770', '#44709D', '#A23C33'))
-
-v_P19493
+# v_P19493 <- venny(data = list_P19493,
+#                  colors = c('#83992A', '#3C9770', '#44709D', '#A23C33'))
+# 
+# v_P19493
 ```
 
 ```{r}
-#dplyr set diff
-
-# 2025 vs 2024 run by files has no differences despite slightly diff FASTA
-setdiff(list_P19493$PSMs_2024_rro,list_P19493$PSMs_2025) 
-
-
-# 8 files run as batch vs by file differ despite exact same FASTA & pWF & cWF!
-setdiff(list_P19493$PSMs_2024_rro, list_P19493$PSMs_2024_rrb) 
-
-
-
+# #dplyr set diff
+# 
+# # 2025 vs 2024 run by files has no differences despite slightly diff FASTA
+# setdiff(list_P19493$PSMs_2024_rro,list_P19493$PSMs_2025) 
+# 
+# 
+# # 8 files run as batch vs by file differ despite exact same FASTA & pWF & cWF!
+# setdiff(list_P19493$PSMs_2024_rro, list_P19493$PSMs_2024_rrb) 
 ```
 
 ```{r}
-# present but assigned to different protein accessions
-# ambiguity is inherent since part of same protein family plus use of isoform db.
-# but not sure why assignment differs based on running as batch & as file
-cont_setdiff <- cPSMs %>%
-  filter(`Annotated Sequence` %in% c("[K].vGGNLDSk.[G]",
-                                     "[K].gYGVATPk.[G]",
-                                     "[R].kPcDTMk.[V]",
-                                     "[R].kPcDTmk.[V]",
-                                     "[K].iAVYEk.[M]"))
+# # present but assigned to different protein accessions
+# # ambiguity is inherent since part of same protein family plus use of isoform db.
+# # but not sure why assignment differs based on running as batch & as file
+# cont_setdiff <- cPSMs %>%
+#   filter(`Annotated Sequence` %in% c("[K].vGGNLDSk.[G]",
+#                                      "[K].gYGVATPk.[G]",
+#                                      "[R].kPcDTMk.[V]",
+#                                      "[R].kPcDTmk.[V]",
+#                                      "[K].iAVYEk.[M]"))
 ```
 
-# Part 3 - Email to Thermo (2025-09-18)
+# Part 3 - Email to Thermo (2025-09-22)
 
-```{r}
+See Key at the top of document for more information.
 
-```
-
-```{r}
-kable(anno_seq)
-```
-
-```{r}
-anno_seq_plot
-```
-
-### Barplot of unique annotated sequences
-
-```{r fig.height=12, fig.width=9, message=FALSE, warning=FALSE}
-cPSMs_u_aseq_plot
-```
-
-### Venn Diagrams showing similarities and differences of the unique annotated sequences across the analysis
-
-#### All 4 analyses.
-
-Note -
-
-```{r fig.height=5, fig.width=9, message=FALSE, warning=FALSE}
-v1
-```
-
-#### The 3 2024 analyses. 
-
-This Venn diagram shows that the number of unique identified annotated sequences (PSMs) from the same 8 raw files differs depending on whether it was submitted as batch (2024) or by file (2024_rro) in PD2.4. And also based on the size of the batch submitted - 2024 - 96 files vs 2024_rrb - 8 files.
-
-*Note the analysis method and database were exactly the same for all.*
-
-```{r fig.height=5, fig.width=9, message=FALSE, warning=FALSE}
-v6
-```
+See email chain to Denise Tran from Thermo titled 'As Batch function in PD2.4 Analysis Tab' for more information.
 
 ### MS/MS Spectrum Info Tables - ID precursors
 
@@ -530,7 +501,48 @@ Shows that the MS/MS info is the same but the PSMs/precursors identified differ.
 kable(no_id_pc)
 ```
 
+### PSMs Info
+
+### No. of annotated sequences by raw file/fraction by PD 2.4 analysis
+
+#### Table
+
 ```{r}
+kable(anno_seq)
+```
 
+#### Plot
 
+```{r fig.height=7, fig.width=11}
+anno_seq_plot
+```
+
+### Barplot of unique annotated sequences
+
+This is not just the number of annotated sequences but the unique/distinct annotated sequences.
+
+```{r fig.height=8, fig.width=11, message=FALSE, warning=FALSE}
+cPSMs_u_aseq_plot
+```
+
+### Venn Diagrams showing similarities & differences of the unique annotated sequences across the analyses
+
+#### All 4 PD analyses.
+
+Interestingly, 2025 (run by file) is more similar to the 2024_rro (run by file) despite having a slightly larger/new FASTA file. The difference here seems expected given the slight difference in sequences form the 2024 vs 2025 FASTA. In contrast, the ones run as batch show fewer unique sequences.
+
+-   [See the Venn Diagram Panel in Part 1 for a clearer view & other venn Diagrams.]{.smallcaps}
+
+```{r fig.height=5, fig.width=9, message=FALSE, warning=FALSE}
+v1
+```
+
+#### The 3 2024 analyses (shown in 2025_09_18 email).
+
+This Venn diagram shows that the number of unique identified annotated sequences (PSMs) from the same 8 raw files differs depending on whether it was submitted as batch (2024) or by file (2024_rro) in PD2.4. And also based on the size of the batch submitted - 2024 - 96 files vs 2024_rrb - 8 files.
+
+*Note the analysis method and database were exactly the same for all.*
+
+```{r fig.height=5, fig.width=9, message=FALSE, warning=FALSE}
+v6
 ```
