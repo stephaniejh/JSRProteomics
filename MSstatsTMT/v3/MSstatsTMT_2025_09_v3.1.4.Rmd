@@ -9,6 +9,8 @@ editor_options:
 
 # Checking PD 2.4's As Batch Function.
 
+*Note: Renamed to 2025_09_22_v3.1.4_PD2.4_as_batch_check.html & sent to Thermo on 2025-09-22*
+
 ### Background Information
 
 This is a part of the re-analysis of my EE-exp LCMS data (96 raw files) collected from 2021-2022 for my PhD write-up (2025-08 to 2025-09). In this re-analysis series, I tested different UniProt databases/FASTAs in PD2.4, including using the UniProt rat reference proteome (1 protein sequence per gene 1pspg - 22400s), Swiss-Prot (8215s - canonical only), and Swiss-Prot with isoforms (9878s). As expected, differences prevail as a result of using different search databases. I compared this to an analysis done in Nov 2024 for a conference poster (ANS), which used identical search parameters except a slightly older Swiss-Prot with isoforms FASTA (9855s). Strangely, I could not replicate my results and got different significantly regulated proteins in MSstatsTMT (same parameters). Upon closer inspection, I noticed that the number of PSMs from the 2024 run was lower than 2025. For example...
