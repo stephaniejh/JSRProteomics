@@ -1,0 +1,581 @@
+---
+title: "BioIn_2025_09_v3.3.2_ClusterProfiler.Rmd"
+author: "Stephanie Huang"
+date: "2025-09-22"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# ClusterProfiler (BioIn Test 2)
+
+## Details & Data Used
+
+## Links & Resources
+
+-   
+
+## Setup
+
+Install if needed
+
+```{r}
+# if (!require("BiocManager", quietly = TRUE))
+#     install.packages("BiocManager")
+# 
+# BiocManager::install("clusterProfiler")
+# BiocManager::install("msigdbr")
+# BiocManager::install("org.Rn.eg.db")
+# BiocManager::install("enrichplot")
+# BiocManager::install("pathview")
+```
+
+Load Packages
+
+```{r message=FALSE, warning=FALSE}
+library(tidyverse) # for dplyr, ggplot, stringr, readr etc 
+library(clusterProfiler) #GSEA includes gsea, enrichplot etc.
+library(org.Rn.eg.db) # Rat genome annotation package - incl. AnnotationDbi
+library(msigdbr) # MSigDB gene sets
+library(enrichplot) # for dotplot()
+library(ggridges) # for ridgeplot()
+library(pathview) # pathview() - Kegg pathway visualisation
+```
+
+## GSEA
+
+### Prepare Protein List into Ranked Gene list
+
+#### Import Protein List (MSstatsTMT comparison output)
+
+```{r}
+# Set working directory to source file location
+
+# read in protein list df from MSstatsTMT comparison
+df <- read_csv(
+  "input/protein_lists/2025_09_12_rp_1pspg_test_pairwise_msstats_v3.1.5_t8.csv")
+```
+
+##### lil checks
+
+```{r}
+# lil checks
+head(df) # peak
+str(df) # structure | 7746 x 9
+colnames(df) # column names
+
+# lil checks (bit messy)
+unique(df$issue) # if = na in issue column then good. if not exclude
+df %>% filter(str_detect(Protein, "Cont_")) # rows with contaminants - to exlude
+df %>% filter(str_detect(log2FC, "Inf")) # rows with Infinity /no log fold - to exclude
+df %>% filter(is.na(pvalue)) # same observation as the "Inf" in log2FC
+df %>% filter(is.na(adj.pvalue)) # same observation as the "Inf" in log2FC
+```
+
+#### Clean up df & rename
+
+```{r}
+protein_comp <- df %>%
+  filter(is.na(issue)) %>% # keeps rows with issue == na (so comparisons that are ok)
+  filter(!str_detect(Protein, "Cont_")) %>% # remove contaminant proteins
+  filter(!str_detect(log2FC, "Inf")) %>% # remove infinity/missing fold change values
+  dplyr::select(Protein:adj.pvalue) # rm weird ...1 col & issue col, skip this? 
+
+# check 
+head(protein_comp) 
+str(protein_comp) # 7724 x 7
+colnames(protein_comp)
+```
+
+Convert UniProt Accessions into EntrezID using bitr()
+
+-   [bitr: Biological ID Translator](https://yulab-smu.top/biomedical-knowledge-mining-book/useful-utilities.html)
+
+-   Note Entrez id is a central gene identifier - so want to map uniprot accession with gene ID which then can be mapped to other IDs.
+
+    -   Side note - DO NOT ANNOTATE WITH MULTIPLE TOTYPE e.g. toType = c("ENTREZID", "SYMBOL", "GENENAME"), will result in duplication errors since various gene names or symbols get mapped on?
+
+```{r}
+keytypes(org.Rn.eg.db) # key types available
+
+# 7158/7724 mapped (8.05% missing)
+entrezID <- bitr(protein_comp$Protein, # input df
+             fromType = "UNIPROT", # input type
+             toType = "ENTREZID", # output type
+             OrgDb = org.Rn.eg.db) # annotation db
+             
+# UNIPROT -> ENTREZID - 8.05% of input gene failed to map
+# UNIPROT -> ENSEMBL 12.91% of input gene IDs are fail to map...
+# UNIPROT -> REFSEQ - 8.05% of input gene IDs are fail to map...
+# UNIPROT -> SYMBOL -  8.05% of input gene IDs are fail to map...
+```
+
+Merge EntrezID onto protein list
+
+```{r}
+protein_genes <- merge(entrezID, protein_comp,
+                       by.x = "UNIPROT",
+                       by.y = "Protein")
+
+head(protein_genes)
+dim(protein_genes)
+```
+
+```{r}
+#write out?
+```
+
+Prepare Ranked Gene List
+
+```{r}
+# use sign(df$log2fc)*(-log10(df$pval)) + BSS & PNNL
+
+# using 
+geneList_df <- protein_genes %>%
+  mutate(ranking = sign(protein_genes$log2FC)*(-log10(protein_genes$pvalue))) %>%
+  group_by(ENTREZID) %>%
+  summarise(ranking = mean(ranking, na.rm = TRUE)) %>%
+  arrange(-ranking)
+
+# can export 
+
+dim(geneList_df) # 7153 x 2 - same as prev test! 
+
+# pvalue & log2FC  min = -7.6191 max 4.559
+# adj.pvalue * log2FC = max 1.3938 & min -3.7302
+
+# ~ ~ ~ ~ ~ ~ ~ 
+# convert into a named vector to supply to fgsea()
+geneList <- tibble::deframe(geneList_df) 
+
+head(geneList)
+tail(geneList)
+plot(geneList)
+sum(is.na(geneList)) # 0 | without extra line (not sure why previous version had NA)
+```
+
+### Running GSEA via clusterProfiler
+
+### msigbdr
+
+-   [Introduction to msigdbr](https://igordot.github.io/msigdbr/articles/msigdbr-intro.html)
+
+    -   [species & orthologs](https://igordot.github.io/msigdbr/articles/msigdbr-intro.html#species) - has human & mouse but can rat orthologs & use.
+
+        -   TO CHECK/DECIDE - Using mouse or human genesets?
+
+            -   nvm only allows `species =  "Mus musculus"` if you have `db_species = "MM"` ?
+
+    -   [Pathway enrichment analysis](https://igordot.github.io/msigdbr/articles/msigdbr-intro.html#pathway-enrichment-analysis) (uses enricher() from clusterProfiler or fgsea())
+
+-   [Package 'msigdbr' (July 2025)](https://cran.r-project.org/web/packages/msigdbr/index.html)
+
+-   [12 Universal enrichment analysis](https://yulab-smu.top/biomedical-knowledge-mining-book/universal-api.html) (ClusterProfiler)
+
+    -   [12.3 MSigDb analysis](https://yulab-smu.top/biomedical-knowledge-mining-book/universal-api.html#msigdb-analysis)
+
+    -   [**12.3.2 MSigDb gene set enrichment analysis**](https://yulab-smu.top/biomedical-knowledge-mining-book/universal-api.html#msigdb-gsea) **using `GSEA()`**
+
+    -   A bit more detailed <https://uclouvain-cbio.github.io/WSBIM2122/sec-gsea.html#using-the-clusterprofiler-package>
+
+-   [Gene Set Enrichment Analysis with ClusterProfiler (NYU NGS)](https://learn.gencore.bio.nyu.edu/rna-seq-analysis/gene-set-enrichment-analysis/)
+
+    -   lots of useful stuff on plots
+
+```{r}
+# # msigdbr helper functions
+# msigdbr_species() # 20 species
+# msigdbr_collections() # 33730584 bytes?
+# unique(msigdbr_df$db_version) # check ver
+# citation("msigdbr") # how to cite
+```
+
+#### Hallmark Collection (H)
+
+```{r}
+# Preps for fgsea()  
+
+# # example
+# # Get CGP (chemical and genetic perturbations) gene sets with genes mapped to rat
+# orthologs gs <- msigdbr(species = "Rattus norvegicus",
+#                         collection = "C2",
+#                         subcollection = "CGP")
+
+# pull in hallmark genesets from msigdbr, maps rat orthologs to human geneset 
+hallmark_gs_df <- msigdbr(species = "Rattus norvegicus", # my species
+                             collection = "H") # Hallmark collection
+                             
+head(hallmark_gs_df) 
+dim(hallmark_gs_df) # 7294 x 23
+
+# ~ ~ ~ ~ ~ ~ ~ 
+# Convert in 2 name list format required for fgsea()
+# Splits in separate lists containing Entrez grouped by the geneset name (gs_name)
+# ENTREZID is ncbi_gene?
+hallmark_genesets <-  hallmark_gs_df %>%
+  split(x = .$ncbi_gene, # containing - df/vector
+        f = .$gs_name) # file - factor
+
+#str(hallmark_genesets) # list of 50
+```
+
+```{r}
+# Preps TERM2GENE for GSEA() | 1st col = term_id/geneset & 2nd col = mapped gene
+msig_h <- msigdbr(species = "Rattus norvegicus",
+                  collection = "H") %>%
+ dplyr::select(gs_name, ncbi_gene) # get only geneset name & corresponding ENTREZID
+
+head(msig_h)
+dim(msig_h) #  7294 x 2
+```
+
+Running gsea with GSEA()
+
+```{r}
+# using GSEA() from clusterProfiler
+
+# uses fgseaMultilevel() function? | auto 
+GSEA_hallmark <- GSEA(geneList = geneList, # ranked gene list
+                      TERM2GENE = msig_h, # genesets
+                      by = 'fgsea' # method - fgsea or DOSE
+                      )
+
+# Output has lots of extra info! results + genesets, Genelist, input params! -> save rda
+# can make into tibble for easy viewing 
+GSEA_hallmark_tibble <- as_tibble(GSEA_hallmark)
+```
+
+Plots
+
+```{r fig.height=6, fig.width=9}
+enrichplot::dotplot(GSEA_hallmark,
+                    showCategory = 15,
+                    title = "Housing - EE vs. SH (t8 - t2)")
+```
+
+```{r}
+dotplot(GSEA_hallmark,
+        split = ".sign", # split by sign - positive vs negative enrichment score
+        title = "Housing - EE vs. SH (t8 - t2) - split by sign",
+        font.size = 11) +  
+  facet_grid(.~.sign) # split plots by sign
+```
+
+GSEA plot using gseaplot() from enrichplot
+
+-   Look into making into a function!
+
+```{r fig.height=6, fig.width=9}
+# GSEA plot - positive - most sig [1] - Hallmark_oxidative_phosphorylation
+gseaplot(GSEA_hallmark, 
+         geneSetID = 1, # 1st geneset is 1
+         by = "all", # running score or position
+         title = GSEA_hallmark$Description[1])
+```
+
+```{r fig.height=6, fig.width=9}
+# GSEA plot - positive - most sig [2] - Hallmark_MYC_targets_v1
+gseaplot(GSEA_hallmark, 
+         geneSetID = 2, # 2nd geneset is 2
+         by = "all", # running score or position
+         title = GSEA_hallmark$Description[2])
+```
+
+Ridgeplot
+
+```{r fig.height=6, fig.width=9}
+ridgeplot(GSEA_hallmark) + labs(x = "enrichment distribution")
+```
+
+#### C5 Ontology gene sets (GO)
+
+```{r}
+# Preps TERM2GENE for GSEA() | 1st col = term_id/geneset & 2nd col = mapped gene
+msig_C5_CC <- msigdbr(species = "Rattus norvegicus",
+                      collection = "C5", # C5 - ontology set
+                      subcollection = "CC") %>% # GO cellular component
+  dplyr::select(gs_name, ncbi_gene)
+
+dim(msig_C5_CC) # 98011 x 2 for C5 CC!!!
+```
+
+```{r}
+# using GSEA() from clusterProfiler
+# uses fgseaMultilevel() function? | auto 
+GSEA_msig_C5_CC <- GSEA(geneList = geneList, # ranked gene list
+                      TERM2GENE = msig_C5_CC, # genesets
+                      #organism = "rno",
+                      by = 'fgsea') # method - fgsea or DOSE
+
+# had to restart R to fix error | worked after - see warnings.                      
+                      
+
+# Output has lots of extra info! results + genesets, Genelist, input params! -> save rda
+# can make into tibble for easy viewing 
+GSEA_msig_C5_CC_tibble <- as_tibble(GSEA_msig_C5_CC)
+```
+
+```{r fig.height=27, fig.width=11}
+# 102 significant beyond adj pvalue 0.05 
+# neuronal & synaptic ones activated in EE. phew! 
+dotplot(GSEA_msig_C5_CC,
+        split = ".sign", # split by pos vs neg enrichment score
+        showCategory = 102,
+        font.size = 11,
+        label_format = 55,
+        title = "Housing - EE vs. SH (t8 - t2) - GSEA_msig_C5_CC") +
+  facet_grid(.~.sign) # split plots by sign
+```
+
+```{r}
+# simplify
+# simplify only applied to output from gseGO and enrichGO...
+# sim_msig_go_cc <- simplify(GSEA_msig_C5_CC)
+```
+
+#### NOTE TO SELF - so many other curated genesets available on MSigDB!!! Look into!
+
+### GO via gseGO
+
+-   [**6 GO enrichment analysis**](https://yulab-smu.top/biomedical-knowledge-mining-book/clusterprofiler-go.html#clusterprofiler-go)
+
+    -   [6.4 GO Gene Set Enrichment Analysis](https://yulab-smu.top/biomedical-knowledge-mining-book/clusterprofiler-go.html#go-gene-set-enrichment-analysis)
+
+-   [17.4 GO utilities](https://yulab-smu.top/biomedical-knowledge-mining-book/useful-utilities.html#go-utilities)
+
+    -   [**17.4.3 reduce redundancy of enriched GO terms via `simplfy()`**](https://yulab-smu.top/biomedical-knowledge-mining-book/useful-utilities.html#reduce-redundancy-of-enriched-go-terms)
+
+-   [**enrichplot pairwise_termsim()**](https://rdrr.io/bioc/enrichplot/man/pairwise_termsim.html)
+
+```{r}
+gseGO_cc <- gseGO(geneList = geneList, 
+             ont ="CC", # cell component
+             keyType = "ENTREZID",
+             OrgDb = org.Rn.eg.db, # if you unset it uses bg based on provide geneList?
+             by = "fgsea",
+             minGSSize = 10, 
+             maxGSSize = 500, 
+             pvalueCutoff = 0.05, 
+             verbose = TRUE, 
+             pAdjustMethod = "BH")
+
+# can make into tibble for easy viewing 
+gseGO_cc_tibble <- as_tibble(gseGO_cc) 
+```
+
+```{r fig.height=18, fig.width=10}
+# 102 significant beyond adj pvalue 0.05 
+enrichplot::dotplot(gseGO_cc,
+                    split  = ".sign", # split by + vs - enrirchment score
+                    showCategory = 102,
+                    font.size = 11,
+                    label_format = 55,
+                    title = "Housing - EE vs. SH (t8 - t2) - gseGO_CC"
+                    ) +
+  facet_grid(.~.sign) # split plots by sign
+
+```
+
+```{r fig.height=9, fig.width=10}
+# 6.6 Visualize enriched GO terms as a directed acyclic graph
+# goplot requires ggarchery | plot induced GO DAG of significant terms
+goplot(gseGO_cc,
+       showCategory = 25, # default 10
+       layout = "sugiyama") # default
+```
+
+```{r}
+# Gene-Concept Network with cnetplot()
+
+```
+
+```{r}
+# 15.4 Heatmap-like functional classification
+
+```
+
+```{r fig.height=15, fig.width=12}
+#15.5 Tree plot
+# The treeplot() function performs hierarchical clustering of enriched terms. 
+# Relies on the pairwise similarities of the enriched terms calc by the pairwise_termsim() func, which by default using Jaccard’s similarity index (JC).
+
+gseGO_cc_pwts <- pairwise_termsim(gseGO_cc)
+
+treeplot(gseGO_cc_pwts,
+         hclust_method = "average", # see hclust () documentation on methods
+         showCategory = 70, # default 30
+         nCluster = 10, # default 5 | parent term changes a lot & weird assign at times
+         )
+
+# works but unstable assignment - look into
+```
+
+```{r fig.height=6, fig.width=7}
+# 15.6 Enrichment Map 
+# also use gseGO_cc_pwts <- pairwise_termsim(gseGO_cc) from above
+
+emapplot(gseGO_cc_pwts, 
+         showCategory = 30, # default 30
+         # cex_category = 1.5, # can be used to resize nodes | not in ?emapplot?
+         # layout = "kk" # change layout | not in ?emapplot? nvm old doesn't accept?
+         )
+```
+
+```{r fig.height=7, fig.width=7}
+# simplfy
+sim_gseGO_cc <- simplify(gseGO_cc_pwts,
+                         cutoff=0.7,
+                         by="p.adjust",
+                         select_fun=min)
+
+# plot simplified
+emapplot(sim_gseGO_cc)
+```
+
+#### NOTE TO SELF - Look at the other plots & what are appropriate presentation guidelines
+
+### KEGG via gseKEGG
+
+-   [7 KEGG enrichment analysis](https://yulab-smu.top/biomedical-knowledge-mining-book/clusterprofiler-kegg.html#clusterprofiler-kegg)
+
+    -   [7.3 KEGG pathway gene set enrichment analysis](https://yulab-smu.top/biomedical-knowledge-mining-book/clusterprofiler-kegg.html#clusterprofiler-kegg-pathway-gsea)
+
+    -   [7.5 KEGG module gene set enrichment analysis](https://yulab-smu.top/biomedical-knowledge-mining-book/clusterprofiler-kegg.html#clusterprofiler-kegg-module-gsea)
+
+    -   [7.6 Visualize enriched KEGG pathways](https://yulab-smu.top/biomedical-knowledge-mining-book/clusterprofiler-kegg.html#visualize-enriched-kegg-pathways) -
+
+```{r}
+# look at rat info kegg
+rat <- search_kegg_organism('rno', by='kegg_code')
+head(rat)
+```
+
+```{r}
+gseKEGG_r <- gseKEGG(geneList = geneList, 
+                     organism = 'rno', #RAT
+                     keyType = "kegg", 
+                     minGSSize = 10, # min gene set size
+                     maxGSSize = 500, # max gene set size
+                     pvalueCutoff = 0.05, # pvalue cutoff
+                     pAdjustMethod = 'BH', #BejaminiHoc Correciton
+                     verbose = TRUE) # print message or not
+
+gse_kegg_tibble <- as_tibble(gseKEGG_r) # 26 sig or 23??
+```
+
+```{r fig.height=9, fig.width=7}
+enrichplot::dotplot(gseKEGG_r,
+                    split = ".sign",  # split by + vs - enrirchment score
+                    showCategory = 30,
+                    title = "Housing - EE vs. SH (t8 - t2) - gseKEGG_r") +
+  facet_grid(.~.sign) # split plot by seign
+
+```
+
+Visualise enriched KEGG pathways via pathview() & browseKEGG()
+
+-   [KEGG Rat Pathways](https://www.kegg.jp/kegg-bin/show_organism?menu_type=pathway_maps&org=rno)
+
+Glutamatergic synapse - Rattus norvegicus (rat)
+
+```{r}
+# view browseKEGG from clusterProfiler
+# launches to web when function run! 
+# browseKEGG(gseKEGG_r,
+#            pathID = 'rno04724') # glutamtergic synapse rat
+```
+
+```{r}
+# via pathview::pathview()
+
+# rno04724 <- pathview(gene.data = geneList,
+#                      pathway.id = 'rno04724', # Glutamatergic synapse - Rat
+#                      species = 'rno',
+#                      limit = list(gene=max(abs(geneList)), cpd=1))
+
+# writes out png & xml files to source file location
+# look into how to plot & also save as PDF
+```
+
+```{r}
+# rno04723 - Retrograde endocannabinoid signaling
+
+# rno04723 <- pathview(gene.data = geneList,
+#                      pathway.id = 'rno04723',
+#                      species = 'rno',
+#                      limit = list(gene=max(abs(geneList)), cpd=1))
+
+# gives error ???
+```
+
+```{r}
+# rno05016 - Huntington disease | runs okay!
+# rno05016 <- pathview(gene.data = geneList,
+#                      pathway.id = 'rno05016',
+#                      species = 'rno',
+#                      limit = list(gene=max(abs(geneList)), cpd=1))
+```
+
+```{r}
+# rno04722 - neurotrophin_signaling
+# rno04722 <- pathview(gene.data = geneList,
+#                      pathway.id = 'rno04722',
+#                      species = 'rno',
+#                      limit = list(gene=max(abs(geneList)), cpd=1))
+```
+
+```{r}
+# rno04720 - Long Term Potentiation (LTP)
+# rno04720 <- pathview(gene.data = geneList,
+#                      pathway.id = 'rno04720',
+#                      species = 'rno',
+#                      limit = list(gene=max(abs(geneList)), cpd=1))
+```
+
+```{r}
+# rno05012 - Parkinsons
+# rno05012 <- pathview(gene.data = geneList,
+#                      pathway.id = 'rno05012',
+#                      species = 'rno',
+#                      limit = list(gene=max(abs(geneList)), cpd=1))
+```
+
+```{r}
+# rno04082 - Neuroactive ligand signaling | nice holistic view of many neuroligand paths
+# rno04082 <- pathview(gene.data = geneList,
+#                      pathway.id = 'rno04082',
+#                      species = 'rno',
+#                      limit = list(gene=max(abs(geneList)), cpd=1))
+```
+
+```{r}
+# rno05033 - Nicotine Addiction | not much just ampa & gaba
+# rno05033 <- pathview(gene.data = geneList,
+#                      pathway.id = 'rno05033',
+#                      species = 'rno',
+#                      limit = list(gene=max(abs(geneList)), cpd=1))
+```
+
+\~ \~ \~
+
+#### KEGG Module GSEA via gseMKEGG()
+
+```{r}
+gseMKEGG_r <- gseMKEGG(geneList = geneList,
+                       organism = 'rno',
+                       pvalueCutoff = 1)
+
+head(gseMKEGG_r)
+gseMKEGG_r_tibble <- as_tibble(gseMKEGG_r) # 17 sig @ adj-pval .05? | why spec as 1 abv?
+```
+
+```{r fig.height=9, fig.width=8}
+# im confused - loot at gseMKEGG function later
+enrichplot::dotplot(gseMKEGG_r,
+                    split = ".sign",  # split by + vs - enrirchment score
+                    showCategory = 30,
+                    title = "Housing - EE vs. SH (t8 - t2) - gseMKEGG_r") +
+  facet_grid(.~.sign) # split plot by seign
+```
