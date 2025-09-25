@@ -331,8 +331,8 @@ dotplot(GSEA_msig_C5_CC,
 
 ```{r}
 # simplify
-# simplify only applied to output from gseGO and enrichGO...
-# sim_msig_go_cc <- simplify(GSEA_msig_C5_CC)
+sim_msig_go_cc <- pairwise_termsim(GSEA_msig_C5_CC)
+
 ```
 
 #### NOTE TO SELF - so many other curated genesets available on MSigDB!!! Look into!
@@ -348,6 +348,8 @@ dotplot(GSEA_msig_C5_CC,
     -   [**17.4.3 reduce redundancy of enriched GO terms via `simplfy()`**](https://yulab-smu.top/biomedical-knowledge-mining-book/useful-utilities.html#reduce-redundancy-of-enriched-go-terms)
 
 -   [**enrichplot pairwise_termsim()**](https://rdrr.io/bioc/enrichplot/man/pairwise_termsim.html)
+
+#### gseGO CC
 
 ```{r}
 gseGO_cc <- gseGO(geneList = geneList, 
@@ -436,6 +438,118 @@ emapplot(sim_gseGO_cc)
 
 #### NOTE TO SELF - Look at the other plots & what are appropriate presentation guidelines
 
+#### gseGO MF
+
+```{r}
+gseGO_mf <- gseGO(geneList = geneList, 
+             ont ="MF", # molecular function
+             keyType = "ENTREZID",
+             OrgDb = org.Rn.eg.db, # if you unset it uses bg based on provide geneList?
+             by = "fgsea",
+             minGSSize = 10, 
+             maxGSSize = 500, 
+             pvalueCutoff = 0.05, 
+             verbose = TRUE, 
+             pAdjustMethod = "BH")
+
+# can make into tibble for easy viewing 
+gseGO_mf_tibble <- as_tibble(gseGO_mf) 
+```
+
+```{r fig.height=15, fig.width=8}
+# 63 significant beyond adj pvalue 0.05 
+enrichplot::dotplot(gseGO_mf,
+                    split  = ".sign", # split by + vs - enrirchment score
+                    showCategory = 65,
+                    font.size = 11,
+                    label_format = 55,
+                    title = "Housing - EE vs. SH (t8 - t2) - gseGO_mf"
+                    ) +
+  facet_grid(.~.sign) # split plots by sign
+```
+
+```{r fig.height=20, fig.width=12}
+#15.5 Tree plot
+gseGO_mf_pwts <- pairwise_termsim(gseGO_mf)
+
+treeplot(gseGO_mf_pwts,
+         hclust_method = "average", # see hclust () documentation on methods
+         showCategory = 65, # default 30
+         nCluster = 20) # default 5 | parent term changes a lot & weird assign at times
+         
+
+# works but unstable assignment - look into
+```
+
+```{r fig.height=7, fig.width=7}
+sim_gseGO_mf <- simplify(gseGO_mf_pwts,
+                         cutoff=0.7,
+                         by="p.adjust",
+                         select_fun=min)
+# plot simplified
+emapplot(sim_gseGO_mf)
+```
+
+```{r fig.height=8, fig.width=8}
+goplot(gseGO_mf,
+       showCategory = 25, # default 10
+       layout = "sugiyama") # default
+```
+
+#### gseGO BP
+
+```{r}
+gseGO_bp <- gseGO(geneList = geneList, 
+             ont ="BP", # Biological process
+             keyType = "ENTREZID",
+             OrgDb = org.Rn.eg.db, # if you unset it uses bg based on provide geneList?
+             by = "fgsea",
+             minGSSize = 10, 
+             maxGSSize = 500, 
+             pvalueCutoff = 0.05, 
+             verbose = TRUE, 
+             pAdjustMethod = "BH")
+
+# can make into tibble for easy viewing 
+gseGO_bp_tibble <- as_tibble(gseGO_bp) 
+```
+
+```{r fig.height=35, fig.width=9}
+# 176 significant beyond adj pvalue 0.05 
+enrichplot::dotplot(gseGO_bp,
+                    split  = ".sign", # split by + vs - enrirchment score
+                    showCategory = 176,
+                    font.size = 11,
+                    label_format = 80,
+                    title = "Housing - EE vs. SH (t8 - t2) - gseGO_bp"
+                    ) +
+  facet_grid(.~.sign) # split plots by sign
+```
+
+```{r fig.height=18, fig.width=12}
+#15.5 Tree plot
+gseGO_bp_pwts <- pairwise_termsim(gseGO_bp)
+
+treeplot(gseGO_bp_pwts,
+         hclust_method = "average", # see hclust () documentation on methods
+         showCategory = 176, # default 30
+         nCluster = 20, # default 5 | parent term changes a lot & weird assign at times
+         )
+
+# works but unstable assignment - look into
+```
+
+```{r fig.height=7, fig.width=7}
+sim_gseGO_bp <- simplify(gseGO_bp_pwts,
+                         cutoff=0.7,
+                         by="p.adjust",
+                         select_fun=min)
+# plot simplified
+emapplot(sim_gseGO_cc)
+```
+
+\~ \~ \~ \~ \~ \~ \~ \~ \~
+
 ### KEGG via gseKEGG
 
 -   [7 KEGG enrichment analysis](https://yulab-smu.top/biomedical-knowledge-mining-book/clusterprofiler-kegg.html#clusterprofiler-kegg)
@@ -462,7 +576,7 @@ gseKEGG_r <- gseKEGG(geneList = geneList,
                      pAdjustMethod = 'BH', #BejaminiHoc Correciton
                      verbose = TRUE) # print message or not
 
-gse_kegg_tibble <- as_tibble(gseKEGG_r) # 26 sig or 23??
+gse_kegg_tibble <- as_tibble(gseKEGG_r) # 26 sig or 23?? (0.05)| 32 if adjp = 0.1
 ```
 
 ```{r fig.height=9, fig.width=7}
@@ -474,7 +588,7 @@ enrichplot::dotplot(gseKEGG_r,
 
 ```
 
-Visualise enriched KEGG pathways via pathview() & browseKEGG()
+#### Visualise enriched KEGG pathways via pathview() & browseKEGG()
 
 -   [KEGG Rat Pathways](https://www.kegg.jp/kegg-bin/show_organism?menu_type=pathway_maps&org=rno)
 
@@ -486,6 +600,8 @@ Glutamatergic synapse - Rattus norvegicus (rat)
 # browseKEGG(gseKEGG_r,
 #            pathID = 'rno04724') # glutamtergic synapse rat
 ```
+
+KEGG - Organismal Systems \> Nervous System (10 pathways)
 
 ```{r}
 # via pathview::pathview()
@@ -559,6 +675,177 @@ Glutamatergic synapse - Rattus norvegicus (rat)
 ```
 
 \~ \~ \~
+
+```{r}
+# rno04721 - Synaptic_vesicle_cycle | most up regulated in EE 
+# rno04721 <- pathview(gene.data = geneList,
+#                      pathway.id = 'rno04721',
+#                      species = 'rno',
+#                      limit = list(gene=max(abs(geneList)), cpd=1))
+```
+
+```{r}
+# rno04727 - GABAergic_synapse_ 
+# rno04727 <- pathview(gene.data = geneList,
+#                      pathway.id = 'rno04727',
+#                      species = 'rno',
+#                      limit = list(gene=max(abs(geneList)), cpd=1))
+```
+
+```{r}
+# rno04728 - Dompaminergic_synapse_
+# rno04728 <- pathview(gene.data = geneList,
+#                      pathway.id = 'rno04728',
+#                      species = 'rno',
+#                      limit = list(gene=max(abs(geneList)), cpd=1))
+```
+
+```{r}
+# rno04726 - Serotonergic_synapse_
+# rno04726 <- pathview(gene.data = geneList,
+#                      pathway.id = 'rno04726',
+#                      species = 'rno',
+#                      limit = list(gene=max(abs(geneList)), cpd=1))
+```
+
+```{r}
+# rno04725 - Cholinergic_synapse_ | Interesting seems 2 be mediating synaptic plasticity
+# rno04725 <- pathview(gene.data = geneList,
+#                      pathway.id = 'rno04725',
+#                      species = 'rno',
+#                      limit = list(gene=max(abs(geneList)), cpd=1))
+```
+
+```{r}
+# rno04730 - LTD_ | cerebellum pathview? | otherwise interesting
+# rno04730 <- pathview(gene.data = geneList,
+#                      pathway.id = 'rno04730',
+#                      species = 'rno',
+#                      limit = list(gene=max(abs(geneList)), cpd=1))
+```
+
+Environmental Information Processing \> Signal Transduction
+
+```{r}
+# rno04010 - MAPK_signaling_ | Interesting - cell proliferation & differentiation
+# rno04010 <- pathview(gene.data = geneList,
+#                      pathway.id = 'rno04010',
+#                      species = 'rno',
+#                      limit = list(gene=max(abs(geneList)), cpd=1))
+```
+
+```{r}
+# rno04014 - Ras_signaling_
+# rno04014 <- pathview(gene.data = geneList,
+#                      pathway.id = 'rno04014',
+#                      species = 'rno',
+#                      limit = list(gene=max(abs(geneList)), cpd=1))
+```
+
+Most significant Pathways
+
+1 - Oxidative Phosphorylation (rno00190) - Metabolism \>Energy Metabolism \> Ox Pho
+
+```{r}
+# rno00190 - Oxidative_phosphorylation_ | several highly upregulated
+# rno00190 <- pathview(gene.data = geneList,
+#                      pathway.id = 'rno00190',
+#                      species = 'rno',
+#                      limit = list(gene=max(abs(geneList)), cpd=1))
+```
+
+2 rno05415 Diabetic_cardiomyopathy - Human Diseases; Cardiovascular Disease
+
+```{r}
+# rno05415 - Diabetic_cardiomyopathy_ | upreg @ mitocondrial - what does this mean?
+# rno05415 <- pathview(gene.data = geneList,
+#                      pathway.id = 'rno05415',
+#                      species = 'rno',
+#                      limit = list(gene=max(abs(geneList)), cpd=1))
+```
+
+3 - Non-alcoholic fatty liver disease rno04932 - Endocrine & metabolic disease
+
+```{r}
+# # rno04932 - Non-alcoholic_fatty_liver_d_ | driven by cx1,3,4 mito resp chain
+# rno04932 <- pathview(gene.data = geneList,
+#                      pathway.id = 'rno04932',
+#                      species = 'rno',
+#                      limit = list(gene=max(abs(geneList)), cpd=1))
+```
+
+4 - Thermogenesis\_ (rno04714) - adipose tissue & keep warm \| fat SH rats & skinny EE
+
+```{r}
+# rno04714 - Thermogenesis_ | mitochondrial + others - look into
+# rno04714 <- pathview(gene.data = geneList,
+#                      pathway.id = 'rno04714',
+#                      species = 'rno',
+#                      limit = list(gene=max(abs(geneList)), cpd=1))
+```
+
+9 - Pathways of neurodegeneration - multiple diseases (rno05022) (neurodegen disea
+
+```{r}
+# rno05022 - Pathways_of_neurodegeneration_multi_ |interesting/confusing
+# rno05022 <- pathview(gene.data = geneList,
+#                      pathway.id = 'rno05022',
+#                      species = 'rno',
+#                      limit = list(gene=max(abs(geneList)), cpd=1))
+```
+
+Not enriched but interesting
+
+```{r}
+# #rno04081 - Hormone_signaling_ | various guanine nucleotide binding pro & PKA down
+# # and only SST (somatostatin) & Opioid (Penk) Up | also only brain specific up
+# rno04081 <- pathview(gene.data = geneList,
+#                      pathway.id = 'rno04081',
+#                      species = 'rno',
+#                      limit = list(gene=max(abs(geneList)), cpd=1))
+```
+
+```{r}
+# rno04080 - Neuroactive_ligand_receptor_interaction_ | not many but interesting - look
+# rno04080 <- pathview(gene.data = geneList,
+#                      pathway.id = 'rno04080',
+#                      species = 'rno',
+#                      limit = list(gene=max(abs(geneList)), cpd=1))
+```
+
+```{r}
+# rno04060 - Cytokine_cytokine_receptor_interaction_ | no up or down
+# rno04060 <- pathview(gene.data = geneList,
+#                      pathway.id = 'rno04060',
+#                      species = 'rno',
+#                      limit = list(gene=max(abs(geneList)), cpd=1))
+```
+
+```{r}
+# rno04512 - ECM_receptor_interaction_ | all down 
+# rno04512 <- pathview(gene.data = geneList,
+#                      pathway.id = 'rno04512',
+#                      species = 'rno',
+#                      limit = list(gene=max(abs(geneList)), cpd=1))
+```
+
+```{r}
+# rno04514 - Cell_adhesion_molecules_ | no up or down except CXADR down
+# rno04514 <- pathview(gene.data = geneList,
+#                      pathway.id = 'rno04514',
+#                      species = 'rno',
+#                      limit = list(gene=max(abs(geneList)), cpd=1))
+```
+
+```{r}
+# rno04360 - Axon_guidance_ | most down except Ras
+# rno04360 <- pathview(gene.data = geneList,
+#                      pathway.id = 'rno04360',
+#                      species = 'rno',
+#                      limit = list(gene=max(abs(geneList)), cpd=1))
+```
+
+\~ \~ \~ \~ \~ \~ \~ \~ \~ \~ \~ \~
 
 #### KEGG Module GSEA via gseMKEGG()
 
