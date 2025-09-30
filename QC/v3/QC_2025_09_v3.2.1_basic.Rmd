@@ -13,7 +13,147 @@ Data used
 
 Based off of
 
+Links
+
+1.  [Mastering File Manipulation with R’s list.files() Function](https://www.r-bloggers.com/2023/05/mastering-file-manipulation-with-rs-list-files-function/)
+2.  [Reading Data from multiple files](https://www.r-bloggers.com/2023/05/mastering-file-manipulation-with-rs-list-files-function/)
+
 Load Packages
+
+```{r}
+library(readr) # read csv files read_csv
+library(readxl) # read in excel files read_excel
+library(tidyr) # pivot longer
+library(stringr) # str_detect()
+library(dplyr)
+library(ggh4x) # facet_nested - extensions of facet_grid for nesting
+library(cowplot) # for plot_grid()
+library(gt)
+library(ggridges)
+library(forcats) #fct_rev
+library(purrr) # for map()
+library(ggvenn) #for ggvenn
+```
+
+Load Data
+
+PSMs
+
+```{r}
+#set_wd to sourcefile location
+#input_dir <- "input/PD/"
+# dirs <- list.dirs(input_dir) # lists directories | not needed 
+
+PSMs_2_read <-  list.files("input/PD", # where 2 read from
+                       pattern = ".*PSM.*\\.txt$", # pattern PSM & ends .txt
+                       full.names = TRUE, # get full name including path
+                       recursive = TRUE) # gets files in subdirectories too
+
+
+PD_PSMs <- read_tsv(PSMs_2_read, # read all files from list above
+                    id = "file_path") # keep file path as an id column
+
+# dim(PD_PSMs) #3658257 x 55
+```
+
+MS/MS Spectrum Info
+
+```{r}
+MSMS_2_read <- list.files("input/PD",
+                          pattern = ".*MSMSSpectrumInfo.*\\.txt$",
+                          full.names = TRUE,
+                          recursive = TRUE)
+
+PD_MSMS <- read_tsv(MSMS_2_read, id = "file_path")
+  
+dim(PD_MSMS) #16724105 x 55
+```
+
+Proteins
+
+```{r}
+Proteins_2_read <- list.files("input/PD",
+                          pattern = ".*Proteins.*\\.txt$", # make sure Proteins with s
+                          full.names = TRUE,
+                          recursive = TRUE)
+
+PD_Proteins <- read_tsv(Proteins_2_read, id = "file_path") # error uneven df size?
+  
+dim(PD_Proteins) #16724105 x 55
+```
+
+Results Statistics
+
+```{r}
+RS_2_read <- list.files("input/PD",
+                        pattern = ".*ResultStatistics.*\\.txt$",
+                        full.names = TRUE,
+                        recursive = TRUE)
+
+PD_RS <- read_tsv(RS_2_read, id = "file_path")
+
+dim(PD_RS) # 155572 x 12
+```
+
+\~ \~ \~
+
+Load Annotation Sheets
+
+Raw File Annotation
+
+```{r}
+raw_anno <- read_csv("input/anno/TMT_B1-4_lcms_run_info_anno_20250830.csv")
+```
+
+Sample Annotation
+
+\~ \~ \~ \~
+
+Write out data?
+
+Alternatively use left join to save on writing out extra.
+
+```{r}
+# checks
+# colnames(PD_PSMs)
+# str(PD_PSMs)
+# length(unique(PD_PSMs$file_path)) # 331 
+# length(unique(PD_PSMs$`File ID`)) # 112 (so 96 canonical + 16 extras)
+
+# for relocate(any_of()) function below (can't do c())
+raw_cols <- c("Mixture", "TechRepMixture", "Fraction")
+
+# Clean up & modify data 
+PSMs <- PD_PSMs %>%
+  
+  filter(!str_detect(file_path, "extra")) %>% # gets rid of files in the extra folders
+  
+  # new cols
+  mutate(folder = str_extract(file_path, "(?<=input/PD/)[^/]+")) %>%  # folder name
+  mutate(PD_result_file = basename(file_path)) %>% # file name 
+  mutate(PD_set = recode(folder, # PD_set or analysis | old = new 
+                  "2025_08_Steph_TMTpro_PSMs_MSstatsTMT_EEvsSH_for_PhD" =
+                           "1pspg_2025",
+                  "2025_09_sp_Steph_TMTpro_PSMs_MSstatsTMT_EEvsSH_for_PhD" = 
+                           "sp_2025",
+                  "2025_09_sp_w_iso_Steph_TMTpro_PSMs_MSstatsTMT_EEvsSH_for_PhD" = 
+                           "sp_w_iso_2025",
+                  "Steph_01NOV2024_all_EE-SH_M-F_MSstatsTMT" = 
+                          "sp_w_iso_2024_rab"),
+         .after = file_path) %>%
+  
+  # join 2 anno file for raw
+  full_join(raw_anno, join_by(`Spectrum File` == Run)) %>%
+  
+  # move columns
+  relocate(file_path, .after = last_col()) %>%
+  relocate(any_of(raw_cols), .after = PD_set) %>%
+  
+  # make 1st 4 cols as factor
+  # mutate(across((1:4), as.factor)) # error
+  mutate(across(c(Mixture, TechRepMixture, Fraction, PD_set), as.factor))
+
+```
 
 ```{r}
 
