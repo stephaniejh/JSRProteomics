@@ -4,6 +4,8 @@
 # compared to v3.1.1.2 (sp w iso - 9878 seq)
 
 # t1 - Nov 2024 PSMs data, with same settings as (08NOV2024 v1) & same as v3.1.2 t7
+# NOTE (2025_10_02) - Reran & Renamed all outputs to t10 instead of t1 (just to avoid confusion)
+
 # Same results as 08NOV2024 ANS! 
 # PD is the issue?
 
@@ -12,6 +14,8 @@ library(MSstatsTMT)
 library(MSstats) 
 library(readr) 
 library(dplyr) 
+
+
 
 
 # Read in PSMs (same file used for 08NOV2024 - for ANS poster)
@@ -88,17 +92,17 @@ quant.msstats <- proteinSummarization(input.pd,
                                       append = FALSE) 
 
 # # save psum
-# save(quant.msstats,
-#      file = 'output/MSstatsTMT/psum/2025_09_10_sp_w_iso_rrN24_Protein_Summarization_v3.1.3_t1.rda')
-# 
-# write_csv(quant.msstats$FeatureLevelData,
-#           file='output/MSstatsTMT/psum/2025_09_10_sp_w_iso_rrN24_ProteinAbnd_featurelvl_v3.1.3_t1.csv')
-# 
-# write_csv(quant.msstats$ProteinLevelData,
-#           file='output/MSstatsTMT/psum/2025_09_10_sp_w_iso_rrN24_ProteinAbnd_proteinlvl_v3.1.3_t1.csv')
+save(quant.msstats,
+     file = 'output/MSstatsTMT/psum/2025_10_02_sp_w_iso_rrN24_Protein_Summarization_v3.1.3_t10.rda')
+
+write_csv(quant.msstats$FeatureLevelData,
+          file='output/MSstatsTMT/psum/2025_10_02_sp_w_iso_rrN24_ProteinAbnd_featurelvl_v3.1.3_t10.csv')
+
+write_csv(quant.msstats$ProteinLevelData,
+          file='output/MSstatsTMT/psum/2025_10_02_sp_w_iso_rrN24_ProteinAbnd_proteinlvl_v3.1.3_t10.csv')
 
 
-# note w/ protein accession - model fitting for 3847 proteins (v3.1.3 t1)
+# note w/ protein accession - model fitting for 3847 proteins (v3.1.3 t1 & t10 redo)
 # 5 - groupComparisonTMT() ~  * ~  * ~ * ~
 test.pairwise.msstats <- groupComparisonTMT(data = quant.msstats, 
                                             contrast.matrix = "pairwise", # EE vs SH
@@ -107,13 +111,13 @@ test.pairwise.msstats <- groupComparisonTMT(data = quant.msstats,
                                             save_fitted_models = TRUE) #otherwise not saved
 
 
-# # save comp
-# save(test.pairwise.msstats,
-#      file = 'output/MSstatsTMT/comp/2025_09_10_sp_w_iso_rrN24_test_pairwise_msstats_v3.1.3_t1.rda')
-# 
-# #write_csv gives weird ' apostrophe by value but write.csv doesn't?
-# write.csv(test.pairwise.msstats$ComparisonResult,
-#           file='output/MSstatsTMT/comp/2025_09_10_sp_w_iso_rrN24_test_pairwise_msstats_v3.1.3_t1.csv')
+# save comp
+save(test.pairwise.msstats,
+     file = 'output/MSstatsTMT/comp/2025_10_02_sp_w_iso_rrN24_test_pairwise_msstats_v3.1.3_t10.rda')
+
+#write_csv gives weird ' apostrophe by value but write.csv doesn't?
+write.csv(test.pairwise.msstats$ComparisonResult,
+          file='output/MSstatsTMT/comp/2025_10_02_sp_w_iso_rrN24_test_pairwise_msstats_v3.1.3_t10.csv')
 
 
 # volcano plot
