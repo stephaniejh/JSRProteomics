@@ -156,5 +156,16 @@ PSMs <- PD_PSMs %>%
 ```
 
 ```{r}
+# bit convoluted...
+num_PSMs <- PSMs %>%
+  group_by(pick(where(is.factor))) %>%
+  mutate(PSMs = n()) %>%
+  select(c(1:4, PSMs)) %>%
+  unique()
+
+
+```
+
+```{r}
 
 ```
