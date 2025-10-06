@@ -33,6 +33,8 @@ library(ggridges)
 library(forcats) #fct_rev
 library(purrr) # for map()
 library(ggvenn) #for ggvenn
+library(paletteer) # color palette
+library(ggExtra) # fpr ggMarginal
 ```
 
 Load Data
@@ -71,15 +73,18 @@ dim(PD_MSMS) #16724105 x 55
 
 Proteins
 
-```{r}
-Proteins_2_read <- list.files("input/PD",
-                          pattern = ".*Proteins.*\\.txt$", # make sure Proteins with s
-                          full.names = TRUE,
-                          recursive = TRUE)
+Error: object 'PD_Proteins' not found Error during wrapup: not that many frames on the stack Error: no more error handlers available (recursive errors?); invoking 'abort' restart
 
-PD_Proteins <- read_tsv(Proteins_2_read, id = "file_path") # error uneven df size?
-  
-dim(PD_Proteins) #16724105 x 55
+```{r}
+# # Does not work ? - look into
+# Proteins_2_read_ <- list.files("input/PD",
+#                           pattern = ".*Proteins.*\\.txt$", # make sure Proteins with s
+#                           full.names = TRUE,
+#                           recursive = TRUE)
+# 
+# PD_Proteins <- read_tsv(Proteins_2_read_, id = "file_path") # error uneven df size?
+#   
+# dim(PD_Proteins) #16724105 x 55
 ```
 
 Results Statistics
@@ -112,6 +117,8 @@ Sample Annotation
 Write out data?
 
 Alternatively use left join to save on writing out extra.
+
+<https://sparkbyexamples.com/r-programming/r-if-else-multiple-conditions/>
 
 ```{r}
 # checks
@@ -149,10 +156,22 @@ PSMs <- PD_PSMs %>%
   relocate(file_path, .after = last_col()) %>%
   relocate(any_of(raw_cols), .after = PD_set) %>%
   
+  mutate(Year = ifelse(Mixture == 'B1' | Mixture == 'B2',
+                       '2021',
+                       '2022'),
+         .after = PD_set) %>%
+  
   # make 1st 4 cols as factor
   # mutate(across((1:4), as.factor)) # error
-  mutate(across(c(Mixture, TechRepMixture, Fraction, PD_set), as.factor))
+  mutate(across(c(PD_set, Year, Mixture, TechRepMixture, Fraction), as.factor))
 
+```
+
+```{r}
+# #Write out mega PSMs file 
+# write_csv(PSMs, "output/2025_10_03_QC_v3.2.1_PSMs_4s_96f_PD_db.csv") # too big 2 open
+# write_tsv(PSMs, "output/2025_10_03_QC_v3.2.1_PSMs_4s_96f_PD_db.txt")
+# save(PSMs, file = "output/2025_10_03_QC_v3.2.1_PSMs_4s_96f_PD_db.rda")
 ```
 
 ```{r}
@@ -162,10 +181,409 @@ num_PSMs <- PSMs %>%
   mutate(PSMs = n()) %>%
   select(c(1:4, PSMs)) %>%
   unique()
-
-
 ```
 
 ```{r}
+RS <- PD_RS %>%
+  
+  # new cols
+  mutate(folder = str_extract(file_path, "(?<=input/PD/)[^/]+")) %>%  # folder name
+  mutate(PD_result_file = basename(file_path)) %>% # file name 
+  mutate(PD_set = recode(folder, # PD_set or analysis | old = new 
+                  "2025_08_Steph_TMTpro" =
+                           "1pspg_2025",
+                  "2025_09_sp_Steph_TMTpro" = 
+                           "sp_2025",
+                  "2025_09_sp_w_iso_Steph_TMTpro" = 
+                           "sp_w_iso_2025",
+                  "Steph_01NOV2024" = 
+                          "sp_w_iso_2024_rab"),
+         .after = file_path) %>%
 
+  # can't do previous join - do if else & str_extract
+  # mutate(fraction = str_extract(file_path, ))
+  mutate(Year = ifelse(str_detect(file_path, 'DEC2021'),
+                                  '2021',
+                                  '2022'),
+         .after = PD_set) %>%
+  
+  mutate(Mixture = str_extract(file_path, '(?<=_B)[^_\\.]+'),
+         .after = Year) %>%
+  
+  mutate(TechRepMixture = str_extract(file_path, '(?<=_TR)[^_\\.]+'),
+         .after = Mixture) %>%
+  
+  # Fraction - "(?<=HpHF_)[^_\\.]+" - captures after HpHF_ until next _ or .
+  mutate(Fraction = str_extract(file_path, '(?<=HpHF_)[^_\\.-]+'),
+         .after = TechRepMixture) %>%
+  
+  
+  
+  # join 2 anno file for raw | doesn't work no Spectrum File & weird structure df
+  # full_join(raw_anno, join_by(`Spectrum File` == Run)) %>%
+  
+  # move columns
+  relocate(file_path, .after = last_col()) %>%
+  # relocate(any_of(raw_cols), .after = PD_set) %>%
+
+  # make 1st 5 cols as factor
+  # mutate(across((1:4), as.factor)) # error
+  mutate(across(c(PD_set, Year, Mixture, TechRepMixture, Fraction), as.factor)) %>%
+  
+  # noob method | maybe next w above?
+  mutate(Mixture = paste0('B', Mixture)) %>% 
+  
+  # just rid of for now - data structure annoying 
+  filter(!(PD_set == 'sp_w_iso_2024_rab')) # data structure annoying 
+```
+
+```{r}
+# Check assignment of 
+RS_check <- RS %>%
+  select(1:5, folder, PD_result_file, file_path) %>%
+  unique() 
+
+# dim  - 288 x 8  - 96 x 3 = 288 (got rid of Nov 2024 batch for now)
+```
+
+```{r}
+# #write out
+# write_tsv(RS, "output/2025_10_03_QC_v3.2.1_RS_3s_96f_PD_db.txt")
+# save(RS, file = "output/2025_10_03_QC_v3.2.1_RS_3s_96f_PD_db.rda")
+```
+
+# MS/MS
+
+# PSMs
+
+```{r}
+# mostly from Sam's Code + my L&H4_11d v2 LCMS R file
+PSMs_calc <- PSMs %>%
+  
+  # ANNOTATED SEQUENCE COLUMNS
+  # trimmed sequence - trimmed_seq 
+  mutate(trimmed_seq = gsub('^\\[.*?\\].|.\\[.*?\\]$', # from Sam's code 
+                            '', # removes [R]. & .[E] at either end
+                            `Annotated Sequence`),
+         .after = `Annotated Sequence`) %>%
+  
+  # trimmed sequence w no mods (all upper) - seq_no_mod
+  mutate(seq_no_mod = toupper(trimmed_seq), # sam's ver tolower | toupper instead
+         .after = trimmed_seq) %>%
+  
+  mutate(trm_seq_len = str_length(seq_no_mod),
+         .after = seq_no_mod) %>%
+  
+  # SHARED PEPTIDES COUNT 
+  # if greater than 1 then shared = yes
+  mutate(shared_peptide = ifelse(`Number of Proteins` > 1, 
+                                 'yes',
+                                 'no'),
+         .after = `Number of Proteins`) %>%
+  
+  
+  # TMT LABELLING EFFICIENCY | ALL completely tagged if mod = fixed
+  mutate(
+    #lysine_count
+    lysine_count = str_count(trimmed_seq, 'k'),
+    #lysine (K) TMTpro tag count
+    lysine_tag_count = str_count(Modifications, 'K\\d{1,2}\\(TMTpro'),
+    #N-term TMTpro count
+    n_term_tagged = grepl('N-Term(TMTpro)',
+                          fixed = TRUE, # no need to escape \\( in this case
+                          Modifications),
+    .after = Modifications) %>%
+  
+  mutate( # get no. of Ks in anno seq & see if no. lysine count (w TMT) matches
+    lysine_tagged = ifelse(
+      lysine_count != 0, # if K tagged TMT more than 0
+        ifelse(
+          lysine_tag_count == lysine_count, # if match = TRUE 4 full K tagging
+          TRUE, # all lysines are tagged
+          FALSE # not all lysines are tagged
+        ),
+      NA), # if 0 TMT give NA
+  .after = lysine_tag_count) %>%
+  
+  mutate( # calculate full TMT tagging - so all available N-term & all K residues
+    completely_tagged = n_term_tagged & (lysine_tagged | is.na(`lysine_tagged`)),
+    .after = n_term_tagged)
+```
+
+```{r}
+PSMs_calc_check <- PSMs_calc[1:1000,] # check 1st 100 obvs 
+```
+
+```{r}
+# # https://r4ds.hadley.nz/numbers.html#sec-counts
+# # https://r4ds.hadley.nz/numbers.html#numeric-summaries
+# PSMs_stat_calc <- PSMs_calc %>%
+#   group_by(pick(where(is.factor))) %>% # group by factors
+#   
+#   # SUMMARY STATISTICS
+#   # count of PSMs 
+#   mutate(n_PSMs = n()) %>% #n of rows in that group (so PSM no. of sample)
+#   
+#   #shared peptides
+#   add_count(shared_peptide, name = 'n_shared_pep') %>% # new col - n unq shr pep
+#   mutate(p_shared_pep = round((n_shared_pep/n_PSMs) * 100, 1)) %>% # 1 dp | percent
+#   
+#   add_count(`Number of Proteins`, name = 'n_of_s_proteins') %>%
+#   mutate(p_of_s_proteins = round(('n_of_s_proteins'/n_PSMs)))
+#   
+#   # missed cleavages
+#   add_count(`Number of Missed Cleavages`, name = 'n_miss_cleave') %>%
+#   mutate(p_miss_cleave = round((n_miss_cleave/n_PSMs)*100), 1) %>%
+```
+
+```{r}
+# PSMs_calc_long <- PSMs_calc %>%
+  
+```
+
+PSM plot 1
+
+```{r}
+my_colors <- c("#A23C33FF", "#83992AFF",  "#3C9770FF", "#44709DFF",
+               "#D97828FF", "#DEB340FF", "#E5AD4FFF" )
+```
+
+```{r}
+anno_seq <- PSMs %>%
+  group_by(pick(where(is.factor))) %>%
+  count(`Spectrum File`) 
+```
+
+```{r}
+anno_seq_plot <- anno_seq %>%
+  ggplot(aes(x = Fraction,
+             y = n,
+             fill = PD_set,
+             #color = Year,
+             #alpha = TechRepMixture
+             )) +
+  geom_boxplot(alpha = 0.7, width = 0.5,
+               position = position_dodge(width =0.7)) +
+  stat_summary(fun = mean, geom="point", shape = 4,
+               size = 1, stroke =0.5, color = "grey10",
+               position = position_dodge(width =0.7)) +
+  geom_point(color = "grey10", shape = 1, size = 0.5,
+             position=position_jitterdodge(dodge.width = 0.7,
+                                           jitter.width = 0.15)) +
+  scale_fill_manual(#name = "Dosage",
+                    values=alpha(c("#E5AD4FFF", "#D97828FF",
+                                   "#83992AFF", "#A23C33FF", 0.9)),
+                    # breaks=c("0.5", "1", "2"),
+                    # labels=c("0.5", "1", "2"),
+                    #guide = guide_legend(title.position = "top")
+                                         ) + 
+  labs(y = 'No. of Annotated Sequences (PSMs)',
+       title = ) +
+  #facet_wrap(vars(Year), ncol = 1) +
+  
+  theme_bw() +
+  theme(legend.position = "bottom")
+
+anno_seq_plot
+```
+
+Shared Proteins
+
+```{r}
+# # https://dplyr.tidyverse.org/reference/summarise_all.html
+# set_stats <- PSMs %>%
+#   group_by(PD_set) %>%
+#   mutate(n_PSMs = n()) %>% #n of rows in that group (so PSM no. of sample)
+#   summarise_if(is.numeric, mean)
+  
+```
+
+Overall
+
+```{r}
+shared_pep_by_set <- PSMs_calc %>%
+  group_by(PD_set) %>%
+  count(shared_peptide)
+```
+
+```{r}
+# https://r-graph-gallery.com/48-grouped-barplot-with-ggplot2.html
+shared_pep_by_set_plot <- shared_pep_by_set %>%
+  ggplot(aes(x = PD_set,
+             fill = shared_peptide,
+             y = n,
+             color = PD_set
+             )) +
+  geom_bar(position = "fill", stat = "identity",
+           color = 'grey10', width = 0.7) + 
+  scale_fill_manual(values=c("#E1ECF4", "#87b1d4")) + 
+  theme_bw() +
+  theme(legend.position = "bottom")
+  
+shared_pep_by_set_plot
+```
+
+By number
+
+```{r}
+no_p_shared_pep <- PSMs %>%
+  group_by(PD_set) %>%
+  count(`Number of Proteins`)
+```
+
+```{r}
+no_p_shared_pep_plot <- no_p_shared_pep %>%
+  # mutate(`Number of Proteins` = as.factor(`Number of Proteins`)) %>%
+  ggplot(aes(x = `Number of Proteins`,
+             # alpha = `Number of Proteins`,
+             fill = PD_set,
+             y = n
+             )) +
+  xlim(0,10) + 
+  # geom_bar(position = "fill", stat = "identity",
+  #          color = 'grey10', width = 0.7) + 
+  geom_col(position = 'dodge', color = 'grey10',
+           alpha = .8) +
+  # scale_fill_manual(values=c("#E1ECF4", "#87b1d4")) + 
+  # facet_wrap(vars(PD_set), ncol = 1) +
+  theme_bw() + 
+  theme(legend.position = "bottom")
+
+no_p_shared_pep_plot
+```
+
+Correlation between sequence length & no. proteins
+
+-   [[https://r-graph-gallery.com/50-51-52-scatter-plot-with-ggplot2.html]{.smallcaps}](https://r-graph-gallery.com/50-51-52-scatter-plot-with-ggplot2.html){.uri}
+
+-   [[https://www.sthda.com/english/articles/32-r-graphics-essentials/131-plot-two-continuous-variables-scatter-graph-and-alternatives/]{.smallcaps}](https://www.sthda.com/english/articles/32-r-graphics-essentials/131-plot-two-continuous-variables-scatter-graph-and-alternatives/){.uri}
+
+    -   Some interesting options e.g. ggMarginal [ggextra] & ggscatterhist() [ggpubr]
+
+```{r fig.height=7, fig.width=7}
+
+# plot(PSMs_calc$trm_seq_len, PSMs_calc$`Number of Proteins`)
+
+seq_by_nop <- PSMs_calc %>%
+  ggplot(aes(x = trm_seq_len,
+             y =`Number of Proteins`,
+             fill = PD_set,
+             color = PD_set)) + 
+  geom_point(shape = 1, size = 0.5, alpha = 0.5) +
+  geom_smooth(method=lm , color="grey50", fill="grey90", se=TRUE) +
+  scale_color_manual(values=alpha(c("#E5AD4FFF", "#D97828FF",
+                                   "#83992AFF", "#A23C33FF", 0.9))) +
+  facet_wrap(vars(PD_set), ncol = 2) +
+  theme_bw() +
+  theme(legend.position = "bottom")
+
+
+seq_by_nop
+```
+
+```{r fig.height=6, fig.width=6}
+# scatter plot + ggMarginal Density plot
+
+seq_by_nop_2 <- PSMs_calc %>%
+  ggplot(aes(x = trm_seq_len,
+             y =`Number of Proteins`,
+             color = PD_set)) + 
+  geom_point(shape = 1,  alpha = 0.5) +
+  scale_color_manual(values=alpha(c("#E5AD4FFF", "#D97828FF",
+                                   "#83992AFF", "#A23C33FF", 0.9))) +
+  theme_bw() +
+  theme(legend.position = "bottom")
+
+# add density plot via ggextra's ggMarginal function
+seq_by_nop_2_ggmar <- ggMarginal(seq_by_nop_2, type = "density")
+
+# looks cooked lol - prob because not quite continuous data...
+seq_by_nop_2_ggmar
+```
+
+### Abundance/Intensity plots 
+
+```{r}
+Abundances <- PSMs %>%
+  dplyr::select(PD_set:Fraction, `Abundance 126`:`Abundance 134N`) %>%
+  pivot_longer(
+    cols = starts_with("Abundance"),
+    names_to = 'TMT_tag',
+    values_to = "intensity",
+    names_prefix = "Abundance" # removes "Abundance" prefix from names value
+  ) 
+  
+```
+
+```{r fig.height=10, fig.width=9}
+# weird - goes >4000
+# also what is up with trailing distribution...
+Abundances_density <- Abundances %>%
+  filter(PD_set == '1pspg_2025') %>%
+  filter(intensity >1 & intensity <1000) %>%
+  ggplot(aes(x = intensity,
+             y = TMT_tag,
+             fill = TMT_tag)) +
+  geom_density_ridges(alpha = 0.2) +
+  facet_wrap(vars(Mixture), ncol = 4) +
+  theme_bw() +
+  theme(legend.position = "none")
+
+Abundances_density
+  
+```
+
+```{r fig.height=5, fig.width=7}
+#Sample intensities box plot
+intensity_bp <- Abundances %>%
+  filter(PD_set == '1pspg_2025') %>%
+  ggplot(aes(x = TMT_tag, 
+             y = intensity,
+             fill = Mixture)) +
+  geom_boxplot() +
+  scale_fill_manual(values=c("#d5a6bd", "#9fc5e8",
+                             "#ea9999", "#f9cb9c")) +
+  labs(subtitle = 'Extreme outliers?!?! + note 2024 & others similiar') +
+  theme_bw() +
+  theme(legend.position = "none")
+  
+intensity_bp
+```
+
+```{r fig.height=7, fig.width=12}
+intensity_bp_2 <- Abundances %>%
+  filter(PD_set == '1pspg_2025') %>%
+  ggplot(aes(x = TMT_tag, 
+             y = intensity,
+             fill = Mixture)) +
+  geom_boxplot(outliers = FALSE) +
+  stat_summary(fun = mean, geom = "point", shape = 4, size = 0.5) +
+  scale_fill_manual(values=c("#d5a6bd", "#9fc5e8",
+                             "#ea9999", "#f9cb9c")) +
+  labs(subtitle = 'mean skewed by outliers (also not accounting for NAs)') +
+  # facet_wrap(vars(Year), ncol = 2) +
+  facet_wrap(vars(Mixture), ncol = 4) +
+  theme_bw() +
+  theme(legend.position = "bottom",
+        panel.spacing = unit(0, "cm"), # Removes space between panel)
+        axis.text.x = element_text(size = 7.5, color ="grey10"))  
+
+
+intensity_bp_2
+```
+
+# Result Statistics
+
+#### Random plot
+
+```{r}
+mz_tmt <- c(126.127,127.121,127.131,128.128,
+            128.134,129.065,129.131,130.086,
+            130.141,131.065,131.144,132.148,
+            132.141,133.151,133.145,134.148)
+
+tmt_in <- c(124,122,90,116.1,
+            105.1,149,88.6,105,
+            114.6,57.3,79.5,137,
+            99.5,91.7,85.4,89.2)
 ```
