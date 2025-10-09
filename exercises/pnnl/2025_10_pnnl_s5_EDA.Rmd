@@ -42,13 +42,58 @@ str(fData(oca.set)) # feature
 str(exprs(oca.set)) # expression
 ```
 
-5.1 Count Features in Samples
+## 5.1 Count Features in Samples 
 
 <https://pnnl-comp-mass-spec.github.io/proteomics-data-analysis-tutorial/count-features-in-samples.html>
 
-5.2 Sample Boxplots
+```{r}
+# Count no. of features ID per sample - using colSums that are not NA in exprs(oca.set)
+
+# Calculate the no. of proteins ID (not NA) in each sample
+oca.set$num_proteins <- colSums(!is.na(exprs(oca.set)))
+# vector of no. proteins stored in pData(oca.set)
+# pData(oca.set) should be in final col
+```
+
+```{r}
+# summary (5 nums)
+summary(oca.set$num_proteins)
+```
+
+```{r}
+# as horizontal box plot
+boxplot(oca.set$num_proteins, horizontal = TRUE,
+        xlab = "No. of Proteins Detected")
+```
+
+```{r}
+# a scatter plot with more info
+plot(oca.set$num_proteins, 
+     pch = 19, # solid circle shape
+     xlab = "Sample Index",
+     ylab = "Number of Proteins Detected") 
+
+# chaotic but useful for showing any major outliers
+```
+
+```{r}
+# shows distribution - density ploy has the benefits of both box & scatter plots
+# Kernel density plot 
+plot(density(oca.set$num_proteins, na.rm = TRUE),
+     xlim = range(oca.set$num_proteins, na.rm = TRUE),
+     main = "Density Plot", xlab = "No. of Proteins Detected")
+
+# shows peaks ~6900-7000 & 7300-7500
+```
+
+## 5.2 Sample Boxplots
 
 <https://pnnl-comp-mass-spec.github.io/proteomics-data-analysis-tutorial/sample-boxplots.html>
+
+```{r}
+# boxplots by sample?
+boxplot(exprs(oca.set))
+```
 
 5.3 Estimate Blood Contamination
 
