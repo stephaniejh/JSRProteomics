@@ -1,0 +1,161 @@
+---
+title: "MSstatsTMT_2025_10_v3.1.6_plotting"
+output: html_document
+---
+
+Load Packages
+
+```{r}
+library(tidyverse)
+library(ggh4x) # facet_nested - extensions of facet_grid for nesting
+```
+
+TO DO - Import Data - Merge - Append Uniprot - Plot Volcanos - Comparisons
+
+```{r}
+# read in rda 
+# can do manually 
+# Environment > Load Workspace > Click on .rda file to load
+
+# assign Protein level data frame to psum_t8 
+psum_t8 <- quant.msstats.t8$ProteinLevelData
+```
+
+Import annotation file
+
+```{r}
+anno_df <- read_csv("input/anno/Steph_TMT_all_EE&SH_F&M_final_annotation_file_v2_2025_08.csv")
+```
+
+```{r}
+anno <- anno_df %>%
+  filter(!(Condition == "Norm")) %>% # remove norm 
+  select(!(c(Run, TechRepMixture, Fraction))) %>% # remove run info besides mixture
+  unique() # get unique - so filter only 56 epxperimental sample
+```
+
+```{r}
+# write_csv(anno, "output/2025_10_07_annotation_56_samples_only_v2.csv")
+```
+
+```{r}
+psum_t8_a <- left_join(psum_t8, anno, 
+                       join_by(Mixture, Channel, # can prob join by less
+                               BioReplicate, Condition))
+```
+
+```{r}
+gria <- psum_t8_a %>%
+  filter(str_detect(Protein, "P1949")) 
+```
+
+```{r}
+#save gria file
+# write_csv(gria, "output/2025_10_09_v3_t8_gria_proteins.csv")
+```
+
+```{r}
+gria1 <- gria %>%
+  filter(Protein == "P19490")
+
+# write_csv(gria1, "output/2025_10_09_v3_t8_gria1.csv")
+```
+
+```{r}
+gria4 <- gria %>%
+  filter(Protein == "P19493")
+
+# write_csv(gria4, "output/2025_10_09_v3_t8_gria4.csv")
+```
+
+```{r fig.height=9, fig.width=7}
+gria_plots <- gria %>%
+  ggplot(aes(x = interaction(Cohort, Condition, lex.order = TRUE), 
+             y = Abundance,
+             fill = Condition)) +
+  geom_boxplot(color = "grey10") +
+  geom_point(shape = 1) +
+  scale_fill_manual(values = c("#b6d7a8", "#ffe599")) +
+  facet_wrap(vars(Protein), ncol = 1,
+             scales = 'free_y',
+             space = 'free_y') +
+  theme_bw() +
+  theme(legend.position = "bottom")
+
+gria_plots
+
+```
+
+```{r}
+hmgcs1 <- psum_t8_a %>%
+  filter(str_detect(Protein, "P17425")) %>%
+   ggplot(aes(x = interaction(Mixture, Condition, lex.order = TRUE), 
+             y = Abundance,
+             fill = Condition)) +
+  geom_boxplot(color = "grey10") +
+  geom_point(shape = 1) +
+  scale_fill_manual(values = c("#b6d7a8", "#ffe599")) +
+  facet_wrap(vars(Protein), ncol = 1,
+             scales = 'free_y',
+             space = 'free_y') +
+  theme_bw() +
+  theme(legend.position = "bottom")
+
+hmgcs1
+```
+
+```{r}
+hmgcs1_df <- psum_t8_a %>%
+  filter(str_detect(Protein, "P17425")) 
+
+# write_csv(hmgcs1_df, "output/2025_10_09_v3_t8_hmgcs1.csv")
+```
+
+```{r}
+Mapk3 <- psum_t8_a %>%
+  filter(str_detect(Protein, "P21708")) %>%
+   ggplot(aes(x = interaction(Mixture, Condition, lex.order = TRUE), 
+             y = Abundance,
+             fill = Condition)) +
+  geom_boxplot(color = "grey10") +
+  geom_point(shape = 1) +
+  scale_fill_manual(values = c("#b6d7a8", "#ffe599")) +
+  facet_wrap(vars(Protein), ncol = 1,
+             scales = 'free_y',
+             space = 'free_y') +
+  theme_bw() +
+  theme(legend.position = "bottom")
+
+Mapk3
+```
+
+```{r}
+Mapk3_df <- psum_t8_a %>%
+  filter(str_detect(Protein, "P21708")) 
+
+# write_csv(Mapk3_df, "output/2025_10_09_v3_t8_Mapk3.csv")
+```
+
+```{r}
+Syt12 <- psum_t8_a %>%
+  filter(str_detect(Protein, "P97610")) %>%
+   ggplot(aes(x = interaction(Mixture, Condition, lex.order = TRUE), 
+             y = Abundance,
+             fill = Condition)) +
+  geom_boxplot(color = "grey10") +
+  geom_point(shape = 1) +
+  scale_fill_manual(values = c("#b6d7a8", "#ffe599")) +
+  facet_wrap(vars(Protein), ncol = 1,
+             scales = 'free_y',
+             space = 'free_y') +
+  theme_bw() +
+  theme(legend.position = "bottom")
+
+Syt12
+```
+
+PCA
+
+```{r}
+
+```
