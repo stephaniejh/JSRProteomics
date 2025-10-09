@@ -1,0 +1,107 @@
+---
+title: "2025_10_pnnl_s5_EDA"
+output: html_document
+---
+
+This follows Tyler Sagendorf's Section 5 Exploratory Data Analysis Tutorial from Proteomics Data Analysis in R/Bioconductor (pnnl)
+
+-   oca.set details - <https://rdrr.io/github/vladpetyuk/vp.misc/man/oca.set.html>
+
+    -   Processed iTRAQ data from both PNNL & JHU sites (from CPTAC study)
+
+        -   an MSnID instance - 8103 proteins by 73 features
+
+    -   CPTAC det <https://statomics.github.io/PDA/pda_tutorialPreprocessing.html>
+
+```{r}
+# ## Install missing packages
+# if (!require("remotes", quietly = T)) install.packages("remotes")
+# if (!require("MSnSet.utils", quietly = T))
+#   remotes::install_github("PNNL-Comp-Mass-Spec/MSnSet.utils")
+```
+
+```{r}
+library(MSnSet.utils)
+```
+
+```{r}
+# Load the example MSnSet
+data(cptac_oca) # loads in oca.set (is a Large MsnSet)
+```
+
+```{r}
+
+head(pData(oca.set)) # patient details?
+head(fData(oca.set)) # feature
+head(exprs(oca.set)) # expression
+```
+
+```{r}
+str(pData(oca.set))
+str(fData(oca.set)) # feature
+str(exprs(oca.set)) # expression
+```
+
+5.1 Count Features in Samples
+
+<https://pnnl-comp-mass-spec.github.io/proteomics-data-analysis-tutorial/count-features-in-samples.html>
+
+5.2 Sample Boxplots
+
+<https://pnnl-comp-mass-spec.github.io/proteomics-data-analysis-tutorial/sample-boxplots.html>
+
+5.3 Estimate Blood Contamination
+
+<https://pnnl-comp-mass-spec.github.io/proteomics-data-analysis-tutorial/estimate-blood-contamination.html>
+
+## 5.4 PCA 
+
+-   <https://pnnl-comp-mass-spec.github.io/proteomics-data-analysis-tutorial/pca.html>
+
+-   Add details & note on missing values & methods
+
+```{r fig.height=9, fig.width=11}
+# to see details
+pcaMethods::pca
+```
+
+```{r}
+# Default plot
+plot_pca(oca.set)
+
+# prints - "Subsetting to 4738 complete rows for PCA"
+# so of the total 8103 features, 4738 were present in all 73 samples
+# PC1 & PC2 explain less than 1/5 of the variance in the original data
+```
+
+```{r fig.height=9, fig.width=11}
+# Points colored by Subtype
+plot_pca(oca.set,
+         phenotype = "SUBTYPE", # color by SUBTYPE group
+         legend_title = "Subtype",
+         show_ellipse = TRUE) # adds a 50% normal confidence ellipse | def TRUE
+```
+
+```{r}
+# Points by batch
+plot_pca(oca.set, phenotype = "Batch")
+
+# generally overlaps & centred on origin (except X17) but hard to tell batch effect
+# should correct for - see section
+```
+
+```{r fig.height=9, fig.width=11}
+# determine most influential features in PCA with biplot arg
+
+plot_pca(oca.set,
+         phenotype = "SUBTYPE",
+         biplot = TRUE,
+         label_args = list(color = "black"))
+
+
+# NP_9976.. are druvers of separation of Mesenchmyal & Proliterative samples 
+# Also blood proteins (hemoglobin subunits: NP000549.1 and NP_000550.2) drive PC2 sep 
+# but PC2 only explains ~ 6% variance?
+```
+
+\
