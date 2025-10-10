@@ -6,8 +6,30 @@ output: html_document
 Load Packages
 
 ```{r}
+# ## Install missing packages if needed - see pnnl tutorial 
+# if (!require("BiocManager", quietly = TRUE))
+#   install.packages("BiocManager")
+# bio_pkgs <- c("biomaRt", "Biostrings")
+# for (pkg_i in bio_pkgs) {
+#   if (!require(pkg_i, quietly = T, character.only = T))
+#     BiocManager::install(pkg_i)
+# }
+# if (!require("remotes", quietly = T)) install.packages("remotes")
+# if (!require("MSnID", quietly = T, character.only = T))
+#   remotes::install_github("PNNL-Comp-Mass-Spec/MSnID@pnnl-master")
+
+# BiocManager::install("pcaMethods")
+```
+
+```{r}
 library(tidyverse)
 library(ggh4x) # facet_nested - extensions of facet_grid for nesting
+
+library(biomaRt) # ID conversion
+library(Biostrings) # read FASTA files
+library(MSnID) # parse_FASTA_names
+
+library(pcaMethods)
 ```
 
 TO DO - Import Data - Merge - Append Uniprot - Plot Volcanos - Comparisons
@@ -21,6 +43,13 @@ TO DO - Import Data - Merge - Append Uniprot - Plot Volcanos - Comparisons
 psum_t8 <- quant.msstats.t8$ProteinLevelData
 ```
 
+```{r}
+```
+
+psum \<- psum_t8 %\>%
+
+filter(!str_detect(Protein, "Cont\_")) \# remove contaminants drops by 1500
+
 Import annotation file
 
 ```{r}
@@ -30,7 +59,8 @@ anno_df <- read_csv("input/anno/Steph_TMT_all_EE&SH_F&M_final_annotation_file_v2
 ```{r}
 anno <- anno_df %>%
   filter(!(Condition == "Norm")) %>% # remove norm 
-  select(!(c(Run, TechRepMixture, Fraction))) %>% # remove run info besides mixture
+  mutate(Age = ifelse(PND <100, "YNG", "OLD")) %>% # add age col
+  dplyr::select(!(c(Run, TechRepMixture, Fraction))) %>% # rm run info besides mixture
   unique() # get unique - so filter only 56 epxperimental sample
 ```
 
@@ -38,11 +68,84 @@ anno <- anno_df %>%
 # write_csv(anno, "output/2025_10_07_annotation_56_samples_only_v2.csv")
 ```
 
+FASTA
+
+-   [Conversion Using FASTA Headers](https://pnnl-comp-mass-spec.github.io/proteomics-data-analysis-tutorial/conversion-using-fasta-headers.html)
+
+-   don't need to do fst_path \<- system.file step as not finding df from package
+
+-   <https://www.uniprot.org/help/fasta-headers>
+
+    -   <https://www.uniprot.org/help/gene_name>
+
 ```{r}
-psum_t8_a <- left_join(psum_t8, anno, 
+# read in fasta used for PD search & parse into df
+fasta_1pspg_rat <- MSnID::parse_FASTA_names(path_to_FASTA = "input/db/UP000002494_10116_Rat_Ref_Proteome_22403_1pspg_2025_04.fasta")
+```
+
+```{r}
+# write out the parsed-a fast-a df into a csv!
+# write_csv(fasta_1pspg_rat, "output/general/UP000002494_10116_Rat_Ref_Proteome_22403_1pspg_2025_04_UPfastadf.csv" )
+```
+
+-   [https://r4ds.hadley.nz/joins.html](https://r4ds.hadley.nz/joins.html#introduction){.uri}
+
+```{r}
+psum_fasta <- psum_t8 %>%
+  filter(!str_detect(Protein, "Cont_")) %>% # remove contaminants drops by 1500
+  left_join(fasta_1pspg_rat, 
+            join_by(Protein == uniprot_acc))
+```
+
+```{r}
+length(unique(psum_fasta$gene)) #7700 - seem to be gene names + ensembl ones??? 
+```
+
+```{r}
+unmatched_df <- psum_fasta %>%
+  filter(is.na(gene))
+```
+
+```{r}
+unique(unmatched_df$description)
+length(unique(unmatched_df$description)) # 22 unmatched! okay seems better. 
+```
+
+\~ \~ \~ \~ \~ \~ \~ \~
+
+All 3 dfs
+
+```{r}
+psum_fasta_anno_t8 <- left_join(psum_fasta, anno, 
                        join_by(Mixture, Channel, # can prob join by less
                                BioReplicate, Condition))
 ```
+
+```{r}
+# save combined psum df 
+# write_csv(psum_fasta_anno_t8, "2025_10_10_mss_v3_t8_ee_vs_sh_psum_anno_fasta.csv")
+# save(psum_fasta_anno_t8, file = "2025_10_10_mss_v3_t8_ee_vs_sh_psum_anno_fasta.rda")
+```
+
+\~ \~ \~ \~ \~ \~ \~ \~ \~ \~ \~
+
+PCA plot
+
+-   <https://www.bioconductor.org/packages/release/bioc/html/pcaMethods.html>
+
+-   See pg 5 of docu
+
+```{r}
+# help("bpca") # to get detailed info on pcaMethods function
+data(metaboliteData) # see example of pca data
+data(metaboliteDataComplete)
+```
+
+```{r}
+pc M0
+```
+
+\~ \~ \~ \~ \~ \~ \~ \~ \~ \~ \~ \~
 
 ```{r}
 gria <- psum_t8_a %>%
