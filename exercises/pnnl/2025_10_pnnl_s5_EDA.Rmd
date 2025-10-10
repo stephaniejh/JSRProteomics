@@ -42,7 +42,7 @@ str(fData(oca.set)) # feature
 str(exprs(oca.set)) # expression
 ```
 
-## 5.1 Count Features in Samples 
+## 5.1 Count Features in Samples
 
 <https://pnnl-comp-mass-spec.github.io/proteomics-data-analysis-tutorial/count-features-in-samples.html>
 
@@ -95,22 +95,69 @@ plot(density(oca.set$num_proteins, na.rm = TRUE),
 boxplot(exprs(oca.set))
 ```
 
-5.3 Estimate Blood Contamination
+## 5.3 Estimate Blood Contamination
 
-<https://pnnl-comp-mass-spec.github.io/proteomics-data-analysis-tutorial/estimate-blood-contamination.html>
+-   <https://pnnl-comp-mass-spec.github.io/proteomics-data-analysis-tutorial/estimate-blood-contamination.html>
 
-## 5.4 PCA 
+-   Search for major blood proteins with grepl function & summarise their abundance within each sample to get reasonable estimates.
+
+-   Udinh
+
+-   [hemoglobin]{.smallcaps}
+
+    -   [subunit alpha 1: NP_000549.1 \| subunit alpha 2: NP_000508.1 \| subunit beta: NP_000509.1 \| subunit gamma-1: NP_000550.2 \| subunit gamma-2: NP_000175.1]{.smallcaps}
+
+-   [albumin:]{.smallcaps}
+
+    -   [NP_000468.1]{.smallcaps}
+
+-   [fibrinogen]{.smallcaps}
+
+    -   [alpha chain isoform alpha precursor: NP_068657.1]{.smallcaps}
+
+    -   [alpha chain isoform alpha-E preprotein: NP_000499.1]{.smallcaps}
+
+-   [spectrin]{.smallcaps}
+
+    -   [alpha chain, erythrocytic 1: NP_003117.2]{.smallcaps}
+
+    -   [beta chain, erythrocytic 1: NP_001342365.1]{.smallcaps}
+
+```{r}
+# Create vector containing blod proteins
+# Blood protein IDs
+blood_prot <- c("NP_000549.1", "NP_000508.1", "NP_000509.1", "NP_000550.2",
+                "NP_000175.1", # 5 hemoglobin protein subunits
+                "NP_000468.1", # 1 albumin
+                "NP_068657.1", "NP_000499.1", # 2 fibrnogen
+                "NP_003117.2", "NP_001342365.1") # 2 Spectrin
+
+# Select entries that match one of the blood proteins
+idx <- featureNames(oca.set) %in% blood_prot # indexing match
+blood_contam <- colMeans(exprs(oca.set)[idx, ], na.rm = TRUE) # sample means
+# GOOD INDEXING EXAMPLE
+
+```
+
+```{r}
+# Kernel density plot
+plot(density(blood_contam, na.rm = TRUE), 
+     xlim = range(blood_contam, na.rm = TRUE),
+     main = "Blood Contamination", xlab = "Average Protein Abundance")
+```
+
+## 5.4 PCA
 
 -   <https://pnnl-comp-mass-spec.github.io/proteomics-data-analysis-tutorial/pca.html>
 
 -   Add details & note on missing values & methods
 
-```{r fig.height=9, fig.width=11}
+```{r}
 # to see details
 pcaMethods::pca
 ```
 
-```{r}
+```{r fig.height=9, fig.width=11}
 # Default plot
 plot_pca(oca.set)
 
@@ -127,7 +174,7 @@ plot_pca(oca.set,
          show_ellipse = TRUE) # adds a 50% normal confidence ellipse | def TRUE
 ```
 
-```{r}
+```{r fig.height=9, fig.width=11}
 # Points by batch
 plot_pca(oca.set, phenotype = "Batch")
 
