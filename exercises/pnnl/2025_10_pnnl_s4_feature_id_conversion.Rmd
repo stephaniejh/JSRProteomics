@@ -1,0 +1,126 @@
+---
+title: "2025_10_pnnl_s4_feature_id_conversion"
+author: "Stephanie Huang"
+date: "2025-10-10"
+output: html_document
+---
+
+This .Rmd follows the [Feature ID Conversion chapter (section 4)](https://pnnl-comp-mass-spec.github.io/proteomics-data-analysis-tutorial/id-conversion.html) of the pnnl proteomics data analysis in R/Bioconductor Guide. It covers the following...
+
+-   [4.1 Conversion with biomaRt](https://pnnl-comp-mass-spec.github.io/proteomics-data-analysis-tutorial/conversion-with-biomart.html)
+
+Other resources
+
+-   [**Using biomaRt to retrieve data from UniProt**](https://chernan.github.io/RNotes4Bioinformatics/Proteomics/uniprot.html)
+
+-   [Biostarts - Conversion of Ensembl Gene Ids to Uniprot Ids](https://www.biostars.org/p/429062/)
+
+-   **Detailed! - [Annotation Differential Expression Results with biomaRt](https://bioinformatics-core-shared-training.github.io/cruk-summer-school-2021/RNAseq/Markdowns/S6_Annotation_With_BioMart.html#list-the-available-databases)**
+
+## 4.1 Conversion with biomaRt
+
+`BiomaRt` This is the alternative to annotation.dbi that was used in ClusterProfiler & the previous fgsea() analysis?
+
+Testing of `Biostrings` to read
+
+```{r}
+# ## Install missing packages if required
+# if (!require("BiocManager", quietly = TRUE))
+#   install.packages("BiocManager")
+# bio_pkgs <- c("biomaRt", "Biostrings")
+# for (pkg_i in bio_pkgs) {
+#   if (!require(pkg_i, quietly = T, character.only = T))
+#     BiocManager::install(pkg_i)
+# }
+# if (!require("remotes", quietly = T)) install.packages("remotes")
+# if (!require("MSnID", quietly = T, character.only = T))
+#   remotes::install_github("PNNL-Comp-Mass-Spec/MSnID@pnnl-master")
+```
+
+```{r}
+library(biomaRt) # ID conversion
+library(Biostrings) # read FASTA files
+library(MSnID) # parse_FASTA_names
+```
+
+```{r}
+# 1st - deterj8ihe which mart & df to use. listMarts shows available marts.
+# Create mart
+listMarts() # determine biomart for useMart
+```
+
+```{r}
+mart <- useMart(biomart = "ENSEMBL_MART_ENSEMBL")
+
+head(listDatasets(mart)) # determine dataset for useMart
+listDatasets(mart) # for full list
+```
+
+```{r}
+# we want rattus 
+mart <- useMart(biomart  = "ENSEMBL_MART_ENSEMBL",
+                dataset = "rnorvegicus_gene_ensembl")
+
+# list attributes of mart to see what to select for conversion 
+head(listAttributes(mart)) # determine attributes for getBM
+listAttributes(mart) # full list
+```
+
+```{r}
+# we want "refseq_peptide" & "external_gene_name"
+# make conversion table 
+conv_tbl1 <- getBM(attributes = c("refseq_peptide", "external_gene_name"),
+                                  mart = mart) 
+
+head(conv_tbl1, 10) # # 35725 x 2
+```
+
+```{r}
+# Own separate test! 
+# I want uniprot id to external gene name 
+# so "uniprot_gn_id" & "external_gene_name" ?
+
+uniprot_ex_gene_rat <- getBM(attributes = c("uniprot_gn_id", "external_gene_name"),
+                             mart = mart) # also unimart available?
+
+head(uniprot_ex_gene_rat, 10) # 42548 x 2
+# see listed links above for more
+```
+
+## 4.2 Conversion with `AnnotationHub`
+
+-   <https://pnnl-comp-mass-spec.github.io/proteomics-data-analysis-tutorial/conversion-with-annotationhub.html>
+
+```{r}
+# ## Install missing packages
+# if (!require("remotes", quietly = T)) install.packages("remotes")
+# if (!require("MSnID", quietly = T))
+#   remotes::install_github("PNNL-Comp-Mass-Spec/MSnID@pnnl-master")
+```
+
+`MSnID` has a function called `fetch_conversion_table` that leverages `AnnotationHub` to create a conversion table.
+
+```{r}
+# Create conversion table with MSnID::fetch_conversion_table
+conv_tbl2 <- fetch_conversion_table(organism_name = "Rattus norvegicus", 
+                                    from = "REFSEQ", to = "SYMBOL")
+
+head(conv_tbl2, 10) # 89740 x 2
+```
+
+## 4.3 Conversion Using FASTA Headers
+
+-   <https://pnnl-comp-mass-spec.github.io/proteomics-data-analysis-tutorial/conversion-using-fasta-headers.html>
+
+-   Seems this is the recommended option if FASTA files were used. The gene symbol should always be given by `GN=...` so can extract with regular expressions.
+
+-   For UniPRot FASTA there is a function in `MSnID` called `parse_FASTA_names` that will extract the components of a fasta header & create a `data.frame`!
+
+```{r}
+## Read FASTA file 
+fst_path <- system.file("extdata/uniprot_rat_small.fasta.gz",
+                        package = "MSnID")
+
+conv_tbl3 <- parse_FASTA_names(path_to_FASTA = fst_path)
+head(conv_tbl3) # 12 cols!  # this is good!!!
+```
