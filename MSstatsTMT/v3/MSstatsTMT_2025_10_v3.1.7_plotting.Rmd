@@ -6,7 +6,7 @@ output: html_document
 Load Packages
 
 ```{r}
-# ## Install missing packages if needed - see pnnl tutorial 
+# ## Install missing packages
 # if (!require("BiocManager", quietly = TRUE))
 #   install.packages("BiocManager")
 # bio_pkgs <- c("biomaRt", "Biostrings")
@@ -17,6 +17,11 @@ Load Packages
 # if (!require("remotes", quietly = T)) install.packages("remotes")
 # if (!require("MSnID", quietly = T, character.only = T))
 #   remotes::install_github("PNNL-Comp-Mass-Spec/MSnID@pnnl-master")
+# ## ------------------------
+# library(biomaRt) # ID conversion
+# library(Biostrings) # read FASTA files
+# library(MSnID) # parse_FASTA_names
+
 
 # BiocManager::install("pcaMethods")
 ```
@@ -37,18 +42,12 @@ TO DO - Import Data - Merge - Append Uniprot - Plot Volcanos - Comparisons
 ```{r}
 # read in rda 
 # can do manually 
-# Environment > Load Workspace > Click on .rda file to load
+# Environment > Load Workspace > Click on .rda file to load | or...
+# data("/input/MSstatsTMT/psum/2025_09_12_rp_1pspg_Protein_Summarization_v3.1.5_t8.rda")
 
 # assign Protein level data frame to psum_t8 
 psum_t8 <- quant.msstats.t8$ProteinLevelData
 ```
-
-```{r}
-```
-
-psum \<- psum_t8 %\>%
-
-filter(!str_detect(Protein, "Cont\_")) \# remove contaminants drops by 1500
 
 Import annotation file
 
@@ -79,6 +78,7 @@ FASTA
     -   <https://www.uniprot.org/help/gene_name>
 
 ```{r}
+# now throwing error?!?!?! why it worked before!?!?!
 # read in fasta used for PD search & parse into df
 fasta_1pspg_rat <- MSnID::parse_FASTA_names(path_to_FASTA = "input/db/UP000002494_10116_Rat_Ref_Proteome_22403_1pspg_2025_04.fasta")
 ```
@@ -88,12 +88,18 @@ fasta_1pspg_rat <- MSnID::parse_FASTA_names(path_to_FASTA = "input/db/UP00000249
 # write_csv(fasta_1pspg_rat, "output/general/UP000002494_10116_Rat_Ref_Proteome_22403_1pspg_2025_04_UPfastadf.csv" )
 ```
 
+```{r}
+#nvm maybe import instead 
+my_fasta <- read_csv("input/db/UP000002494_10116_Rat_Ref_Proteome_22403_1pspg_2025_04_UPfastadf.csv")
+```
+
+-   
 -   [https://r4ds.hadley.nz/joins.html](https://r4ds.hadley.nz/joins.html#introduction){.uri}
 
 ```{r}
 psum_fasta <- psum_t8 %>%
   filter(!str_detect(Protein, "Cont_")) %>% # remove contaminants drops by 1500
-  left_join(fasta_1pspg_rat, 
+  left_join(my_fasta, 
             join_by(Protein == uniprot_acc))
 ```
 
@@ -138,11 +144,127 @@ PCA plot
 ```{r}
 # help("bpca") # to get detailed info on pcaMethods function
 data(metaboliteData) # see example of pca data
-data(metaboliteDataComplete)
+data(metaboliteDataComplete) # has metabolite rows & ID/subject columns
+```
+
+\~ \~ \~ \~ \~ \~ \~ \~ \~
+
+```{r}
+prots <- psum_fasta_anno_t8 %>%
+  mutate(rcbr = paste0(Run, '_', Channel, '_', BioReplicate),
+         .after = Channel) # make comb var
 ```
 
 ```{r}
-pc M0
+#quick check 
+unique(prots$rcbr)
+length(unique(psum$rcbr)) # 168 = 16 x 4 x 3
+
+# similar to Sam's MSstats_PD_SS.Rmd
+# https://tidyr.tidyverse.org/reference/pivot_wider.html - see station fish seen
+prot_mat <- prots %>%
+  dplyr::select(rcbr, Protein, Abundance) %>% # select cols for matrix
+  
+  # pivot_wider(names_from = rcbr, # speads id rcbr to cols
+  #             values_from = Abundance) %>% # & protname as rows & then abun = val
+  ##  OR 
+  pivot_wider(names_from = Protein, # speads id Protein as cols
+              values_from = Abundance) %>% # keeps rcbr as rows
+  
+  as.data.frame() # otherwise tibble does not allow row names argh
+
+# set proteins as the row names
+# rownames(prot_mat) <- prot_mat$Protein 
+rownames(prot_mat) <- prot_mat$rcbr
+
+# set proteins as the row names
+prot_mat <- prot_mat[, -1] %>% # take minus Protins col (1st col) 
+  as.matrix()
+
+dim(prot_mat) #7725 x 168 - 1297900 elements! OR 168 x 7725
+```
+
+```{r}
+# pcaMethods intro pg 5 
+# center the data matrix
+prot_mat_d <- prep(prot_mat,
+                   scale = "none",
+                   center = TRUE)
+```
+
+```{r}
+# run specified pca by pca() wrapper function
+# Nipals (Nonlinear Estimation by Iterative Partial Least Squares)
+res_pcaNipals <- pca(prot_mat_d, method = "nipals", # nipals for missing vals
+                  center = FALSE,
+                  nPcs=5)
+```
+
+```{r fig.height=7, fig.width=7}
+plotPcs(res_pcaNipals, pc=1:5, type="score")
+
+```
+
+```{r}
+slplot(res_pcaNipals,
+       pcs=c(1,2), 
+       scoresLoadings=c(TRUE,TRUE))
+```
+
+```{r}
+plot(res_pcaNipals)
+```
+
+```{r}
+# example with ggplot iris pca annotated
+pc <- pca(iris)
+irdf <- merge(iris, scores(pc), by=0)
+library(ggplot2)
+ggplot(irdf, aes(PC1, PC2, colour=Species)) +
+  geom_point() +
+  stat_ellipse()
+```
+
+```{r}
+# prep labeling with the rcbr col
+prots_anno <- prots %>%
+  dplyr::select(Mixture:rcbr, Name:Age) %>%
+  unique()
+
+# rownames(prots_anno) <- prots_anno$rcbr
+```
+
+```{r}
+# Do this way instead. for some reason the doing it directly results in 28224 rows
+pca_scores <- scores(res_pcaNipals)
+
+merged_pca <- merge(prots_anno, pca_scores, by = 0)
+```
+
+```{r fig.height=7, fig.width=7}
+ggplot(merged_pca,
+       aes(x = PC1, y = PC2,
+           color = Mixture,
+           fill = Housing)) +
+  geom_point(shape = 21) +
+  stat_ellipse() +
+  theme_bw()
+```
+
+\~ \~ \~ \~ \~ \~ \~ \~ \~ \~
+
+remove missing values
+
+```{r}
+# get complete cases only
+# https://tidyr.tidyverse.org/reference/drop_na.html
+prot_mat_cc <- prot_mat %>%
+  as.data.frame() %>% # back to df
+  drop_na() # tidyr drop_na to keep only complete rows
+```
+
+```{r}
+pca_cc <- pca(prot_mat_cc)
 ```
 
 \~ \~ \~ \~ \~ \~ \~ \~ \~ \~ \~ \~
