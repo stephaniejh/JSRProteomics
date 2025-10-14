@@ -22,19 +22,16 @@ Load Packages
 # library(Biostrings) # read FASTA files
 # library(MSnID) # parse_FASTA_names
 
-
 # BiocManager::install("pcaMethods")
 ```
 
 ```{r}
 library(tidyverse)
 library(ggh4x) # facet_nested - extensions of facet_grid for nesting
-
 library(biomaRt) # ID conversion
 library(Biostrings) # read FASTA files
 library(MSnID) # parse_FASTA_names
-
-library(pcaMethods)
+library(pcaMethods) # for various pca()
 ```
 
 TO DO - Import Data - Merge - Append Uniprot - Plot Volcanos - Comparisons
@@ -43,7 +40,7 @@ TO DO - Import Data - Merge - Append Uniprot - Plot Volcanos - Comparisons
 # read in rda 
 # can do manually 
 # Environment > Load Workspace > Click on .rda file to load | or...
-# data("/input/MSstatsTMT/psum/2025_09_12_rp_1pspg_Protein_Summarization_v3.1.5_t8.rda")
+load("input/MSstatsTMT/psum/2025_09_12_rp_1pspg_Protein_Summarization_v3.1.5_t8.rda")
 
 # assign Protein level data frame to psum_t8 
 psum_t8 <- quant.msstats.t8$ProteinLevelData
@@ -80,7 +77,7 @@ FASTA
 ```{r}
 # now throwing error?!?!?! why it worked before!?!?!
 # read in fasta used for PD search & parse into df
-fasta_1pspg_rat <- MSnID::parse_FASTA_names(path_to_FASTA = "input/db/UP000002494_10116_Rat_Ref_Proteome_22403_1pspg_2025_04.fasta")
+# fasta_1pspg_rat <- MSnID::parse_FASTA_names(path_to_FASTA = "input/db/UP000002494_10116_Rat_Ref_Proteome_22403_1pspg_2025_04.fasta")
 ```
 
 ```{r}
@@ -94,6 +91,7 @@ my_fasta <- read_csv("input/db/UP000002494_10116_Rat_Ref_Proteome_22403_1pspg_20
 ```
 
 -   
+
 -   [https://r4ds.hadley.nz/joins.html](https://r4ds.hadley.nz/joins.html#introduction){.uri}
 
 ```{r}
@@ -158,24 +156,18 @@ prots <- psum_fasta_anno_t8 %>%
 ```{r}
 #quick check 
 unique(prots$rcbr)
-length(unique(psum$rcbr)) # 168 = 16 x 4 x 3
+length(unique(prots$rcbr)) # 168 = 16 x 4 x 3
 
 # similar to Sam's MSstats_PD_SS.Rmd
 # https://tidyr.tidyverse.org/reference/pivot_wider.html - see station fish seen
 prot_mat <- prots %>%
   dplyr::select(rcbr, Protein, Abundance) %>% # select cols for matrix
-  
-  # pivot_wider(names_from = rcbr, # speads id rcbr to cols
-  #             values_from = Abundance) %>% # & protname as rows & then abun = val
-  ##  OR 
-  pivot_wider(names_from = Protein, # speads id Protein as cols
-              values_from = Abundance) %>% # keeps rcbr as rows
-  
+  pivot_wider(names_from = rcbr, # speads id rcbr to cols
+              values_from = Abundance) %>% # & protname as rows & then abun = val
   as.data.frame() # otherwise tibble does not allow row names argh
 
 # set proteins as the row names
-# rownames(prot_mat) <- prot_mat$Protein 
-rownames(prot_mat) <- prot_mat$rcbr
+rownames(prot_mat) <- prot_mat$Protein
 
 # set proteins as the row names
 prot_mat <- prot_mat[, -1] %>% # take minus Protins col (1st col) 
@@ -184,45 +176,24 @@ prot_mat <- prot_mat[, -1] %>% # take minus Protins col (1st col)
 dim(prot_mat) #7725 x 168 - 1297900 elements! OR 168 x 7725
 ```
 
-```{r}
-# pcaMethods intro pg 5 
-# center the data matrix
-prot_mat_d <- prep(prot_mat,
-                   scale = "none",
-                   center = TRUE)
-```
+```{r fig.height=7, fig.width=11}
+# or transpose?!?! see data(metaboliteData) - mat <- prep(t(metaboliteData))
+# prot_mat_2 <- prep(t(prot_mat))
+pc_t <- pca(t(prot_mat), method="nipals", nPcs=2) # transposed (so 168 scores)
 
-```{r}
-# run specified pca by pca() wrapper function
-# Nipals (Nonlinear Estimation by Iterative Partial Least Squares)
-res_pcaNipals <- pca(prot_mat_d, method = "nipals", # nipals for missing vals
-                  center = FALSE,
-                  nPcs=5)
-```
-
-```{r fig.height=7, fig.width=7}
-plotPcs(res_pcaNipals, pc=1:5, type="score")
-
-```
-
-```{r}
-slplot(res_pcaNipals,
+# score & loadings plot
+slplot(pc_t,
        pcs=c(1,2), 
        scoresLoadings=c(TRUE,TRUE))
 ```
 
 ```{r}
-plot(res_pcaNipals)
-```
-
-```{r}
 # example with ggplot iris pca annotated
-pc <- pca(iris)
-irdf <- merge(iris, scores(pc), by=0)
-library(ggplot2)
-ggplot(irdf, aes(PC1, PC2, colour=Species)) +
-  geom_point() +
-  stat_ellipse()
+# pc <- pca(iris)
+# irdf <- merge(iris, scores(pc), by=0)
+# ggplot(irdf, aes(PC1, PC2, colour=Species)) +
+#   geom_point() +
+#   stat_ellipse()
 ```
 
 ```{r}
@@ -231,14 +202,14 @@ prots_anno <- prots %>%
   dplyr::select(Mixture:rcbr, Name:Age) %>%
   unique()
 
-# rownames(prots_anno) <- prots_anno$rcbr
+rownames(prots_anno) <- prots_anno$rcbr # needed for by = 0 in merge to work
 ```
 
 ```{r}
 # Do this way instead. for some reason the doing it directly results in 28224 rows
-pca_scores <- scores(res_pcaNipals)
+pca_scores <- scores(pc_t)
 
-merged_pca <- merge(prots_anno, pca_scores, by = 0)
+merged_pca <- merge(prots_anno, pca_scores, by = 0) # needs row names set for by = 0 
 ```
 
 ```{r fig.height=7, fig.width=7}
@@ -249,6 +220,40 @@ ggplot(merged_pca,
   geom_point(shape = 21) +
   stat_ellipse() +
   theme_bw()
+```
+
+\~ \~ \~ \~ \~ \~ \~
+
+```{r}
+# pcaMethods intro pg 5 
+# center the data matrix
+prot_mat_d <- prep(prot_mat,
+                   scale = "none",
+                   center = TRUE)
+```
+
+```{r}
+#listPcaMethods() # to see methods
+# run specified pca by pca() wrapper function
+# Nipals (Nonlinear Estimation by Iterative Partial Least Squares)
+res_pcaNipals <- pca(prot_mat_d, method = "nipals", # nipals for missing vals
+                  center = FALSE,
+                  nPcs=5)
+```
+
+```{r fig.height=7, fig.width=11}
+plotPcs(res_pcaNipals, pc=1:5, type="score")
+
+```
+
+```{r fig.height=7, fig.width=11}
+slplot(res_pcaNipals,
+       pcs=c(1,2), 
+       scoresLoadings=c(TRUE,TRUE))
+```
+
+```{r}
+plot(res_pcaNipals)
 ```
 
 \~ \~ \~ \~ \~ \~ \~ \~ \~ \~
@@ -264,33 +269,54 @@ prot_mat_cc <- prot_mat %>%
 ```
 
 ```{r}
-pca_cc <- pca(prot_mat_cc)
+pca_cc <- pca(t(prot_mat_cc))
+
+# pc_t <- pca(t(prot_mat), method="nipals", nPcs=2) # transposed (so 168 scores)
 ```
 
-\~ \~ \~ \~ \~ \~ \~ \~ \~ \~ \~ \~
+```{r fig.height=7, fig.width=7}
+# Do this way instead. for some reason the doing it directly results in 28224 rows
+pca_scores_cc <- scores(pca_cc)
 
-```{r}
-gria <- psum_t8_a %>%
-  filter(str_detect(Protein, "P1949")) 
+merged_pca_cc <- merge(prots_anno, pca_scores_cc, by = 0) # row names set for by = 0 
+
+ggplot(merged_pca_cc,
+       aes(x = PC1, y = PC2,
+           color = Mixture,
+           fill = Housing)) +
+  geom_point(shape = 21) +
+  stat_ellipse() +
+  theme_bw()
+
 ```
 
+\~ \~ \~ \~ \~ \~ \~ \~ \~ \~ \~
+
 ```{r}
+# gria <- psum_t8_a %>%
+#   filter(str_detect(Protein, "P1949")) 
+
 #save gria file
 # write_csv(gria, "output/2025_10_09_v3_t8_gria_proteins.csv")
 ```
 
 ```{r}
-gria1 <- gria %>%
-  filter(Protein == "P19490")
+# gria1 <- gria %>%
+#   filter(Protein == "P19490")
 
 # write_csv(gria1, "output/2025_10_09_v3_t8_gria1.csv")
+
+# ~ ~ ~ ~ ~ ~ ~ ~
+
+# gria4 <- gria %>%
+#   filter(Protein == "P19493")
+
+# write_csv(gria4, "output/2025_10_09_v3_t8_gria4.csv")
 ```
 
 ```{r}
-gria4 <- gria %>%
-  filter(Protein == "P19493")
-
-# write_csv(gria4, "output/2025_10_09_v3_t8_gria4.csv")
+gria <- psum_fasta_anno_t8 %>%
+  filter(str_detect(gene, "Gria"))
 ```
 
 ```{r fig.height=9, fig.width=7}
@@ -301,18 +327,17 @@ gria_plots <- gria %>%
   geom_boxplot(color = "grey10") +
   geom_point(shape = 1) +
   scale_fill_manual(values = c("#b6d7a8", "#ffe599")) +
-  facet_wrap(vars(Protein), ncol = 1,
+  facet_wrap(vars(gene), ncol = 1,
              scales = 'free_y',
              space = 'free_y') +
   theme_bw() +
   theme(legend.position = "bottom")
 
 gria_plots
-
 ```
 
 ```{r}
-hmgcs1 <- psum_t8_a %>%
+hmgcs1 <- psum_fasta_anno_t8 %>%
   filter(str_detect(Protein, "P17425")) %>%
    ggplot(aes(x = interaction(Mixture, Condition, lex.order = TRUE), 
              y = Abundance,
@@ -330,14 +355,14 @@ hmgcs1
 ```
 
 ```{r}
-hmgcs1_df <- psum_t8_a %>%
-  filter(str_detect(Protein, "P17425")) 
+# hmgcs1_df <- psum_fasta_anno_t8 %>%
+#   filter(str_detect(Protein, "P17425")) 
 
 # write_csv(hmgcs1_df, "output/2025_10_09_v3_t8_hmgcs1.csv")
 ```
 
 ```{r}
-Mapk3 <- psum_t8_a %>%
+Mapk3 <- psum_fasta_anno_t8 %>%
   filter(str_detect(Protein, "P21708")) %>%
    ggplot(aes(x = interaction(Mixture, Condition, lex.order = TRUE), 
              y = Abundance,
@@ -355,14 +380,14 @@ Mapk3
 ```
 
 ```{r}
-Mapk3_df <- psum_t8_a %>%
+Mapk3_df <- psum_fasta_anno_t8 %>%
   filter(str_detect(Protein, "P21708")) 
 
 # write_csv(Mapk3_df, "output/2025_10_09_v3_t8_Mapk3.csv")
 ```
 
 ```{r}
-Syt12 <- psum_t8_a %>%
+Syt12 <- psum_fasta_anno_t8 %>%
   filter(str_detect(Protein, "P97610")) %>%
    ggplot(aes(x = interaction(Mixture, Condition, lex.order = TRUE), 
              y = Abundance,
@@ -377,10 +402,4 @@ Syt12 <- psum_t8_a %>%
   theme(legend.position = "bottom")
 
 Syt12
-```
-
-PCA
-
-```{r}
-
 ```
