@@ -28,6 +28,7 @@ plots/*
 *.jpg
 *.tif
 *.tiff
+*.xml
 
 # History files
 .Rhistory
