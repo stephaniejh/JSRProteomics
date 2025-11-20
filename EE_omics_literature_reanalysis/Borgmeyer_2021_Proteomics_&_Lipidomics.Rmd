@@ -1,0 +1,161 @@
+---
+title: "Borgmeyer_2021_Proteomics_&_Lipidomics"
+author: "Stephanie Huang"
+date: "2025_10_24"
+output: html_document
+---
+
+## Re-analysis/Re-plotting of Borgmeyer et al., 2021
+
+*in Cell Reports - "Multiomics of synaptic junctions reveals altered lipid metabolism and signaling following environmental enrichment"*
+
+Analysis originally done in R_WD \> Proteomics \> EE_TMT \> v3_branched on 2025_10_24
+
+ADD More details!
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# library(tidyverse) # ggplot, dplyr, etc
+library(dplyr)
+library(ggplot2)
+library(stringr)
+library(readxl) # for read_excel()
+library(ggrepel) #  for geom_text_repel()
+library(gt) # gt() tables
+```
+
+### Proteomics - Lipidomics - Table S7 - LFQ DEG MSstats - EE vs SH Hippocampus Synaptic Junctions
+
+```{r}
+hip_pro_file <- read_excel("input/Borgmeyer_2021_Table_S7_ProteinsLipids_EE_fig4a4b.xlsx",
+                         sheet = "Proteins")
+colnames(hip_pro_file)
+str(hip_pro_file)
+head(hip_pro_file)
+```
+
+```{r}
+
+hippro_df <- hip_pro_file %>%
+  rename("Protein" = "Protein/LipidName") %>%
+  rename("Protein Name" = "ProteinName/Lipid Species") %>%
+  mutate(EntryName = str_to_title(EntryName)) %>%
+  arrange(pvalue)
+  
+```
+
+<https://www.sthda.com/english/wiki/wiki.php?id_contents=7991> (text labels)
+
+```{r fig.height=7, fig.width=10}
+volcano_pv <- ggplot(hippro_df, 
+                     aes(x =log(FoldChange), y = -log10(pvalue), label = EntryName)) +
+  geom_point(aes(color = case_when(pvalue < 0.05 & log(FoldChange) > 0 ~ "Upregulated (p<0.05)",
+                                   pvalue < 0.05 & log(FoldChange) < 0 ~ "Downregulated (p<0.05)",
+                                   pvalue < 0.1 & log(FoldChange) > 0 ~ "Upregulated (p<0.1)",
+                                   pvalue < 0.1 & log(FoldChange) < 0 ~ "Downregulated (p<0.1)",
+                                   TRUE ~ "Not Significant")),
+            alpha = 1, size = 3, shape = 1) +
+  # facet_wrap(~ Label) +
+  # xlim(-2,2) +
+  scale_color_manual(values = c("firebrick3", 
+                                "royalblue4", 
+                                 "grey80"),
+                     breaks = c("Upregulated (p<0.05)", 
+                                "Downregulated (p<0.05)", 
+                                "Not Significant"),
+                     labels = c("Upregulated Proteins (p<0.05)", 
+                                "Downregulated Proteins (p<0.05)", 
+                                "Not Significant")) +
+  
+  geom_text_repel() +
+  labs(title = "Borgmeyer 2021 SuppTable 7 - Significant Proteins (p<0.05) (24 Oct 2025)",
+       subtitle = "Presented like Borgmeyer 2021 Fig4a or PhD Fig10A - log(FoldChange) by -log10(pvalue)",
+       x = "Log(Fold Change)",
+       y = "-Log10(p-value)",
+       color = "Protein Regulation") +
+  # geom_hline(yintercept = -log2(0.05), linetype = "dashed", linewidth = 0.2,  color = "grey30") +
+  # annotate("text", x = .86, y = -log2(0.05), label = "Adj. p-value cutoff (0.05) \n",
+  #          fontface = 'italic', size = 4, color = "grey10") +
+  # geom_hline(yintercept = -log2(0.1), linetype = "dashed", linewidth = 0.2,  color = "grey50") +
+  # annotate("text", x = .86, y = -log2(0.1), label = "Adj. p-value cutoff (0.1) \n",
+  #          fontface = 'italic', size = 4, color = "grey30") +
+  theme_bw() + 
+  theme(legend.position = "bottom")
+
+
+
+volcano_pv
+```
+
+```{r fig.height=7, fig.width=10}
+volcano_adjpv <- ggplot(hippro_df, 
+                     aes(x =log2FC, y = -log2(adj.pvalue), label = EntryName)) +
+ geom_point(aes(color = case_when(adj.pvalue < 0.05 & log2FC > 0 ~ "Upregulated (adj. p<0.05)",
+                                   adj.pvalue < 0.05 & log2FC < 0 ~ "Downregulated (adj. p<0.05)",
+                                   adj.pvalue < 0.1 & log2FC > 0 ~ "Upregulated (adj. p<0.1)",
+                                   adj.pvalue < 0.1 & log2FC < 0 ~ "Downregulated (adj. p<0.1)",
+                                   TRUE ~ "Not Significant")),
+            alpha = 1, size = 3, shape = 1) +
+  # facet_wrap(~ Label) +
+  # xlim(-1,1) +
+  scale_color_manual(values = c("firebrick3", 
+                                "royalblue4", 
+                                "lightpink1", 
+                                "lightblue3" , 
+                                 "grey80"),
+                     breaks = c("Upregulated (adj. p<0.05)", 
+                                "Downregulated (adj. p<0.05)", 
+                                "Upregulated (adj. p<0.1)", 
+                                "Downregulated (adj. p<0.1)", 
+                                "Not Significant"),
+                     labels = c("Upregulated Proteins (up to adj. p<0.05)", 
+                                "Downregulated Proteins (up to adj. p<0.05)", 
+                                "Upregulated Proteins (up to adj. p<0.1)", 
+                                "Downregulated Proteins (up to adj. p<0.1)" , 
+                                "Not Significant")) +
+  
+  geom_text_repel() +
+  labs(title = "Borgmeyer 2021 SuppTable 7 - Significant Proteins (p<0.05) (24 Oct 2025)",
+       subtitle = "Presented like MSstats and my data log2FC & -log2(adj.pvalue)",
+       x = "log2FC",
+       y = "-Log2 (adjusted p-value)",
+       color = "Protein Regulation") +
+  # geom_hline(yintercept = -log2(0.05), linetype = "dashed", linewidth = 0.2,  color = "grey30") +
+  # annotate("text", x = .86, y = -log2(0.05), label = "Adj. p-value cutoff (0.05) \n",
+  #          fontface = 'italic', size = 4, color = "grey10") +
+  # geom_hline(yintercept = -log2(0.1), linetype = "dashed", linewidth = 0.2,  color = "grey50") +
+  # annotate("text", x = .86, y = -log2(0.1), label = "Adj. p-value cutoff (0.1) \n",
+  #          fontface = 'italic', size = 4, color = "grey30") +
+  theme_bw() + 
+  theme(legend.position = "bottom")
+
+
+
+volcano_adjpv
+```
+
+-   <https://gt.rstudio.com/reference/gt.html>
+
+-   <https://gt.rstudio.com/reference/fmt_number.html>
+
+```{r}
+hippro_df |>
+  gt(
+    groupname_col = "Regulation"
+    ) |>
+  fmt_number(decimals = 3) |>
+  # data_color(columns = "Regulation") +
+  tab_options(table.font.size=12) 
+  # tab_style(
+  #   style = cell_fill(color = "lightblue"),
+  #   locations = cells_body(rows = log2FC < 0)
+  # )
+  
+```
+
+### Lipidomics - Table S7 - LFQ DEG MSstats - EE vs SH Hippocampus Synaptic Junctions
+
+To add
