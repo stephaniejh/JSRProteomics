@@ -17,7 +17,7 @@ Rat Peptide Mass Fingerprinting (2DIGE splot pick + MALDI - also LCMSMS for unre
 
     -   Dendritic Fraction is the stratum radiatum
 
-*in Neuroscience - "*Global changes in the hippocampal proteome following exposure to an enriched environment*" https://doi.org/10.1016/j.neuroscience.2006.12.033*
+*in Neuroscience - "*Global changes in the hippocampal proteome following exposure to an enriched environment*" <https://doi.org/10.1016/j.neuroscience.2006.12.033>*
 
 Analysis originally done in R_WD \> Proteomics \> EE_TMT \> v3_branched on 2025_11_28
 
@@ -37,11 +37,14 @@ library(readxl)
 library(tidyr)
 library(dplyr)
 library(stringr)
-library(ggplot2)
-library(gt)
+library(ggplot2) 
+library(gt) # gt tables
+library(webr) # for piedonut
+library(cowplot)
 ```
 
-### Load Tables 
+### Load Tables
+
 ```{r}
 raw_som <- read_excel("input/McNair_2007_proteomics_table_raw.xlsx",
                       sheet = "1_somatic_fraction_raw")
@@ -54,6 +57,7 @@ raw_den <- read_excel("input/McNair_2007_proteomics_table_raw.xlsx",
 ## Clean up tables
 
 ### Bind both tables
+
 ```{r}
 # make combined raw file with both fractions
 com_raw <- bind_rows(list(Somatic = raw_som, Dendritic = raw_den),
@@ -64,9 +68,9 @@ com_raw <- bind_rows(list(Somatic = raw_som, Dendritic = raw_den),
 colnames(com_raw)
 ```
 
-
 ### Remove rows with empty protein IDs & rows with now Mowse Score/NCBI Accession No. etc
-NOTE TO SELF - look into this further! Pretty sure these are the missing unidenfitified spots but not 100% sure - double check 
+
+NOTE TO SELF - look into this further! Pretty sure these are the missing unidenfitified spots but not 100% sure - double check
 
 1.  Remove anything with no protein ID or NCBI ID or Mowse score (so spots observed but no protein match?)
 
@@ -93,8 +97,8 @@ com_fil <- com_raw %>%
 # write out? or combine with below into 1?
 ```
 
+### Fix weird dash, convert to numeric, & add direction of fold change column.
 
-### Fix weird dash, convert to numeric, & add direction of fold change column. 
 -   weird dash - print w tail() to get observation
 
     -   weird dash is − while normal one is (hyphen) -
@@ -117,14 +121,16 @@ com_df <- com_fil %>%
   
 ```
 
-
 #### Write out data frame
+
 ```{r}
 #write_csv(com_df, "output/2025_28_11_McNair2007_data_cleaned_v1.csv")
 ```
 
 ## Plots
+
 ### Barplots
+
 -   geom_bar vs geom_col - <https://r-charts.com/ranking/bar-plot-ggplot2/>
 
     -   geom_bar counts occurences! Then: position = position_dodge(preserve = 'single', width=1) - keeps width for bars the same!
@@ -145,6 +151,21 @@ barplots_1 <- ggplot(com_df,
 
 
 barplots_1
+```
+
+```{r fig.height=5, fig.width=11}
+barplots_2 <- ggplot(com_df,
+                 aes(x = Class, fill = Class, alpha = Direction)) +
+  geom_bar(position = position_dodge(preserve = 'single', width=0.7),
+           width = 0.6, color = "grey10") +
+  #coord_polar(theta='y') + # spiral! not the right one but cool looking
+  scale_alpha_discrete(range = c(0.3, 0.9)) +
+  labs(title = "McNair 2007 - EE Rats - PMF Proteomics - Tables 1 & 2",
+      subtitle = "Kinda similar to Fig 3. pg 421 - Direction by Alpha, Class by Color. Uses trimmed data w blanks removed") +
+  theme_bw()
+
+
+barplots_2
 ```
 
 ```{r}
@@ -194,8 +215,34 @@ ggpie <- ggplot(summed_df,
 ggpie
 ```
 
+#### piedonut
 
-## Cleaned up gt table 
+-   <https://cardiomoon.github.io/webr/articles/PieDonut.html>
+
+```{r}
+PieDo_den <- com_df %>%
+  filter(Fraction == "Dendritic") %>%
+  PieDonut(aes(pie = Class, donut = Direction),
+         pieLabelSize = 3, donutLabelSize = 2.5,
+         showPieName = FALSE) 
+```
+
+```{r fig}
+PieDo_som <- com_df %>%
+  filter(Fraction == "Somatic") %>%
+  PieDonut(aes(pie = Class, donut = Direction),
+         pieLabelSize = 3, donutLabelSize = 2.5,
+         showPieName = FALSE) 
+```
+
+```{r fig.height=5, fig.width=11}
+# why does it look like this?!?!?! :(
+plot_grid(PieDo_den, PieDo_som, 
+          labels = c('Dendritic', 'Somatic'))
+```
+
+## Cleaned up gt table
+
 -   <https://gt.rstudio.com/>
 
 ```{r}
