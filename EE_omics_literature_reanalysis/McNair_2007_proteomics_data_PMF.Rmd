@@ -124,7 +124,8 @@ com_df <- com_fil %>%
 #### Write out data frame
 
 ```{r}
-#write_csv(com_df, "output/2025_28_11_McNair2007_data_cleaned_v1.csv")
+#write_excel_csv is UTF-8 encoded so now weird output / deals with special characters
+# write_excel_csv(com_df, "output/2025_12_02_McNair2007_data_cleaned_v1.csv")
 ```
 
 ## Plots
