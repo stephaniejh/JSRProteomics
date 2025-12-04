@@ -1,0 +1,221 @@
+---
+title: "QC_2025_10_v3.2.2_Cuklina"
+output: html_document
+---
+
+Overview
+
+<https://rdrr.io/bioc/proBatch/f/README.md><https://rdrr.io/bioc/proBatch/>
+
+Purpose & Comparisons -
+
+Data used
+
+Based off of
+
+Links
+
+1.  [Mastering File Manipulation with R’s list.files() Function](https://www.r-bloggers.com/2023/05/mastering-file-manipulation-with-rs-list-files-function/)
+2.  [Reading Data from multiple files](https://www.r-bloggers.com/2023/05/mastering-file-manipulation-with-rs-list-files-function/)
+
+```{r}
+# Does not work
+# Error: Failed to install 'proBatch' from GitHub:
+#   ! System command 'R' failed
+# too old? was removed from BioConductor?
+# install.packages('devtools') 
+# devtools::install_github('symbioticMe/proBatch', build_vignettes = TRUE)
+```
+
+Load Packages
+
+```{r}
+library(readr) # read csv files read_csv
+library(readxl) # read in excel files read_excel
+library(tidyr) # pivot longer
+library(stringr) # str_detect()
+library(dplyr)
+library(ggh4x) # facet_nested - extensions of facet_grid for nesting
+library(cowplot) # for plot_grid()
+library(gt)
+library(ggridges)
+library(forcats) #fct_rev
+library(purrr) # for map()
+library(ggvenn) #for ggvenn
+library(paletteer) # color palette
+library(ggExtra) # fpr ggMarginal
+library(lubridate) # for mdy_hms
+```
+
+Load Data
+
+PSMs
+
+```{r}
+#set_wd to sourcefile location
+#input_dir <- "input/PD/"
+# dirs <- list.dirs(input_dir) # lists directories | not needed 
+
+PSMs_2_read <-  list.files(
+  "input/PD/2025_08_Steph_TMTpro_PSMs_MSstatsTMT_EEvsSH_for_PhD", # where 2 read from
+                       pattern = ".*PSM.*\\.txt$", # pattern PSM & ends .txt
+                       full.names = TRUE, # get full name including path
+                       recursive = TRUE) # gets files in subdirectories too
+
+
+PD_PSMs <- read_tsv(PSMs_2_read, # read all files from list above
+                    id = "file_path") # keep file path as an id column
+
+# dim(PD_PSMs) #3658257 x 55
+```
+
+Input Files
+
+```{r}
+inputfiles_2_read <- list.files(
+  "input/PD/2025_08_Steph_TMTpro_PSMs_MSstatsTMT_EEvsSH_for_PhD",
+  pattern = ".InputFiles.*\\.txt$", 
+  full.names = TRUE, 
+  recursive = TRUE)
+
+
+PD_IF <- read_tsv(inputfiles_2_read,
+                  id = "file_path")
+
+dim(PD_IF)
+```
+
+Load Annotation Files
+
+```{r}
+# NOTE TO SELF - NEED TO MAKE NEW ANNOFILE 
+raw_anno <- read_csv("input/anno/TMT_B1-4_lcms_run_info_anno_20250830.csv")
+
+
+```
+
+```{r}
+sample_anno
+
+```
+
+\~ \~ \~ \~ \~ \~ \~ \~
+
+Wrangling Data
+
+Input Files
+
+```{r}
+colnames(PD_IF)
+
+# #https://tidyr.tidyverse.org/reference/separate_wider_delim.html
+# PD_IF_s <- PD_IF %>%
+#   tidyr::separate_wider_delim("Creation Date",
+#                               delim = " ",
+#                               names= c("Date", "Time"))
+
+
+# Alternatively lubridate
+
+# creates a POSIXct object 
+# parsed_time_ <- lubridate::mdy_hms(PD_IF$`Creation Date`)
+# 
+# rf_time_ <- format(parsed_time, "%Y-%m-%d %H:%M:%S")
+
+PD_IF_t <- PD_IF %>%
+  
+  mutate(parsed_time = mdy_hms(`Creation Date`)) %>% # using lubridate
+  
+  mutate(acq_date = format(parsed_time, "%Y-%m-%d %H:%M:%S"), # reformat time 
+         .after = `Creation Date`) %>%
+  arrange(acq_date) %>% # from smalest to largest
+  mutate(acq_order = row_number(), .before = acq_date) %>%
+  
+  mutate(raw_file = str_extract(`File Name`, "[^\\\\]+$"),
+         .after = `File Name`)
+
+# [^\\\\]+$ matches everything not a backslash at end?
+  
+
+head(PD_IF_t)
+length(unique(PD_IF_t$acq_order)) 
+unique(PD_IF_t$acq_order) # 110! 
+```
+
+Abundance over time!
+
+```{r}
+# prep data 
+# PSM + raw_anno
+PD_PSMs_2 <- left_join(PD_PSMs, raw_anno,
+                       by = join_by(`Spectrum File` == Run))
+
+unique(PD_PSMs_2$Mixture)
+unique(PD_PSMs_2$`Spectrum File`)
+length(unique(PD_PSMs_2$`Spectrum File`))
+```
+
+```{r}
+# # + PD_IF (time data)
+PD_PSMs_ord <- PD_IF_t %>%
+  dplyr::select(raw_file:parsed_time) %>%
+  right_join(PD_PSMs_2, by = join_by(raw_file ==`Spectrum File`))
+
+dim(PD_PSMs_ord) # 1093905 x 65
+```
+
+```{r}
+PD_PSMs_ord_long <- PD_PSMs_ord %>%
+  dplyr::select(acq_order, raw_file, Mixture, TechRepMixture, Fraction,
+         `Annotated Sequence`, `Modifications`,
+         `Master Protein Accessions`, Charge, 
+         `Abundance 126`:`Abundance 134N`) %>%
+  pivot_longer(cols = `Abundance 126`:`Abundance 134N`, # cols to pivot
+               names_to = "TMT_tag",
+               values_to = "Abundance")
+
+dim(PD_PSMs_ord_long) # 17502480 x 51 or 11
+```
+
+```{r fig.height=11, fig.width=26}
+PD_PSMs_ord_long$acq_order <- as.factor(PD_PSMs_ord_long$acq_order)
+PD_PSMs_ord_long$Fraction <- as.factor(PD_PSMs_ord_long$Fraction)
+
+ord_abund <- PD_PSMs_ord_long %>%
+  # filter(!is.na(Mixture)) %>%
+  # filter(!is.na(Abundance)) %>%
+  ggplot(aes(x = acq_order, 
+             y = Abundance,
+             fill = Fraction,
+             color = Mixture,
+             alpha = TechRepMixture
+             )) +
+  geom_boxplot(width = 0.4,
+               outliers = TRUE, outlier.shape = 1, outlier.alpha = 0.1,
+               na.rm = FALSE) +
+  labs(y = "TMT Abundance/Intensity",
+       x = "LC-MS (in Acquisition Order)",
+       title = "Abundance/Intensity of LC-MS runs Across Acquisition Order",
+       subtitle = "MsstatsTMT v3 t8 1pspg EEvsSH, color = mix, fill = fr, alpha = TR") +
+  scale_fill_manual(values=c('grey15', '#a75151',
+                             '#518c51', '#3a3a9f',
+                             '#c49f51', '#be86be', 
+                             '#55a7a7', '#b7b7b7')) + 
+  scale_color_manual(values=c("#d5a6bd", "#9fc5e8",
+                             "#ea9999", "#f9cb9c")) +
+  # geom_boxplot()+
+  # geom_jitter(shape = 1, alpha = 0.1)+
+  # ylim(0, 3000) +
+  # facet_wrap(vars(acq_order)) +
+  # facet_nested(~ Mixture + TechRepMixture + Fraction)+
+  theme_bw() + 
+  theme(legend.position = "none",
+        panel.spacing = unit(0, "cm"))  # Removes space between panel 
+
+ord_abund
+                       
+```
+
+```{r}
+
+```
