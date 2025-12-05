@@ -1,5 +1,5 @@
 ---
-title: "Litchti_2014_proteomics_data"
+title: "Lichti_2014_proteomics_data"
 output: html_document
 ---
 
