@@ -261,3 +261,72 @@ com_df |>
     ) |>
     tab_options(table.font.size=12)
 ```
+
+## Adding converted gi (old school ncbi) to uniprot ids
+
+Data was retrieved on 2025_12_05 from uniprot ID mapping query for GI_number to UniProtKB by pasting gi numbers. Noob method. Maybe sort out programmatic access in the future.
+
+### Combine 2 data frames
+
+#### Read in output file with gi numbers & uniprot ids.
+
+```{r}
+# note only 67 ids! (some are duplicates)
+uniprot_ids <- read_excel("input/McNair_2007_gi_to_uniprot_idmapping_2025_12_05.xlsx")
+```
+
+Join both df's - note gives warning as more than 1 id maps on (goes from 105 to 125 rows). Then Conditional filtering to remove unreviewed rows if the grouping already has been reviewed (goes back to 105).
+
+```{r}
+com_df_w_ids <- left_join(com_df, uniprot_ids, 
+                          by = join_by(ncbi_gi_trim == From)) %>%
+  
+ # group by obs (like in paper or original 105 rows in com_df)
+ group_by(Fraction, `Spot no.`, `Protein ID`, avg_ratio, ncbi_gi_trim) %>%
+  
+  filter(
+    # if at least 1 is reviewed = TRUE... (ignore NA btw)
+    if (any(Reviewed == "reviewed", na.rm = TRUE)) {
+      Reviewed == "reviewed" # ... then keep only reviewed
+    } else {     #else keep what is there (keep unreviewed if no reviewed available)
+      TRUE
+    }
+  ) %>%
+  ungroup() # then ungroup back to normal | # see how it goes from 125 back to 105!
+  
+```
+
+Still a lot of NA values (unable to map gi number to uniprotKB)
+
+```{r}
+# write out new df
+# write_excel_csv(com_df_w_ids, "output/2025_12_05_McNair2007_clean_w_uniprot_v3.csv")
+```
+
+#### Formatted as lit review version!
+
+```{r}
+colnames(com_df_w_ids)
+
+lit_review_ver <- com_df_w_ids %>%
+  select("Fraction", "Spot no.", "Protein ID", "Gene Names (primary)", "Gene Names",
+         "Direction", "avg_ratio", "Control vs. enriched (t-test)",  "Entry", 
+         "Reviewed","Entry Name", "Protein names", "Class") %>%
+  mutate(Region = "Hippocampus",
+         Whote = "No",
+         Exp_Type = "Protein",
+         Method = "PROTEOMICS_2DIGE_MALDI_PMF",
+         .after = Fraction) %>%
+  mutate(Comparison = 2, .after = "Gene Names") %>%
+  mutate(Arrows = ifelse(Direction == "Down", "-", "+"),
+         Significant = "yes", .after = Direction) %>%
+  mutate(N_tested = 6, .after = "Control vs. enriched (t-test)")
+  
+  
+```
+
+```{r}
+# #write out 
+# write_excel_csv(lit_review_ver,
+#                 "output/2025_12_05_McNair2007_data_lit_review_ver_v4.csv")
+```
