@@ -12,6 +12,12 @@ knitr::opts_chunk$set(echo = TRUE)
 ### Load Packages
 
 ```{r}
+# if (!require("BiocManager", quietly = TRUE))
+#     install.packages("BiocManager")
+# 
+# BiocManager::install("UniProt.ws")
+
+library(UniProt.ws) # uniprot api
 library(tidyverse)
 library(readxl)
 ```
@@ -30,8 +36,8 @@ df_2 <- read_excel("input/Rampon_2000_EE_gene_expression_tables.xlsx",
                    trim_ws = TRUE)
 ```
 
-
 ### Wrangle Data
+
 ```{r}
 # pivot
 df_1_l <- pivot_longer(df_1,
@@ -49,12 +55,120 @@ df_2_l <- pivot_longer(df_2,
 ```
 
 ```{r}
+# print(comb_df$Fold_Change) 
+
 comb_df <- bind_rows(list("Early" = df_1_l, "Late" =  df_2_l),
-                     .id = "Phase") 
+                     .id = "Phase") %>%
+  mutate(Accession_no = str_trim(Accession_no, side = "both")) %>% # rm white space
+  mutate(fold_no = str_trunc(str_replace(Fold_Change, "−", "-"), 5, "right", ellipsis = ""), # rplc minus − w hyphen -
+         .after = Fold_Change) %>% 
+  mutate(Direction = ifelse(str_detect(fold_no, "NC"), # if NC
+                            "Same", # then Same
+                            ifelse(str_detect(fold_no, "-"), #else if - 
+                                   "Down", # then Down
+                                   "Up")),  # else Up
+         .after = Fold_Change) 
+  
 ```
 
 ```{r}
+colnames(comb_df)
 str(comb_df)
+```
+
+```{r}
+# write out for now
+# write_excel_csv(comb_df, "output/2025_12_05_Rampon_2000_mRNA_clean_data_v1.csv")
+```
+
+## Testing UniProt.ws (Tutorial)
+
+-   [UniProt.ws: A package for retrieving data from the UniProt web service Marc Carlson October 30, 2025](https://bioconductor.org/packages/release/bioc/vignettes/UniProt.ws/inst/doc/UniProt.ws.html)
+
+### 1.1 Configuring UniProt.ws
+
+```{r}
+#help("UniProt.ws")
+
+# fetch human
+up_human <- UniProt.ws(taxId = 9606)
+
+availableUniprotSpecies(pattern="musculus") # retrive those from mousy mouse
+
+#availableUniprotSpecies(pattern="rattus") # retrive those from ratty rat
+
+# now with taxon ID from mouse - 10090 we can call it to object
+mouseUp <- UniProt.ws(10090)
+
+```
+
+### 1.2 Using UniProt.ws
+
+```{r}
+
+#head(keytypes(mouseUp)) 
+keytypes(mouseUp) # key types that can be retrieved
+
+#head(columns(mouseUp)) 
+columns(mouseUp) # columns that can be retrieved
+```
+
+```{r}
+# can look up keys but webservice slow - so save object
+egs <- keys(mouseUp, "GeneID") # huh?
+
+
+# Can combine combos of columns, keytypes & keys with select
+# Note. ‘ENTREZ_GENE’ is now ‘GeneID’
+keys <- c("1", "2") 
+columns <- c("xref_pdb", "xref_hgnc", "sequence") 
+kt <- "GeneID"
+
+res <- select(mouseUp, keys, columns, kt) # combined fetch
+res
+```
+
+Testing out mapping
+
+Accession provided from Rampon is from EMBL.
+
+```{r}
+# make a vector of my unique ncbi ids from the rampon data table
+my_ncbi_ids <- unique(comb_df$Accession_no)
+```
+
+```{r}
+# this works 
+bdnf_psd95 <- select(
+  x = mouseUp,
+  keys = c("P21237", "Q62108"),
+  columns = c("accession", "protein_name",  "gene_names", "gene_primary", "go",
+             "xref_elm",   "xref_embl", "xref_emdb", "xref_emind", "xref_ensembl", "xref_refseq", "xref_geneid"),
+  keytype = "UniProtKB"
+)
+
+bdnf_psd95
+```
+
+```{r}
+# # can't map???
+# embl_2_up <- select(
+#   x = mouseUp,
+#   keys = my_ncbi_ids,
+#   columns = c("accession", "protein_name",  "gene_names", "gene_primary", "go",
+#              "xref_elm",   "xref_embl", "xref_emdb", "xref_emind", "xref_ensembl", "xref_refseq", "xref_geneid"),
+#   keytype = "EMBL-GenBank-DDBJ"
+# )
+
+```
+
+```{r}
+# doesn't work
+# mapUniProt(
+#     from="EMBL-GenBank-DDBJ",
+#     to='UniProtKB',
+#     query= my_ncbi_ids
+# )
 ```
 
 ```{r}
@@ -76,9 +190,7 @@ str(comb_df)
 #   mutate(Direction = ifelse(e)
 ```
 
-
 ```{r}
 counts <- comb_df %>%
   count(Gene_name) 
 ```
-
