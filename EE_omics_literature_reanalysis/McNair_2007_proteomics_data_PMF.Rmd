@@ -117,7 +117,8 @@ com_df <- com_fil %>%
          .after = `Av. Ratio`) %>% 
   mutate(avg_ratio = round(as.numeric(avg_ratio),2)) %>% 
   mutate(Direction = ifelse(avg_ratio > 0, "Up", "Down"),
-         .after = "avg_ratio")
+         .after = "avg_ratio") %>%
+  mutate(ncbi_gi_trim = gsub("gi ", "", `NCBI Acc no.`), .after = `NCBI Acc no.`)
   
 ```
 
@@ -125,7 +126,7 @@ com_df <- com_fil %>%
 
 ```{r}
 #write_excel_csv is UTF-8 encoded so now weird output / deals with special characters
-# write_excel_csv(com_df, "output/2025_12_02_McNair2007_data_cleaned_v1.csv")
+# write_excel_csv(com_df, "output/2025_12_05_McNair2007_data_cleaned_v2.csv")
 ```
 
 ## Plots
