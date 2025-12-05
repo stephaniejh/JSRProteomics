@@ -1,0 +1,84 @@
+---
+title: "2025_11_17_EE_Rampon_2000_mRNA"
+author: "Stephanie Huang"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Load Packages
+
+```{r}
+library(tidyverse)
+library(readxl)
+```
+
+### Load Data
+
+```{r}
+# 3h & 6 h tables
+df_1 <- read_excel("input/Rampon_2000_EE_gene_expression_tables.xlsx",
+                   sheet = "3h_6h_mod",
+                   trim_ws = TRUE) # does not trim white space behind accessions?
+
+# 2 days & 14 days table
+df_2 <- read_excel("input/Rampon_2000_EE_gene_expression_tables.xlsx",
+                   sheet = "2d_14d_mod", 
+                   trim_ws = TRUE)
+```
+
+
+### Wrangle Data
+```{r}
+# pivot
+df_1_l <- pivot_longer(df_1,
+                       cols = c("3_h", "6_h"),
+                       names_to = "Duration",
+                       values_to = "Fold_Change") 
+  
+```
+
+```{r}
+df_2_l <- pivot_longer(df_2,
+                       cols = c("2_days", "14_days"),
+                       names_to = "Duration",
+                       values_to = "Fold_Change") 
+```
+
+```{r}
+comb_df <- bind_rows(list("Early" = df_1_l, "Late" =  df_2_l),
+                     .id = "Phase") 
+```
+
+```{r}
+str(comb_df)
+```
+
+```{r}
+# Writes weird numbers?!?!?!?!
+# write_csv(comb_df, "output/Rampon_2000_EE_mRNA_raw_combined_df.csv")
+  
+```
+
+```{r}
+# comb_df$Fold_Change <- recode(comb_df$Fold_Change, NC = "0")
+
+# NAs introduced by coercion
+# comb_df$Fold_Change <- as.numeric(comb_df$Fold_Change)
+```
+
+```{r}
+# TO FIX/CONT from HERE
+# comb_df_f <- comb_df %>%
+#   mutate(Direction = ifelse(e)
+```
+
+
+```{r}
+counts <- comb_df %>%
+  count(Gene_name) 
+```
+
