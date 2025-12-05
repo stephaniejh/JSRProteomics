@@ -1,0 +1,16 @@
+---
+title: "Litchti_2014_proteomics_data"
+output: html_document
+---
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
