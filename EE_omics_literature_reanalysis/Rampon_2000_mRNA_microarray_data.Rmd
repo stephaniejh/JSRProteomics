@@ -9,6 +9,8 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+Note EMBL doesn't seem available in the clusterprofiler annotationsdbi bitr() functions.
+
 ### Load Packages
 
 ```{r}
@@ -16,8 +18,7 @@ knitr::opts_chunk$set(echo = TRUE)
 #     install.packages("BiocManager")
 # 
 # BiocManager::install("UniProt.ws")
-
-library(UniProt.ws) # uniprot api
+library(UniProt.ws) # 1st test -  uniprot api 
 library(tidyverse)
 library(readxl)
 ```
@@ -114,6 +115,16 @@ columns(mouseUp) # columns that can be retrieved
 ```
 
 ```{r}
+#
+allFromKeys()
+
+allToKeys()
+
+returnFields()
+
+```
+
+```{r}
 # can look up keys but webservice slow - so save object
 egs <- keys(mouseUp, "GeneID") # huh?
 
@@ -151,43 +162,36 @@ bdnf_psd95
 ```
 
 ```{r}
-# # can't map???
-# embl_2_up <- select(
-#   x = mouseUp,
-#   keys = my_ncbi_ids,
-#   columns = c("accession", "protein_name",  "gene_names", "gene_primary", "go",
-#              "xref_elm",   "xref_embl", "xref_emdb", "xref_emind", "xref_ensembl", "xref_refseq", "xref_geneid"),
-#   keytype = "EMBL-GenBank-DDBJ"
-# )
+# maps 29 of the 56 | same result as running online!
+embl_2_up <- select(
+  x = mouseUp,
+  keys = my_ncbi_ids,
+  columns = c("accession", "protein_name",  "gene_names", "gene_primary", 
+               "organism_id", "reviewed", "protein_name",  "protein_existence",
+              "protein_families" , "id", "keyword",  "keywordid", "go", 
+               "xref_embl", "xref_ensembl", "xref_refseq", "xref_geneid",
+              "xref_eggnog", ),
+  keytype = "EMBL-GenBank-DDBJ"
+)
 
 ```
 
 ```{r}
-# doesn't work
-# mapUniProt(
-#     from="EMBL-GenBank-DDBJ",
-#     to='UniProtKB',
-#     query= my_ncbi_ids
-# )
+# generally same as above - default gives...
+# from, entry, entry_name, reviewed, protein.names, gene.names, organism, length
+embl_2_up_2 <- mapUniProt(
+    from="EMBL-GenBank-DDBJ",
+    to='UniProtKB',
+    query= my_ncbi_ids)
 ```
 
 ```{r}
-# Writes weird numbers?!?!?!?!
-# write_csv(comb_df, "output/Rampon_2000_EE_mRNA_raw_combined_df.csv")
-  
+mapped_df <- left_join(comb_df, embl_2_up_2,
+                        by = join_by(Accession_no == From))
 ```
 
 ```{r}
-# comb_df$Fold_Change <- recode(comb_df$Fold_Change, NC = "0")
-
-# NAs introduced by coercion
-# comb_df$Fold_Change <- as.numeric(comb_df$Fold_Change)
-```
-
-```{r}
-# TO FIX/CONT from HERE
-# comb_df_f <- comb_df %>%
-#   mutate(Direction = ifelse(e)
+#write_excel_csv(mapped_df, "output/2025_12_08_Rampon_2000_mRNA_uniprot_mapped_v2.csv")
 ```
 
 ```{r}
