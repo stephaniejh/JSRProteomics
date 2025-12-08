@@ -4,13 +4,77 @@ output: html_document
 ---
 
 ```{r}
+library(UniProt.ws) # 1st test -  uniprot api 
+library(tidyverse)
+library(readxl)
+```
+
+```{r}
+df_1 <- read_excel("input/Lichti_2014_datasheet_1.XLSX",
+                   sheet = "quant-all",
+                   trim_ws = TRUE) # does not trim white space behind accessions?
 
 ```
 
 ```{r}
-
+colnames(df_1)
+str(df_1)
+length(unique(df_1$Accession)) # 1915
 ```
 
 ```{r}
+df_rat <- df_1 %>% # 2835
+  filter(str_detect(Name, "RAT")) %>% # 1506
+  filter(`EC p value` <= 0.05) # 139
+  
+```
 
+```{r}
+#head(keytypes(mouseUp)) 
+keytypes(mouseUp) # key types that can be retrieved
+
+#head(columns(mouseUp)) 
+columns(mouseUp) # columns that can be retrieved
+```
+
+```{r}
+my_ids <- df_1$Accession
+```
+
+```{r}
+# https://www.uniprot.org/help/return_fields
+
+up_rat_mouse <- mapUniProt(
+  from = "UniProtKB_AC-ID",
+  to = "UniProtKB",
+  columns = c("accession", "id", "reviewed", "protein_name", "gene_names",
+              "gene_primary", "organism_name", "length", "keywordid", "keyword"),
+  query = my_ids
+  #query = list(taxId = 10116, ids = my_ids) # isn't selective to only rats?
+)
+```
+
+```{r}
+# add website links
+up_rat_mouse_entry <- up_rat_mouse %>%
+  mutate(uniprot_link = paste0("https://www.uniprot.org/uniprotkb/", Entry, "/entry")) %>% # add uniprot entry link! 
+  mutate(wiki_link = paste0("https://en.wikipedia.org/wiki/", str_to_upper(Gene.Names..primary.))) # add wikipedia (needs 2 be uppercase)
+  #most of the wiki ones work e.g. in if 4 or more characters
+```
+
+```{r}
+# write out basic df
+# write_excel_csv(up_rat_mouse_entry, "output/2025_12_08_lichti_2014_test_map_v1.csv")
+```
+
+```{r}
+df_2 <- dplyr::left_join(df_1, up_rat_mouse_entry,
+                         by = join_by(Accession == From)) %>%
+  mutate(Direction = ifelse(`EC log2 fold` < 0, "Down", "Up"), .after = `Gene Symbol`)
+```
+
+```{r}
+df_3 <- df_2 %>% # 2835
+  filter(str_detect(Name, "RAT")) %>% # 1506
+  filter(`EC p value` <= 0.05) # 139
 ```
