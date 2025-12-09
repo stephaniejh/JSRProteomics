@@ -3,11 +3,16 @@ title: "Lichti_2014_proteomics_data"
 output: html_document
 ---
 
+### Load Packages
+
 ```{r}
 library(UniProt.ws) # 1st test -  uniprot api 
 library(tidyverse)
 library(readxl)
+library(gt)
 ```
+
+### Load initial Lichti df table
 
 ```{r}
 df_1 <- read_excel("input/Lichti_2014_datasheet_1.XLSX",
@@ -22,19 +27,18 @@ str(df_1)
 length(unique(df_1$Accession)) # 1915
 ```
 
+### Get extra uniprot in via uniprot.ws
+
+Getting info like protein names, etc
+
 ```{r}
-df_rat <- df_1 %>% # 2835
-  filter(str_detect(Name, "RAT")) %>% # 1506
-  filter(`EC p value` <= 0.05) # 139
-  
+ratUp <- UniProt.ws(10116) # rat
 ```
 
 ```{r}
-#head(keytypes(mouseUp)) 
-keytypes(mouseUp) # key types that can be retrieved
+keytypes(ratUp) # key types that can be retrieved
 
-#head(columns(mouseUp)) 
-columns(mouseUp) # columns that can be retrieved
+columns(ratUp) # columns that can be retrieved
 ```
 
 ```{r}
@@ -43,7 +47,8 @@ my_ids <- df_1$Accession
 
 ```{r}
 # https://www.uniprot.org/help/return_fields
-
+# https://www.uniprot.org/help/general_annotation
+# takes the rat & mouse uniprot accession IDs in Lichti's df & maps further uniprot info onto them
 up_rat_mouse <- mapUniProt(
   from = "UniProtKB_AC-ID",
   to = "UniProtKB",
@@ -56,6 +61,7 @@ up_rat_mouse <- mapUniProt(
 
 ```{r}
 # add website links
+# follows a certain stucture (doesn't account all but has most)
 up_rat_mouse_entry <- up_rat_mouse %>%
   mutate(uniprot_link = paste0("https://www.uniprot.org/uniprotkb/", Entry, "/entry")) %>% # add uniprot entry link! 
   mutate(wiki_link = paste0("https://en.wikipedia.org/wiki/", str_to_upper(Gene.Names..primary.))) # add wikipedia (needs 2 be uppercase)
@@ -67,14 +73,101 @@ up_rat_mouse_entry <- up_rat_mouse %>%
 # write_excel_csv(up_rat_mouse_entry, "output/2025_12_08_lichti_2014_test_map_v1.csv")
 ```
 
+### Bind uniprot info & df + add other info & clean up data
+
 ```{r}
 df_2 <- dplyr::left_join(df_1, up_rat_mouse_entry,
                          by = join_by(Accession == From)) %>%
-  mutate(Direction = ifelse(`EC log2 fold` < 0, "Down", "Up"), .after = `Gene Symbol`)
+  mutate(Direction = ifelse(`EC log2 fold` < 0, "Down", "Up"),
+         gene_name = str_to_title(`Gene.Names..primary.`),
+         .after = `Gene Symbol`) %>%
+  mutate(Significant = ifelse(`EC p value` <= 0.05, 'yes', 'no'), .after = `EC p value`)  %>%
+  filter(str_detect(Name, "RAT")) # 2835 to 1506
 ```
 
 ```{r}
-df_3 <- df_2 %>% # 2835
-  filter(str_detect(Name, "RAT")) %>% # 1506
-  filter(`EC p value` <= 0.05) # 139
+df_3 <- df_2 %>%
+  dplyr::select(Accession:Significant, fraction:wiki_link) %>% 
+  mutate(across(where(is.numeric), ~ round(., 3))) %>% #if numeric col, round to 3 dp
+  group_by(fraction, Direction) %>%  
+  arrange(`EC p value`, `EC log2 fold`) 
+
+```
+
+#### ggplot rat only non sig dot plot
+
+```{r fig.height=5, fig.width=11}
+# non significant plot - looks messy but you get the idea
+ns_plot <- df_3 %>%
+  ggplot(aes(x = gene_name, y = `EC log2 fold`, color = Direction, alpha = Significant)) +
+  geom_point(shape = 1) +
+  geom_hline(yintercept = 0, color = 'grey20') +
+  scale_color_manual(breaks = c("Up", "Down"),
+                     values = c("#dc322f", "#268bd2")) + 
+  scale_alpha_manual(values = c(0.2,1)) +
+  labs(title = 'Lichti et al., 2014 - EC log2fc x gene name - NAc',
+       subtitle = 'Rats only (1506/2835), non-sig incl., split by fraction, LC-MS proteomics') +
+  facet_wrap(~fraction, space = 'free_x', scale = 'free_x') + 
+  theme_bw() 
+
+ns_plot
+```
+
+#### ggplot lollipop chart (sig only)
+
+```{r fig.height=5, fig.width=11}
+# assign colors based on direction. | works by nvm ordering is weird
+#label_colors <- ifelse(df_3$`EC log2 fold` > 0 , "#dc322f", "#268bd2")
+
+# lollipop - ggplot ver - a big ugly
+sig_plot <- df_3 %>%
+  filter(`EC p value` <= 0.05) %>% # 139
+  ggplot(aes(x = reorder(gene_name, `EC log2 fold`), # orders by log fold
+                         y = `EC log2 fold`,
+             color = Direction)) +
+  geom_segment(aes(x = gene_name,
+                   yend = `EC log2 fold`, y = 0)) +
+  geom_point(aes(alpha = `EC p value`),
+             shape = 19, size = 4) +
+  scale_alpha(range = c(1,.1), guide = 'none') + # rev alpha so darker = more significant
+  # geom_text(aes(label = gene_name), color = "grey10", size = 2.5,
+  #           position = position_stack()) +
+  geom_hline(yintercept = 0, color = 'grey20', linewidth = 0.1) +
+  scale_color_manual(breaks = c("Up", "Down"),
+                     values = c("#dc322f", "#268bd2"),
+                     guide = 'none') + 
+  labs(title = 'Lichti et al., 2014 - EC Log2FC x Gene Name - NAc',
+       subtitle = 'Rats only (139/1506/2835), sig only, by fraction, LC-MS proteomics',
+       y = 'EC Log2FC',
+       x = 'Gene Name') +
+  #coord_flip() + #fliptheplot
+  facet_wrap(~fraction, space = 'free_x', scale = 'free_x') +
+  #theme_void() +
+  theme_bw() +
+  theme(
+    #axis.title = element_blank(),
+    #axis.text.x = element_blank() 
+    axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5, # 90, hj1 t/R, vj.5 cent
+                               size = 9, face = 'italic'), 
+    axis.text.y = element_text(hjust = 1, color = "grey20", size = 10), # rota 90 & hjust=1 (top/right)
+        ) 
+
+sig_plot
+```
+
+### gt Table
+
+```{r}
+df_3 |>
+  dplyr::select(fraction, gene_name, `Protein.names`, Direction,
+                `EC log2 fold`, `EC p value`, Entry) |> #cols for table
+  gt(
+    groupname_col = dplyr::group_vars(df_3)
+  ) |>
+  tab_header(
+    title = "Lichti et al., 2014 - EC vs. IC - NAc",
+    subtitle = "Cleaned lc-ms proteomics dataframe, signficant rats only (139/1506/2835
+    ), organised by fraction + direction & arranged by pvalue + EC log2FC"
+  ) |>
+   opt_stylize(style = 1, color = 'gray', add_row_striping = TRUE)
 ```
