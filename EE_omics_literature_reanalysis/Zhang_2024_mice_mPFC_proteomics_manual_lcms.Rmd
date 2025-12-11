@@ -1,0 +1,188 @@
+---
+title: "Zhang_2024_mice_mPFC_proteomics_manual_lcms"
+author: "Stephanie Huang"
+date: "2025-12-11"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Library
+
+```{r}
+library(UniProt.ws) # 1st test -  uniprot api 
+library(tidyverse)
+library(readxl)
+library(gt)
+```
+
+Load df
+
+Note this is manual list from
+
+```{r}
+
+raw_df <- read_excel('input/Zhang_2024_manual_proteomics_list.xlsx',
+           sheet = 'dec_v1_fig')
+
+```
+
+```{r}
+colnames(raw_df)
+str(raw_df)
+```
+
+Mapping
+
+```{r}
+ratUp <- UniProt.ws(taxId = 10116)
+```
+
+```{r}
+#available keytypes
+keytypes(ratUp)
+
+#available columns
+columns(ratUp)
+```
+
+```{r}
+to_map <- raw_df$`Gene/Protein`
+```
+
+```{r}
+# map the 36 gene name entries from Zhang 2024 df 
+ids_1 <- mapUniProt(from = "Gene_Name",
+                      to = "UniProtKB",
+                      #columns = c(""),
+                      query = list(taxId = 10116, ids = to_map) # returns 22325 x 8 - all species?! not just rat???
+                      #query =  list(organism_id = 10116, ids = to_map) # again same as above -> maybe select function is more restricted?
+                      )
+
+# took 5 min on jennifer - returned warning "IDs not mapped: UPF0665 protein C2orf69 homolog"
+```
+
+```{r}
+# # still the same as above maybe due to using genenames??? | still works though
+# ids_2 <- select(x = ratUp,
+#                   keys = to_map,
+#                   #columns, 
+#                   keytype = "Gene_Name") 
+```
+
+```{r}
+# select entries from mouse & rat only - from 22325 to 304
+ids_3 <- ids_1 %>%
+  filter(Organism %in% c('Rattus norvegicus (Rat)', 'Mus musculus (Mouse)')) # to 304 obs
+
+```
+
+```{r}
+# take 
+all_cols <- columns(ratUp)
+ids_3_to_map <- ids_3$Entry
+
+ids_4 <- select(x = ratUp,
+                keys = ids_3_to_map, 
+                columns = all_cols,
+                keytype = "UniProtKB") 
+
+# results in 304 x 296
+```
+
+```{r}
+ids_5 <- ids_4 %>%
+  filter(str_detect(Keywords, "Reference"))  #304 to 212
+  #filter(Reviewed == "reviewed") # 212 to 50
+```
+
+```{r}
+my_up_cols <-  c('From', 'Entry', "Entry.Name", "Reviewed",  "Protein.names",
+                 "Gene.Names", "Gene.Names..primary.", "GeneID",  "Organism",  "Length",
+                 "Protein.existence", "Protein.families", "Keywords", "Keyword.ID",
+                 "Function..CC.", "Subcellular.location..CC.", "Tissue.specificity",
+                 "Gene.Ontology..GO.", "Gene.Ontology.IDs", "KEGG",
+                 "Comments", "Date.of.creation", "Date.of.last.modification", "Date.of.last.sequence.modification",
+                 "Annotation" )
+
+# my_up_cols <-  c(From, Entry, Entry.Name, Reviewed,  Protein.names,
+#                  Gene.Names, Gene.Names..primary., GeneID,  Organism,  Length,
+#                  Protein.existence, Protein.families, Keywords, Keyword.ID,
+#                  GO, KEGG)
+```
+
+```{r}
+ids_6 <- ids_5 %>%
+  dplyr::select(all_of(my_up_cols)) # need all_of if ref other list
+
+```
+
+```{r}
+unique(ids_6$Gene.Names..primary.)
+length(unique(ids_6$Gene.Names..primary.))
+```
+
+Rat only
+
+```{r}
+rats_for_map <- ids_6 %>%
+  filter(str_detect(Organism, "Rat")) %>%
+  group_by(Reviewed, Gene.Names..primary., Protein.names) %>%
+  #filter(Annotation == max(Annotation, na.rm = TRUE)) # same as slice_max function below
+  mutate(Annotation = as.numeric(Annotation)) %>% # not needed? but just to be safe?
+  slice_max(Annotation, n = 1) # takes top score (annotation 5)
+  
+```
+
+Join both df's - note gives warning as more than 1 id maps on (goes from 105 to 125 rows). Then Conditional filtering to remove unreviewed rows if the grouping already has been reviewed (goes back to 105).
+
+```{r}
+com_df_w_ids <- left_join(com_df, uniprot_ids, 
+                          by = join_by(ncbi_gi_trim == From)) %>%
+  
+ # group by obs (like in paper or original 105 rows in com_df)
+ group_by(Fraction, `Spot no.`, `Protein ID`, avg_ratio, ncbi_gi_trim) %>%
+  
+  filter(
+    # if at least 1 is reviewed = TRUE... (ignore NA btw)
+    if (any(Reviewed == "reviewed", na.rm = TRUE)) {
+      Reviewed == "reviewed" # ... then keep only reviewed
+    } else {     #else keep what is there (keep unreviewed if no reviewed available)
+      TRUE
+    }
+  ) %>%
+  ungroup() # then ungroup back to normal | # see how it goes from 125 back to 105!
+  
+```
+
+```{r}
+check_1 <- rats_for_map %>%
+  filter(Reviewed == "reviewed")
+```
+
+```{r}
+# ??????
+vec1 <- check_1$Gene.Names..primary.
+vec2 <- raw_df$`Gene/Protein`
+
+setdiff(vec1, vec2)
+```
+
+```{r}
+check_2 <- left_join(raw_df, check_1, 
+                     by = join_by(`Gene/Protein` == `Gene.Names..primary.`))
+  
+```
+
+```{r}
+check_3 <- 
+```
+
+```{}
+```
+
+-   <https://www.epirhandbook.com/en/new_pages/iteration.html>
+
+-   <https://r4ds.hadley.nz/iteration.html>
