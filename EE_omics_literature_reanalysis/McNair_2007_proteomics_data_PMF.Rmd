@@ -118,8 +118,12 @@ com_df <- com_fil %>%
   mutate(avg_ratio = round(as.numeric(avg_ratio),2)) %>% 
   mutate(Direction = ifelse(avg_ratio > 0, "Up", "Down"),
          .after = "avg_ratio") %>%
-  mutate(ncbi_gi_trim = gsub("gi ", "", `NCBI Acc no.`), .after = `NCBI Acc no.`)
-  
+  mutate(ncbi_gi_trim = str_squish(gsub("gi", "", `NCBI Acc no.`)),
+         .after = `NCBI Acc no.`)
+
+# note most are something "gi 8248819", but 1 =  "gi38197650" so pre ver...
+# mutate(ncbi_gi_trim = gsub("gi ", "", `NCBI Acc no.`), .after = `NCBI Acc no.`)
+# should be str_squish(gsub("gi", "", `NCBI Acc no.`)) -> rm gi & then rm white space
 ```
 
 #### Write out data frame
@@ -308,7 +312,7 @@ Still a lot of NA values (unable to map gi number to uniprotKB)
 ```{r}
 colnames(com_df_w_ids)
 
-lit_review_ver <- com_df_w_ids %>%
+lit_review_ver_1 <- com_df_w_ids %>%
   select("Fraction", "Spot no.", "Protein ID", "Gene Names (primary)", "Gene Names",
          "Direction", "avg_ratio", "Control vs. enriched (t-test)",  "Entry", 
          "Reviewed","Entry Name", "Protein names", "Class") %>%
@@ -327,6 +331,55 @@ lit_review_ver <- com_df_w_ids %>%
 
 ```{r}
 # #write out 
-# write_excel_csv(lit_review_ver,
+# write_excel_csv(lit_review_ver_1,
 #                 "output/2025_12_05_McNair2007_data_lit_review_ver_v4.csv")
+```
+
+### v3 - 10/11Dec 
+
+```{r}
+# colnames(com_df_w_ids) # check col names 
+
+# new v2 df (v5 exp ) - ordered properly to match lit review
+lit_re_v2 <- com_df_w_ids %>%
+  mutate(
+    Year = 2007,
+    Author = 'McNair',
+    Animal = 'Rat',
+    Condition = paste0("Fraction - ", Fraction),
+    Region = 'Hippocampus - CA1',
+    Whole = 'No',
+    Exp_type = 'Protein',
+    Method = 'PROTEOMICS_2DIGE_MALDI_PMF',
+    Used_name = `Protein ID`,
+    Mod = " ",
+    Mod_type = " ",
+    Gene_name = `Gene Names (primary)`,
+    Comparison = 2,
+    In_EE = Direction,
+    Fold_change = avg_ratio,
+    Arrows = ifelse(Direction == 'Up', '+', '-'),
+    Significant = ifelse(`Control vs. enriched (t-test)` <= 0.05, 'yes', 'no'),
+    pvalue = `Control vs. enriched (t-test)`,
+    N_tested = 6,
+    Stats_adj = ' ',
+    Note = ' ',
+    Full_name = `Protein names`,
+    Uniprot_rat_accession = Entry,
+    Uniprot_entry_name = `Entry Name`,
+    Uniprot_link = paste0('https://www.uniprot.org/uniprotkb/', Entry,'/entry'),
+    Wikipedia_link = paste0('https://en.wikipedia.org/wiki/', `Gene Names (primary)`),
+    Curation_method = ifelse(!is.na(Entry), 'auto - ncbi_gi-to-uniprot', 'manual'),
+    Class_group = Class,
+    Other_link = ' ',
+    Other_comments = 'misc contains ncbi gi no.',
+    misc = ncbi_gi_trim
+  )
+  
+```
+
+```{r}
+#write out 
+# write_excel_csv(lit_re_v2,
+#                 "output/2025_12_11_McNair2007_data_lit_review_v2_v5.csv")
 ```
