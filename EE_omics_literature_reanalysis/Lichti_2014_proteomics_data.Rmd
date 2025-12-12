@@ -320,6 +320,91 @@ enrichplot::dotplot(kegg_res_m,
 #                      pathway.id = 'rno00190', # oxidative phosphorylation - Rat
 #                      species = 'rno',
 #                      limit = list(gene=max(abs(geneList)), cpd=1))
+
 ```
 
-### MSigDB
+------------------------------------------------------------------------
+
+## Trying for loops for gsea (KEGG)
+
+-   Based off of <https://www.epirhandbook.com/en/new_pages/iteration.html#looping-plots> & my previous clusterprofiler analyses
+
+### Setup containers & prepare info for sequences
+
+```{r}
+# make vector of fractions (cytosolic, membrane, & nuclear) - in prep of sequences
+fraction_names <- unique(df_3$fraction)
+
+# make container lists to store results
+# gsea_results_list <- vector(mode = "list", length = 10)
+gsea_results_list <- vector(mode = "list") # actually make empty
+```
+
+### Operation 
+
+```{r}
+for (fr in fraction_names){ # SEQUENCE - for each item (fr) in fraction_names
+  
+  # OPERATIONS
+  # Part 1
+  # make a ranked gene list for this fraciton
+  geneList_working_df <- df_3 %>%
+      # filter by item | fraction is column in df_3, fr is i (current item in seq)
+    filter(fraction == fr) %>% 
+      # compute ranking metric
+    mutate(ranking = sign(`EC log2 fold`)*(-log10(`EC p value`))) %>%
+      # for any duplicate entries, # average & remove any nas
+    group_by(Entry) %>% 
+    summarise(ranking = mean(ranking, na.rm = TRUE)) %>%
+      # lastly, arrange from pos to neg 
+    arrange(-ranking)
+  
+  # store in list (not necessary...)
+  gsea_results_list$geneList_df[[fr]] <- geneList_working_df
+  
+  # Part 1.2
+  # next, deframe into a named vector needed to supply to fgsea()
+  geneList_vec_working <- tibble::deframe(geneList_working_df)
+  
+  # store in list 
+  gsea_results_list$geneList_vec[[fr]] <- geneList_vec_working
+  
+  # Part 1.3
+  # Plot ranked gene list
+  # gL_plot <- plot(geneList_vec_working, main = paste(fr, '- Ranked gene list'))
+  # 
+  # gsea_results_list$geneList_plots[[fr]] <- gL_plot
+  
+ 
+  # Part 2
+  # run KEGG gsea with clusterProfiler
+  kegg_res_working <- clusterProfiler::gseKEGG(geneList = geneList_vec_working,
+                              organism = 'rno',
+                              keyType = 'uniprot',
+                              by = 'fgsea',
+                              pvalueCutoff = 0.05,
+                              pAdjustMethod = 'BH', #BejaminiHoc Correciton
+                              )
+  
+  # save kegg result original to list vec
+  gsea_results_list$kegg_results[[fr]] <- kegg_res_working
+  
+  # not needed here so compute & save directly? or can do anyway? idk?
+  gsea_results_list$kegg_results_tib[[fr]] <- tibble::as_tibble(kegg_res_working) 
+  
+  
+  # Part 3
+  # Make dotplots
+  dp <- enrichplot::dotplot(kegg_res_working,
+                            split = '.sign',
+                            showCategory = 30,
+                            title = paste0(stringr::str_glue(
+                              '{fr} - NAc - Lichti,2014 (EE vs IC) - gseKEGG_r'))) +
+    facet_grid(.~.sign)
+  
+  # print dot plots 
+  print(dp)
+
+    
+}
+```
