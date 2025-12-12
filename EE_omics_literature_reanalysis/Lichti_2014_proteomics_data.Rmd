@@ -340,7 +340,7 @@ fraction_names <- unique(df_3$fraction)
 gsea_results_list <- vector(mode = "list") # actually make empty
 ```
 
-### Operation 
+### Operation
 
 ```{r}
 for (fr in fraction_names){ # SEQUENCE - for each item (fr) in fraction_names
@@ -369,11 +369,12 @@ for (fr in fraction_names){ # SEQUENCE - for each item (fr) in fraction_names
   # store in list 
   gsea_results_list$geneList_vec[[fr]] <- geneList_vec_working
   
-  # Part 1.3
+  # Part 1.3 | plots fine but does not save?!?!?!
   # Plot ranked gene list
-  # gL_plot <- plot(geneList_vec_working, main = paste(fr, '- Ranked gene list'))
-  # 
-  # gsea_results_list$geneList_plots[[fr]] <- gL_plot
+  gL_plot <- plot(geneList_vec_working, main = paste(fr, '- Ranked gene list'))
+  print(gL_plot)
+
+  gsea_results_list$geneList_plots[[fr]] <- gL_plot
   
  
   # Part 2
@@ -394,17 +395,140 @@ for (fr in fraction_names){ # SEQUENCE - for each item (fr) in fraction_names
   
   
   # Part 3
-  # Make dotplots
+  # Make dotplots | this one plots & saves properly!
+  # 3.1 - regular dot blot
   dp <- enrichplot::dotplot(kegg_res_working,
+                            showCategory = 30,
+                            title = paste0(stringr::str_glue(
+                              '{fr} - NAc - Lichti, 2014 (EE vs IC) - gseKEGG_r'))) 
+
+  
+  print(dp)   # print dot plots 
+  gsea_results_list$dotplots[[fr]] <- dp # save to list 
+  
+  # 3.2 - dot plot split by sign
+  dp_sign <- enrichplot::dotplot(kegg_res_working,
                             split = '.sign',
                             showCategory = 30,
                             title = paste0(stringr::str_glue(
-                              '{fr} - NAc - Lichti,2014 (EE vs IC) - gseKEGG_r'))) +
+                              '{fr} - NAc - Lichti, 2014 (EE vs IC) - gseKEGG_r split by sign'))) +
     facet_grid(.~.sign)
   
-  # print dot plots 
-  print(dp)
+  print(dp_sign) # print dot plots 
+  gsea_results_list$dotplots_sign[[fr]] <- dp_sign # save to list
 
     
 }
+```
+
+```{r}
+# horrific name but at least clear...
+#Lichti_2014_gsea_results_2025_12_12_v1 <- gsea_results_list 
+
+# save(Lichti_2014_gsea_results_2025_12_12_v1, 
+#      file = "output/2025_12_12_Lichti_2014_gsea_results_rats_NAc_v1.rda")
+```
+
+```{r}
+# Warning means that some genes have tied rankings
+# note the membrane one is especially high 89.71%  - this corresponds to the weird # pattern in geneList ranking plot -  
+
+# Warning messages:
+# 1: In preparePathwaysAndStats(pathways, stats, minSize, maxSize, gseaParam,  :
+#   There are ties in the preranked stats (33.82% of the list).
+# The order of those tied genes will be arbitrary, which may produce unexpected results.
+# 2: In preparePathwaysAndStats(pathways, stats, minSize, maxSize, gseaParam,  :
+#   There are ties in the preranked stats (30.61% of the list).
+# The order of those tied genes will be arbitrary, which may produce unexpected results.
+# 3: In fgseaMultilevel(pathways = pathways, stats = stats, minSize = minSize,  :
+#   For some of the pathways the P-values were likely overestimated. For such pathways log2err is set to NA.
+# 4: In fgseaMultilevel(pathways = pathways, stats = stats, minSize = minSize,  :
+#   For some pathways, in reality P-values are less than 1e-10. You can set the `eps` argument to zero for better estimation.
+# 5: In preparePathwaysAndStats(pathways, stats, minSize, maxSize, gseaParam,  :
+#   There are ties in the preranked stats (89.71% of the list).
+# The order of those tied genes will be arbitrary, which may produce unexpected results.
+```
+
+```{r}
+check_1 <- gsea_results_list$geneList_df$cytosolic
+
+length(unique(gsea_results_list$geneList_df$cytosolic$Entry)) # 689 unique proteins
+length(unique(gsea_results_list$geneList_df$cytosolic$ranking)) # 456 unique ranks
+```
+
+```{r fig.height=18, fig.width=12}
+# cow plot for combined + plotlist = to plot a list of plots 
+cowplot::plot_grid(plotlist = c(gsea_results_list$dotplots,
+                                gsea_results_list$dotplots_sign),
+                   ncol = 2)
+# print(gsea_results_list$dotplots)
+```
+
+[2025_12_12 - Note to self maybe add some testing & progress of loop info - ref to epi cook book. Also try nested for loops with GO analysis e.g. for each of the 3 fractions (cytosolic, nuclear, membrane) run each of the 3 GO (CC, BP, MF)]{.smallcaps}
+
+------------------------------------------------------------------------
+
+Make lit review table (similar to McNair one)
+
+```{r}
+colnames(df_3) # check col names 
+
+# lit review table 
+lit_re <- df_3 %>%
+  mutate(
+    Space = " ", # empty space column
+    Year = 2014,
+    Author = 'Lichti',
+    Animal = 'Rat',
+    Condition = paste0("Fraction - ", fraction),
+    Region = 'Nucleus_Accumbens',
+    Whole = 'No',
+    Exp_type = 'Protein',
+    Method = 'PROTEOMICS_LCMS_LFQ_OS',
+    Used_name = `Gene Symbol`,
+    Mod = " ",
+    Mod_type = " ",
+    Gene_name = gene_name, # lazy way to avoid moving rows (don't need headers anyway)
+    Comparison = 1,
+    In_EE = Direction, # note was coded as >0 Up, <0 Down. Maybe change one to same?? 
+    Fold_change = `EC log2 fold`,
+    #Arrows = ifelse(Direction == 'Up', '+', '-'),
+    Arrows = case_when( # dplyr case when, instead of ifelse
+      `EC log2 fold` > 2.5 ~ '+++',
+      `EC log2 fold` > 1 ~ '++',
+      `EC log2 fold` > .05 ~ '+',
+      `EC log2 fold` > -.05 ~ '=',
+      `EC log2 fold` > -1 ~ '-',
+      `EC log2 fold` > -2.5 ~ '--',
+      `EC log2 fold` <= -2.5 ~ '---',
+      ),
+    #Significant = ifelse(`EC p value` <= 0.05, 'yes', 'no'),
+    signficant = Significant,
+    pvalue = `EC p value`,
+    N_tested = " ",
+    Stats_adj = 'adjusted',
+    Note = ' ',
+    Full_name = Protein.names,
+    Uniprot_rat_accession = Entry,
+    Uniprot_entry_name = Entry.Name,
+    Uniprot_link = uniprot_link,
+    Wikipedia_link = wiki_link,
+    Curation_method = ifelse(!is.na(Entry), 'auto - uniprot_acc_query', 'manual'),
+    Class_group = ' ',
+    Other_link = ' ',
+    Other_comments = '*misc col shows the col names in their excel df',
+    misc = paste0(Accession, ";", `Gene Symbol`, ";", Name)
+  )
+```
+
+```{r}
+# weird... highlights importance of plotting data!!!
+plot(df_3$`EC log2 fold`)
+```
+
+```{r}
+#write out | na values = blank 
+# write_excel_csv(lit_re,
+#                 "output/2025_12_12_Lichti_2014_rats_NAc_data_lit_review_v1.csv",
+#                 na = "")
 ```
