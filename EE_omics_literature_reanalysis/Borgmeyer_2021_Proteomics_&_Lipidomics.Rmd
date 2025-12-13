@@ -22,9 +22,11 @@ knitr::opts_chunk$set(echo = TRUE)
 library(dplyr)
 library(ggplot2)
 library(stringr)
+library(readr)
 library(readxl) # for read_excel()
 library(ggrepel) #  for geom_text_repel()
 library(gt) # gt() tables
+library(UniProt.ws) # for mapping | note conflicts with dplyr select
 ```
 
 ### Proteomics - Lipidomics - Table S7 - LFQ DEG MSstats - EE vs SH Hippocampus Synaptic Junctions
@@ -159,3 +161,175 @@ hippro_df |>
 ### Lipidomics - Table S7 - LFQ DEG MSstats - EE vs SH Hippocampus Synaptic Junctions
 
 To add
+
+------------------------------------------------------------------------
+
+## Map 2 uniprot + making lit review table. 
+
+Pull uniprot data to map gene ids
+
+See if mice ids match rats
+
+```{r}
+ratUp <- UniProt.ws(taxId = 10116)
+
+mouseUp <- UniProt.ws(taxId = 10090)
+```
+
+```{r}
+#available keytypes
+keytypes(ratUp)
+
+#available columns
+columns(ratUp)
+```
+
+```{r}
+all_cols <- columns(ratUp) 
+
+genes_to_map <- hippro_df$EntryName # gene name 
+
+up_acc_to_map <- hippro_df$Protein # uniprot protein acc for mice
+```
+
+```{r}
+# # try to map the 178 gene names provided
+# ids_1 <- mapUniProt(from = "Gene_Name",
+#                       to = "UniProtKB",
+#                       #columns = c(""),
+#                       query = list(taxId = 10116, ids = to_map)
+#                       ) #  returns 22325 x 8 - all species?! not just rat???
+# 
+# # takes too long nvm ...
+```
+
+```{r}
+# cols I want from uniprot
+my_cols <- c('accession', 'id', 'gene_names', 'gene_primary', 'protein_name',
+             	'xref_proteomes', '	reviewed', 'annotation_score', 'protein_existence',
+             'length', 'organism_name', 'keyword', 'keywordid', 'protein_families',
+             'cc_function', 'cc_developmental_stage', 'cc_tissue_specificity',
+             'xref_geneid')
+```
+
+```{r}
+# see https://www.uniprot.org/help/return_fields
+# and https://www.uniprot.org/help/return_fields_databases
+# try to map 
+ids_1_rat <- select(x = ratUp,
+                    keys = genes_to_map,
+                    columns = my_cols,
+                    keytype = 'Gene_Name')
+
+# took 36 mins, returned 141119 obs & 2 rows... ??? confused 
+# note did not map  IDs not mapped: Mfr1l, Kcma1, Isc2a, Pp2bb, Gbg7, 43892 
+```
+
+```{r}
+# write out anyway
+# write_excel_csv(ids_1_rat, "output/2025_12_13_Borgmeyer_test_map_genes_141119x2.csv")
+```
+
+```{r}
+# this one takes a few seconds! seems that if using uniprot accessions then is fast
+# bur gene names is so because uncertainty & tries to look through everything?
+ids_1_mouse <- select(x = mouseUp,
+                      keys = up_acc_to_map,
+                      #columns = my_cols,
+                      columns = all_cols,
+                      keytype = 'UniProtKB')
+```
+
+```{r}
+# write_excel_csv(ids_1_mouse,
+#                 "output/2025_12_13_Borgmeyer_test_map_up_accession_178x296.csv")
+```
+
+ref_pro_rat
+
+```{r}
+# took 14 mins to run query
+
+ref_pro_rat <- queryUniProt(query = c("organism_id:10116", 'proteome:UP000002494'),
+                              # fields = c( # gave bad request?
+                              #   "id", "accession", "gene_primary", "gene_names",
+                              #   "organism_name", "protein_name", "reviewed",
+                              #   "annotation", "length", "protein_existence",
+                              #   "protein_families",  "keyword", "keywordid" 
+                              # ),
+                             fields = c("id", "accession", "gene_primary",
+                                        "organism_name", "protein_name", "reviewed"),
+                              collapse = " AND " ) # "
+```
+
+```{r}
+intersection_rat <- intersect(ref_pro_rat$Entry, ids_1_rat$To)
+
+length(intersection_rat) # 275 interesting... 
+```
+
+```{r}
+mapped_rat_genes <- ref_pro_rat %>%
+  filter(Entry %in% intersection_rat)
+```
+
+```{r}
+unique(mapped_rat_genes$Gene.Names..primary.) # 
+length(unique(mapped_rat_genes$Gene.Names..primary.)) # 83 unique genes mapped...
+
+# when the genes are pasted in uniprot - there are 79 IDs mapped to 428 results
+# with 99 IDs not mapped | so this is slightly better? - see diff?
+```
+
+```{r}
+# TO CONTINUE HERE...
+```
+
+------------------------------------------------------------------------
+
+### Lit review table
+
+```{r}
+# colnames(com_df_w_ids) # check col names 
+
+# new v2 df (v5 exp ) - ordered properly to match lit review
+lit_re <- com_df_w_ids %>%
+  mutate(
+    Year = 2021,
+    Author = 'Borgmeyer',
+    Animal = 'Mice',
+    Condition = "Fraction - Synaptic Junction",
+    Region = 'Hippocampus',
+    Whole = 'No',
+    Exp_type = 'Protein',
+    Method = 'PROTEOMICS_LCMS_LFQ_OS',
+    Used_name = `Protein Name`,
+    Mod = " ",
+    Mod_type = " ",
+    Gene_name = `Gene Names (primary)`,
+    Comparison = 2,
+    In_EE = Direction,
+    Fold_change = avg_ratio,
+    Arrows = ifelse(Direction == 'Up', '+', '-'),
+    Significant = ifelse(`Control vs. enriched (t-test)` <= 0.05, 'yes', 'no'),
+    pvalue = `Control vs. enriched (t-test)`,
+    N_tested = 6,
+    Stats_adj = ' ',
+    Note = ' ',
+    Full_name = `Protein names`,
+    Uniprot_rat_accession = Entry,
+    Uniprot_entry_name = `Entry Name`,
+    Uniprot_link = ifelse(!is.na(Entry),
+                          paste0('https://www.uniprot.org/uniprotkb/', Entry,'/entry'),
+                          ' '),
+    Wikipedia_link = ifelse(!is.na(Entry),
+                            paste0('https://en.wikipedia.org/wiki/',
+                                   `Gene Names (primary)`),
+                            ' '),
+    Curation_method = ifelse(!is.na(Entry), 'auto - ncbi_gi-to-uniprot', 'manual'),
+    Class_group = Class,
+    Other_link = ' ',
+    Other_comments = 'misc shows combined provided info from their df',
+    misc = paste0(Protein, '_')
+  )
+```
