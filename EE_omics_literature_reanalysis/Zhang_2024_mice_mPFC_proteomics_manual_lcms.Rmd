@@ -137,16 +137,7 @@ intersect(ids_4$Gene.Names..primary., raw_df$`Gene/Protein`)
 length(intersect(ids_4$Gene.Names..primary., raw_df$`Gene/Protein`))
 ```
 
-Rat only
-
-```{r}
-rats_for_map <- ids_6 %>%
-  filter(str_detect(Organism, "Rat")) %>%
-  group_by(Reviewed, Gene.Names..primary., Protein.names) %>%
-  #filter(Annotation == max(Annotation, na.rm = TRUE)) # same as slice_max function below
-  slice_max(Annotation, n = 1) # takes top score (annotation 5)
-  
-```
+------------------------------------------------------------------------
 
 ## for loops
 
@@ -154,7 +145,7 @@ rats_for_map <- ids_6 %>%
 
 -   <https://r4ds.hadley.nz/iteration.html>
 
-### 3 Core components 
+### 3 Core components
 
 1.  The **sequence** of items to iterate through
 
@@ -171,7 +162,7 @@ for (num in c(1,2,3,4,5)) {
 }
 ```
 
-### Sequence 
+### Sequence
 
 This is the “for” part of a *for loop* - the operations will run “for” each item in the sequence. The sequence can be a series of values (e.g. names of jurisdictions, diseases, column names, list elements, etc), or it can be a series of consecutive numbers (e.g. 1,2,3,4,5). 
 
@@ -310,7 +301,7 @@ Empty List
 plots <- vector(mode = "list", length = 16)
 ```
 
-### Printing 
+### Printing
 
 Note that to print from within a for loop you will likely need to explicitly wrap with the function print().
 
@@ -336,7 +327,7 @@ for (i in gene_names_vec){
 
 ### **Tracking progress of a loop**
 
--   A loop with many iterations can run for many minutes or even hours. Thus, it can be helpful to print the progress to the R console. The `if` statement below can be placed *within* the loop operations to print every 100th number. Just adjust it so that `i` is the “item” in your loop.
+A loop with many iterations can run for many minutes or even hours. Thus, it can be helpful to print the progress to the R console. The `if` statement below can be placed *within* the loop operations to print every 100th number. Just adjust it so that `i` is the “item” in your loop.
 
 ```{r}
 # loop with code to print progress every 100 iterations
@@ -354,3 +345,96 @@ for (i in seq_len(nrow(linelist))){
 -   <https://r4ds.hadley.nz/iteration.html>
 
 -   <https://datacarpentry.github.io/semester-biology/materials/for-loops-R/>
+
+------------------------------------------------------------------------
+
+Continued...
+
+-   <https://www.modernstatisticswithr.com/progchapter.html#nestedloops>
+
+-   <https://adv-r.hadley.nz/control-flow.html>
+
+Set up
+
+```{r}
+rats_for_map <- ids_4 %>%
+  filter(str_detect(Organism, "Rat")) %>%
+  group_by(Reviewed, Gene.Names..primary., Protein.names) %>%
+  #filter(Annotation == max(Annotation, na.rm = TRUE)) # same as slice_max func below
+  slice_max(Annotation, n = 1) %>% # takes top score (annotation 5)
+  ungroup()
+```
+
+```{r}
+# make vector of unique gene/protein names from the Zhang data frame
+gp_names <- unique(rats_for_map$Gene_From_Zhang) 
+
+# make a  container lists to store the resuts
+mapped_rat_list <- vector("list") # empty seems fine since pasting from existing df?
+
+colnames(raw_df)
+colnames(ids_4)
+```
+
+Operations
+
+```{r}
+# Entirely Base R approach
+for (gp in gp_names){ # sequence
+  
+  # OPERATIONS
+  # set up grouping
+  current_rat_gp <- subset(rats_for_map, Gene_From_Zhang == gp)
+  gp_row <- NULL # apparently for safety/clarity - to reset & initialize?
+  
+  # if - 1st condition - if swiss prot 
+  if (any(current_rat_gp$Reviewed == "reviewed", na.rm = TRUE)) {
+    gp_row <- subset(current_rat_gp, Reviewed == "reviewed")[1, ]
+    gp_row$Criterion <- "is SwissProt"
+   
+    # else if - 2nd condition if reference proteome 
+  } else if (any(grepl("Reference", current_rat_gp$Keywords))) {
+    gp_row <- subset(current_rat_gp,
+                     grepl("Reference", current_rat_gp$Keywords))[1,]
+    gp_row$Criterion <- "is Reference Proteome"
+
+    # else if - 3rd condition 
+  } else if (any(current_rat_gp$Reviewed == "unreviewed", na.rm = TRUE)) {
+    gp_row <- subset(current_rat_gp, Reviewed == "unreviewed")[1, ]
+    gp_row$Criterion <- "is unreviewed"
+
+  }
+    
+  else {
+    gp_row$Criterion <- "nothing"
+    next
+  }
+  
+  mapped_rat_list[[gp]] <- gp_row
+  #   if (!is.null(gp_row)) {
+  #     mapped_rat_list[[gp]] <- gp_row
+  # }
+
+
+}
+
+```
+
+```{r}
+mapped_rat_df <- bind_rows(mapped_rat_list)
+```
+
+```{r}
+com_rat_df <- left_join(raw_df, mapped_rat_df,
+                        by = join_by(`Gene/Protein` == Gene_From_Zhang))
+```
+
+```{r}
+write_excel_csv(com_rat_df, "output/Zhang_output_test_1.csv")
+```
+
+------------------------------------------------------------------------
+
+```{r}
+
+```
