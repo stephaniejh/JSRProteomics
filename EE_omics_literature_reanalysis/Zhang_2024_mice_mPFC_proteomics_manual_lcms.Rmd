@@ -383,11 +383,11 @@ Operations
 for (gp in gp_names){ # sequence
   
   # OPERATIONS
-  # set up grouping
+  # set up grouping by gene
   current_rat_gp <- subset(rats_for_map, Gene_From_Zhang == gp)
   gp_row <- NULL # apparently for safety/clarity - to reset & initialize?
   
-  # if - 1st condition - if swiss prot 
+  # if - 1st condition - if swiss prot | if reviewed = true paste row + add comment
   if (any(current_rat_gp$Reviewed == "reviewed", na.rm = TRUE)) {
     gp_row <- subset(current_rat_gp, Reviewed == "reviewed")[1, ]
     gp_row$Criterion <- "is SwissProt"
@@ -415,26 +415,80 @@ for (gp in gp_names){ # sequence
   #     mapped_rat_list[[gp]] <- gp_row
   # }
 
-
 }
-
 ```
 
 ```{r}
 mapped_rat_df <- bind_rows(mapped_rat_list)
 ```
 
+com_rat_df
+
 ```{r}
+# 32/36 mapped
 com_rat_df <- left_join(raw_df, mapped_rat_df,
                         by = join_by(`Gene/Protein` == Gene_From_Zhang))
 ```
 
 ```{r}
-write_excel_csv(com_rat_df, "output/Zhang_output_test_1.csv")
+#write_excel_csv(com_rat_df, "output/Zhang_output_test_1.csv")
 ```
 
 ------------------------------------------------------------------------
 
 ```{r}
+# colnames(com_rat_df) # check col names 
 
+# make lit review table 
+lit_re <- com_rat_df %>%
+  mutate(
+    Space = " ",
+    Year = 2024,
+    Author = 'Zhang',
+    Animal = 'Mice',
+    Condition = ' ',
+    Region = 'Medial_Prefrontal_Cortex',
+    Whole = 'Yes',
+    Exp_type = 'Protein',
+    Method = 'PROTEOMICS_LCMS_LFQ_OS',
+    Used_name = `Gene/Protein`,
+    Mod = " ",
+    Mod_type = " ",
+    Gene_name = `Gene.Names..primary.`,
+    Comparison = 2,
+    In_EE = Direction,
+    Fold_change = ' ',
+    Arrows = ifelse(Direction == 'Up', '+', '-'),
+    Significant = 'yes',
+    pvalue = ' ',
+    N_tested = ' ',
+    Stats_adj = '?',
+    Note = ' ',
+    Full_name = `Protein.names`,
+    Uniprot_rat_accession = Entry,
+    Uniprot_entry_name = `Entry.Name`,
+    Uniprot_link = ifelse(!is.na(Entry),
+                          paste0('https://www.uniprot.org/uniprotkb/', Entry,'/entry'),
+                          ' '),
+    Wikipedia_link = ifelse(!is.na(Entry),
+                            paste0('https://en.wikipedia.org/wiki/',
+                                   `Gene.Names..primary.`),
+                            ' '),
+    Curation_method = ifelse(!is.na(Entry),
+                             'auto - gene_name-to-uniprot (rat)',
+                             'manual'),
+    Class_group = ' ',
+    Other_link = ' ',
+    Other_comments = '~Uniprot Curation Criteria',
+    misc = ifelse(!is.na(Criterion),
+                  paste0(Criterion),
+                  'rat unmapped')
+  )
+```
+
+```{r}
+#write out | na values = blank 
+# write_excel_csv(lit_re,
+#                 "output/2025_12_13_Zhang_2024_mPFC_lit_re_mapped_w_rat_ID_v1.csv",
+#                 na = "")
 ```
