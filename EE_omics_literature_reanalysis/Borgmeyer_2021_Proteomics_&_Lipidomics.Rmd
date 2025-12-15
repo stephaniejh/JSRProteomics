@@ -164,125 +164,143 @@ To add
 
 ------------------------------------------------------------------------
 
-## Map 2 uniprot + making lit review table. 
+## Map 2 uniprot + making lit review table.
 
 Pull uniprot data to map gene ids
 
-See if mice ids match rats
+See if mice ids match rats \| use predownloaded rda from Uniprot.Ws (otherwise takes forever - see uniprot script).
 
 ```{r}
-ratUp <- UniProt.ws(taxId = 10116)
-
-mouseUp <- UniProt.ws(taxId = 10090)
+load(file = "input/mouse_ref_proteome_2025_12_13_54864x295.rda")
+load(file = "input/rat_ref_proteome_2025_12_13_51872x295.rda")
 ```
 
 ```{r}
-#available keytypes
-keytypes(ratUp)
+mouse_ref <- mouse_ref_proteome_2025_12_13 %>% 
 
-#available columns
-columns(ratUp)
-```
-
-```{r}
-all_cols <- columns(ratUp) 
-
-genes_to_map <- hippro_df$EntryName # gene name 
-
-up_acc_to_map <- hippro_df$Protein # uniprot protein acc for mice
-```
-
-```{r}
-# # try to map the 178 gene names provided
-# ids_1 <- mapUniProt(from = "Gene_Name",
-#                       to = "UniProtKB",
-#                       #columns = c(""),
-#                       query = list(taxId = 10116, ids = to_map)
-#                       ) #  returns 22325 x 8 - all species?! not just rat???
-# 
-# # takes too long nvm ...
 ```
 
 ```{r}
 # cols I want from uniprot
-my_cols <- c('accession', 'id', 'gene_names', 'gene_primary', 'protein_name',
-             	'xref_proteomes', '	reviewed', 'annotation_score', 'protein_existence',
-             'length', 'organism_name', 'keyword', 'keywordid', 'protein_families',
-             'cc_function', 'cc_developmental_stage', 'cc_tissue_specificity',
-             'xref_geneid')
+# my_cols <- c('accession', 'id', 'gene_names', 'gene_primary', 'protein_name',
+#              	'xref_proteomes', '	reviewed', 'annotation_score', 'protein_existence',
+#              'length', 'organism_name', 'keyword', 'keywordid', 'protein_families',
+#              'cc_function', 'cc_developmental_stage', 'cc_tissue_specificity',
+#              'xref_geneid')
+
+#colnames(mouse_ref_proteome_2025_12_13)
+
+my_cols <- c("Entry", "Entry.Name", "Protein.names", "Gene.Names..primary.",
+             "Gene.Names", "Annotation", "Reviewed", "Protein.existence",
+             "Protein.families", "Length", "Organism", "Keywords", "Keyword.ID",
+             "Function..CC.", "Miscellaneous..CC.", "Pathway",  "GeneID",
+             "Entry.version", "Date.of.creation", "Date.of.last.modification",
+             "Date.of.last.sequence.modification"
+             )
+
 ```
 
 ```{r}
-# see https://www.uniprot.org/help/return_fields
-# and https://www.uniprot.org/help/return_fields_databases
-# try to map 
-ids_1_rat <- select(x = ratUp,
-                    keys = genes_to_map,
-                    columns = my_cols,
-                    keytype = 'Gene_Name')
-
-# took 36 mins, returned 141119 obs & 2 rows... ??? confused 
-# note did not map  IDs not mapped: Mfr1l, Kcma1, Isc2a, Pp2bb, Gbg7, 43892 
+mouse_ref <- mouse_ref_proteome_2025_12_13 %>% 
+  dplyr::select(all_of(my_cols))
 ```
 
 ```{r}
-# write out anyway
-# write_excel_csv(ids_1_rat, "output/2025_12_13_Borgmeyer_test_map_genes_141119x2.csv")
+rat_ref <- rat_ref_proteome_2025_12_13 %>% 
+  dplyr::select(all_of(my_cols))
 ```
 
 ```{r}
-# this one takes a few seconds! seems that if using uniprot accessions then is fast
-# bur gene names is so because uncertainty & tries to look through everything?
-ids_1_mouse <- select(x = mouseUp,
-                      keys = up_acc_to_map,
-                      #columns = my_cols,
-                      columns = all_cols,
-                      keytype = 'UniProtKB')
+#mapped additional uniprot information by provided uniprot accession
+# all 178 mapped 1 to 1
+hip_mouse_mapped <- left_join(hippro_df, mouse_ref,
+                              by = join_by(Protein == Entry))
+
 ```
 
 ```{r}
-# write_excel_csv(ids_1_mouse,
-#                 "output/2025_12_13_Borgmeyer_test_map_up_accession_178x296.csv")
+# NVM not a good method = too many unmapped
+# try matching protein names to protein names 
+rat_proteins_hip <- left_join(hippro_df, rat_ref,
+                              by = join_by(`Protein Name` == Protein.names))
+
+# 136 NAs
+sum(is.na(rat_proteins_hip$Entry))
 ```
 
-ref_pro_rat
+-   <https://stackoverflow.com/questions/44759180/filter-by-multiple-patterns-with-filter-and-str-detect>
 
 ```{r}
-# took 14 mins to run query
+# make vector of gene names from Borgmeyer
+genes_hip <- hippro_df$EntryName
 
-ref_pro_rat <- queryUniProt(query = c("organism_id:10116", 'proteome:UP000002494'),
-                              # fields = c( # gave bad request?
-                              #   "id", "accession", "gene_primary", "gene_names",
-                              #   "organism_name", "protein_name", "reviewed",
-                              #   "annotation", "length", "protein_existence",
-                              #   "protein_families",  "keyword", "keywordid" 
-                              # ),
-                             fields = c("id", "accession", "gene_primary",
-                                        "organism_name", "protein_name", "reviewed"),
-                              collapse = " AND " ) # "
-```
+# then filter by matching to any of in the uniprot gene.names column (multiple entries)
+rat_genes_hip <- rat_ref %>%
+  filter(str_detect(Gene.Names,
+                    pattern = paste(genes_hip, collapse = '|'))) 
 
-```{r}
-intersection_rat <- intersect(ref_pro_rat$Entry, ids_1_rat$To)
+length(unique(rat_genes_hip$Gene.Names..primary.)) # 115 primary unique gene entries 
+# BUT NOTE - some are falsely picked up with str_detect e.g. syt1 will get sty11 too.
+# so need to filter & check further!
 
-length(intersection_rat) # 275 interesting... 
-```
-
-```{r}
-mapped_rat_genes <- ref_pro_rat %>%
-  filter(Entry %in% intersection_rat)
+mean(rat_genes_hip$Annotation) # 2.69
 ```
 
 ```{r}
-unique(mapped_rat_genes$Gene.Names..primary.) # 
-length(unique(mapped_rat_genes$Gene.Names..primary.)) # 83 unique genes mapped...
-
-# when the genes are pasted in uniprot - there are 79 IDs mapped to 428 results
-# with 99 IDs not mapped | so this is slightly better? - see diff?
+to_check <- rat_genes_hip %>%
+  filter(!(Gene.Names..primary. %in% genes_hip))
 ```
 
 ```{r}
-# TO CONTINUE HERE...
+rat_genes_hip_ranked_1 <- rat_genes_hip %>%
+  group_by(Reviewed, Gene.Names..primary., Protein.names) %>%
+  slice_max(Annotation, n = 1) %>%
+  ungroup
+
+mean(rat_genes_hip_ranked_1$Annotation)  # 2.804 #  check to show selecting correctly
+
+rat_filtered_out_1 <- rat_genes_hip %>% # check those filtered out.
+  filter(!(Entry %in% rat_genes_hip_ranked_1$Entry))
+```
+
+```{r}
+rat_genes_hip_ranked_2 <- rat_genes_hip_ranked_1 %>%
+  group_by(Gene.Names..primary., Protein.names) %>%
+  filter(
+    # if at least 1 is reviewed = TRUE (ignore NAs in evaluation)
+    if (any(Reviewed == "reviewed", na.rm = TRUE)) {
+      Reviewed == "reviewed" # then keep only reviewed
+    } else { #else keep what is there (keep unreviewed if no reviewed available)
+      TRUE
+    }
+  ) %>%
+  ungroup()
+  
+
+  
+```
+
+```{r}
+rat_reviewed_only <- rat_genes_hip %>%
+  filter(Reviewed == "reviewed")
+```
+
+```{r}
+rat_hip_map_1 <- left_join(hippro_df, rat_reviewed_only,
+                           by = join_by(EntryName == Gene.Names..primary.))
+
+```
+
+```{r}
+# 54/178 (reviewed map)
+rat_hip_map_1_only <- rat_hip_map_1 %>%
+  filter(!(is.na(Entry)))
+
+```
+
+```{r}
+rat_hip_map_1_na <- rat_hip_map_1 %>%
+  filter(is.na(Entry))
 ```
 
 ------------------------------------------------------------------------
