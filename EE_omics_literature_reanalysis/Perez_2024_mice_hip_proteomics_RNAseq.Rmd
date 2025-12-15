@@ -1,0 +1,231 @@
+---
+title: "2025_11_04_Perez_2024_Proteomics_RNASeq"
+author: "Stephanie Huang"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(readxl)
+```
+
+## Proteomics
+
+```{r}
+prot_df_EEall <- read_excel("input/Perez_2024_EE_age_proteomics_sds20_41467_2024_49608_MOESM23_ESM.xlsx",
+                             sheet = "EEall")
+
+prot_df_EEyng <- read_excel("input/Perez_2024_EE_age_proteomics_sds20_41467_2024_49608_MOESM23_ESM.xlsx",
+                             sheet = "EEyng")
+
+prot_df_EEold <- read_excel("input/Perez_2024_EE_age_proteomics_sds20_41467_2024_49608_MOESM23_ESM.xlsx",
+                             sheet = "EEold")
+```
+
+```{r}
+prot_df <- bind_rows(list(all = prot_df_EEall,
+                          young = prot_df_EEyng,
+                          old = prot_df_EEold),
+                     .id = "proteomics_id")
+```
+
+```{r}
+# load in uniprot df
+load(file = "input/mouse_ref_proteome_2025_12_13_54864x295.rda")
+load(file = "input/rat_ref_proteome_2025_12_13_51872x295.rda")
+```
+
+```{r}
+# cols I want from uniprot
+
+#colnames(mouse_ref_proteome_2025_12_13)
+
+my_cols <- c("Entry", "Entry.Name", "Protein.names", "Gene.Names..primary.",
+             "Gene.Names", "Gene.Names..synonym.",  "Annotation", "Reviewed",
+             "Protein.existence", "Protein.families", "Length", "Organism",
+             "Keywords", "Keyword.ID", "Function..CC.", "Miscellaneous..CC.", "Pathway",
+             "GeneID", "Ensembl",
+             "Gene.Ontology..GO.", "Gene.Ontology..cellular.component.",
+             "Gene.Ontology..molecular.function.", "Gene.Ontology..biological.process.",
+             "Gene.Ontology.IDs", "KEGG", "Reactome", "STRING",
+             "Entry.version", "Date.of.creation", "Date.of.last.modification",
+             "Date.of.last.sequence.modification"
+             )
+
+```
+
+```{r}
+mouse_ref <- mouse_ref_proteome_2025_12_13 %>% 
+  dplyr::select(all_of(my_cols)) %>%
+  mutate(existence_ranking = case_when( # ranking level of evidence
+    Protein.existence == "Evidence at protein level" ~ 5,
+    Protein.existence == "Evidence at transcript level" ~ 4,
+    Protein.existence == "Inferred from homology" ~ 3, 
+    Protein.existence == "Predicted" ~ 2, 
+    Protein.existence == "Uncertain" ~ 1
+    ), .after = Protein.existence)
+```
+
+```{r}
+# https://www.uniprot.org/help/protein_existence - see rankings 
+unique(rat_ref_proteome_2025_12_13$Protein.existence) 
+
+
+rat_ref <- rat_ref_proteome_2025_12_13 %>% 
+  dplyr::select(all_of(my_cols)) %>%
+  mutate(existence_ranking = case_when( # ranking level of evidence
+    Protein.existence == "Evidence at protein level" ~ 5,
+    Protein.existence == "Evidence at transcript level" ~ 4,
+    Protein.existence == "Inferred from homology" ~ 3, 
+    Protein.existence == "Predicted" ~ 2, 
+    Protein.existence == "Uncertain" ~ 1
+    ), .after = Protein.existence) #%>%
+  #mutate(occupied = rowSums(!is.na(rat_ref))) # some blanks not recognised
+  #mutate(occupied = rowSums(!= "")) # recognises blanks better but still some na
+```
+
+```{r}
+# just unnest UNIPROT (ignore UNIPROT_DB since the other df has this info anyway.)
+# otherwise Error in 
+# `tidyr::unnest()`: ! In row 279, can't recycle input of size 3 to size 2.
+
+#  occassionally some uniprot ids are 2 in 1 row, sep by ; must unnest
+prot_df_unnested <- prot_df %>%
+  mutate(split_UNIPROT = str_split(UNIPROT, ";"),
+         .after = UNIPROT) %>%
+  tidyr::unnest(split_UNIPROT) # goes from 6750 to 6849 rows
+```
+
+```{r}
+prot_df_mouse <- left_join(prot_df_unnested, mouse_ref,
+                           by = join_by(UNIPROT == Entry))
+
+sum(is.na(prot_df_mouse$Entry.Name)) # 291 of 6558
+#sum(!(is.na(prot_df_mouse$Entry.Name))) # 6558
+```
+
+```{r}
+prot_df_map_rat_1 <- prot_df_mouse %>%
+  dplyr::select(proteomics_id:Gene.Names) %>% #cols 1:17
+  rename(entry.name.mouse = Entry.Name, # new = old
+         protein.names.mouse = Protein.names,
+         gene.names.primary.mouse = Gene.Names..primary.,
+         gene.names.mouse =  Gene.Names) %>%
+  left_join(rat_ref, # many to many warning 
+            by = join_by(gene.names.primary.mouse == Gene.Names..primary.))
+```
+
+```{r}
+length(unique(prot_df_map_rat_1$proteomics_id)) # 3
+length(unique(prot_df_map_rat_1$UNIPROT)) # 2250
+length(unique(prot_df_map_rat_1$gene.names.primary.mouse)) # 2187
+```
+
+```{r}
+# take non empty entries & then group & filter any with multiples
+# based on reviewed > annotation score > protein existence
+prot_df_map_rat_2 <- prot_df_map_rat_1 %>% #24513
+  filter(!(is.na(Entry))) %>% #24117
+  group_by(proteomics_id, gene.names.primary.mouse, UNIPROT) %>% # eeh??? check?
+  # or maybe group by just proteomics_id, gene - since rat map is based on gene???
+  filter(if(any(Reviewed == "reviewed", na.rm = TRUE)) {
+     Reviewed == "reviewed" # if reviewed = keep,
+   } else {TRUE}) %>% #10278 - if none, keep the unreviewed ones & then filter below
+  slice_max(Annotation, n = 1) %>% #8445
+  slice_max(existence_ranking, n = 1) #7905
+
+```
+
+```{r}
+prot_df_map_rat_1_na <- prot_df_map_rat_1 %>%
+  filter(is.na(Entry)) %>% #396 obs
+  dplyr::select(proteomics_id:gene.names.mouse) %>% # peel back
+  filter(!is.na(gene.names.primary.mouse)) # filter out NAs otherwise maps >3 mil below
+```
+
+```{r}
+rat_ref_split <- rat_ref %>% #51872 to 55829
+  mutate(split_synonyms = str_split(Gene.Names..synonym., " ")) %>% #sep split by space
+  tidyr::unnest(split_synonyms)
+```
+
+```{r}
+# note filtered NAs in gene.names.primary.mouse (otherwise maps 3 million as NA to NA)
+# results in 18 of 105 recovered (or 6 proteins (since 3 groups))
+prot_df_map_rat_3 <- left_join(prot_df_map_rat_1_na, rat_ref_split,
+                               by = join_by(gene.names.primary.mouse == split_synonyms))
+
+sum(is.na(prot_df_map_rat_3$Entry)) # still 87 NA
+# many of those NAs see either too specific or too general or non reference prote.
+# e.g.  Histone H3,  RIKEN cDNA 2900026A02 gene, etc unmapped
+```
+
+```{r}
+prot_df_map_rat_4 <- bind_rows(list(by_primary_gene = prot_df_map_rat_2,
+                                    by_synonym = prot_df_map_rat_3),
+                               .id = "map_method_df") %>%
+  arrange(proteomics_id, desc(dir), gene.names.primary.mouse)
+
+
+```
+
+```{r}
+prot_df_map_rat_sig <- prot_df_map_rat_4 %>%
+  filter(adj.P.Val <= 0.05) %>% # 2309
+  filter(!is.na(Entry)) %>% # 2278
+  mutate(hashtags = str_split(Keywords, ";")) %>%
+  tidyr::unnest(hashtags) # 22696
+```
+
+```{r}
+prot_rat_sig_count <- prot_df_map_rat_sig %>%
+  #group_by(proteomics_id, dir) %>%
+  group_by(proteomics_id) %>%
+  filter(hashtags != "Reference proteome") %>% 
+  count(hashtags, sort = TRUE) 
+  
+```
+
+```{r}
+
+```
+
+------------------------------------------------------------------------
+
+## mRNA
+
+### Read in mRNA/transcirptomics DEG excel sheets (sup ds 18)
+
+```{r}
+# some NAs in the original df were directly coded as NA
+# so need to specify na = "NA" otherwise some get classed as character & cant bind
+rna_df_EEall <- read_excel("input/Perez_2024_EE_age_transcriptomics_sds18_41467_2024_49608_MOESM21_ESM.xlsx",
+                             sheet = "EEall", 
+                           na = "NA")
+
+rna_df_EEyng <- read_excel("input/Perez_2024_EE_age_transcriptomics_sds18_41467_2024_49608_MOESM21_ESM.xlsx",
+                           sheet = "EEyng",
+                           na = "NA")
+
+rna_df_EEold <- read_excel("input/Perez_2024_EE_age_transcriptomics_sds18_41467_2024_49608_MOESM21_ESM.xlsx",
+                           sheet = "EEold",
+                           na = "NA")
+```
+
+```{r}
+mRNA_df <- bind_rows(list(all = rna_df_EEall,
+                          young = rna_df_EEyng,
+                          old = rna_df_EEold),
+                     .id = "transcriptomics_id")
+```
+
+```{r}
+mRNA_df_sig <- mRNA_df %>%
+  filter(padj <= 0.05) # huh barely any significant... #190
+
+```
