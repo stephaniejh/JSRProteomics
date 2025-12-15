@@ -239,97 +239,98 @@ rat_ref <- rat_ref_proteome_2025_12_13 %>%
 hip_mouse_mapped <- left_join(hippro_df, mouse_ref,
                               by = join_by(Protein == Entry))
 
-```
-
-```{r}
-# NVM not a good method = too many unmapped
-# try matching protein names to protein names 
-rat_proteins_hip <- left_join(hippro_df, rat_ref,
-                              by = join_by(`Protein Name` == Protein.names))
-
-# 136 NAs
-sum(is.na(rat_proteins_hip$Entry))
+# if using borgmeyers genenames then only 72/178 map
+# slight difference in new gene entries! 
+length(intersect(hip_mouse_mapped$EntryName, hip_mouse_mapped$Gene.Names..primary.))
 ```
 
 -   <https://stackoverflow.com/questions/44759180/filter-by-multiple-patterns-with-filter-and-str-detect>
 
 ```{r}
-# make vector of gene names from Borgmeyer
-genes_hip <- hippro_df$EntryName
-
-# then filter by matching to any of in the uniprot gene.names column (multiple entries)
-rat_genes_hip <- rat_ref %>%
-  filter(str_detect(Gene.Names,
-                    pattern = paste(genes_hip, collapse = '|'))) 
-
-length(unique(rat_genes_hip$Gene.Names..primary.)) # 115 primary unique gene entries 
-# BUT NOTE - some are falsely picked up with str_detect e.g. syt1 will get sty11 too.
-# so need to filter & check further!
-
-mean(rat_genes_hip$Annotation) # 2.69
+# # make vector of gene names from Borgmeyer
+# genes_hip <- hippro_df$EntryName
+# 
+# # then filter by matching to any of in the uniprot gene.names column (multiple entries)
+# rat_genes_hip <- rat_ref %>%
+#   filter(str_detect(Gene.Names,
+#                     pattern = paste(genes_hip, collapse = '|'))) 
+# 
+# length(unique(rat_genes_hip$Gene.Names..primary.)) # 115 primary unique gene entries 
+# # BUT NOTE - some are falsely picked up with str_detect e.g. syt1 will get sty11 too.
+# # so need to filter & check further!
+# 
+# mean(rat_genes_hip$Annotation) # 2.69
 ```
 
 ```{r}
-to_check <- rat_genes_hip %>%
-  filter(!(Gene.Names..primary. %in% genes_hip))
+# colnames(hip_mouse_mapped)
+
+hip_mouse_mapped_2 <- hip_mouse_mapped %>%
+  dplyr::select(Protein:Gene.Names) %>% #1:14
+  rename(entry.name.mouse = Entry.Name, # new = old
+         protein.names.mouse = Protein.names,
+         gene.names.primary.mouse = Gene.Names..primary.,
+         gene.names.mouse =  Gene.Names)
+
+# length(unique(hip_mouse_mapped_2$gene.names.primary.mouse)) #178/178!
 ```
 
 ```{r}
-rat_hip_map_1 <- left_join(hippro_df, rat_ref, #369 entries when mapped
-                           by = join_by(EntryName == Gene.Names..primary.)) %>%
-  
-  group_by(EntryName) %>% # 178 from Borgmeyer
+# mapped by primary genenames 
+rat_hip_map_1 <- left_join(hip_mouse_mapped_2, rat_ref,
+                           by = join_by( # 606 rows
+                             gene.names.primary.mouse == Gene.Names..primary.)) %>%
+  # trim multi entries based off of best match e.g. swiss prot > highest anno > evidence
+  group_by(gene.names.primary.mouse) %>% # 178 from Borgmeyer
   filter(if(any(Reviewed == "reviewed", na.rm = TRUE)) {
     Reviewed == "reviewed"
-  } else {TRUE}) %>%  # 205
-  slice_max(Annotation, n = 1) %>% # 193 
-  slice_max(existence_ranking, n = 1) #%>% # 189
-  #slice_max(occupied, n = 1) # 187
-  
+  } else {TRUE}) %>% # 256 rows
+  slice_max(Annotation, n = 1) %>% # 219
+  slice_max(existence_ranking, n = 1) # 204
 
-length(unique(rat_hip_map_1$EntryName))
 ```
 
 ```{r}
-# see duplicates
-rat_hip_map_1 %>%
+# see duplicates | ~ 13 entries with 2 or more mappings
+remaining_multi_1 <- rat_hip_map_1 %>%
    count(EntryName) %>%
    arrange(desc(n))
 ```
 
 ```{r}
+# # unsuccessfully mapped. | 5 of 178 unmapped
 rat_hip_map_1_na <- rat_hip_map_1 %>%
   filter(is.na(Entry))
 ```
 
+### Now try to map the remaining 5 entries 
+
 ```{r}
-intersect(rat_hip_map_1_na$EntryName, rat_genes_hip$Gene.Names..synonym.)
+rat_ref_split <- rat_ref %>%
+  mutate(split_synonyms = str_split(Gene.Names..synonym., " ")) %>% #splitby space now ,
+  tidyr::unnest(split_synonyms)
+
 ```
 
 ```{r}
-rat_genes_hip_split <- rat_genes_hip %>%
-  mutate(synonyms = str_split(Gene.Names..synonym., " ")) %>%  # now should be , sep
-  tidyr::unnest(synonyms)
-```
+rat_hip_map_2 <- rat_hip_map_1_na %>%
+  dplyr::select(Protein:gene.names.mouse) %>%
+  left_join(rat_ref_split, # this recoveres 2 of the 5 missing
+            by = join_by(gene.names.primary.mouse == split_synonyms)) 
 
-```{r}
-rat_hip_map_2 <- hippro_df %>%
-  filter(EntryName %in% rat_hip_map_1_na$EntryName) %>%
-  left_join(rat_genes_hip_split,
-            by = join_by(EntryName == synonyms)) # works recovers 9 more 
+# also Hbb-b1 but not in reference proteome hence unmapped. 
+# maybe use non reference proteome too??? idk # none of the ciritical ones were missed
+# so not a big deal
 ```
 
 ------------------------------------------------------------------------
 
 ```{r}
-rat_mouse <- bind_rows(list(rat_ref = rat_ref, mouse_ref = mouse_ref), .id = "df")
-```
-
-```{r}
-synaptophysin <- rat_mouse %>%
-  filter(Protein.names == "Synaptophysin") # interesting - the gene names are the same here!!! 
-
-# TO DO - map from Borgmeyer uniprot accession, then take primary gene names & map to rat. Should be higher that way. 
+# final combined verison.
+rat_hip_map_3 <- bind_rows(list(by_primary_gene = rat_hip_map_1,
+                                by_synonym = rat_hip_map_2),
+                           .id = "map_method_df") %>%
+  arrange(desc(Regulation), gene.names.primary.mouse)
 ```
 
 ------------------------------------------------------------------------
@@ -339,8 +340,9 @@ synaptophysin <- rat_mouse %>%
 ```{r}
 # colnames(com_df_w_ids) # check col names 
 
-# new v2 df (v5 exp ) - ordered properly to match lit review
-lit_re <- com_df_w_ids %>%
+
+# for lit review table | Note - duplicates have not been removed - to do manually
+lit_re <- rat_hip_map_3 %>%
   mutate(
     Year = 2021,
     Author = 'Borgmeyer',
@@ -353,30 +355,57 @@ lit_re <- com_df_w_ids %>%
     Used_name = `Protein Name`,
     Mod = " ",
     Mod_type = " ",
-    Gene_name = `Gene Names (primary)`,
+    Gene_name = `gene.names.primary.mouse`, # this was used to map the primary rat gene names
     Comparison = 2,
-    In_EE = Direction,
-    Fold_change = avg_ratio,
-    Arrows = ifelse(Direction == 'Up', '+', '-'),
-    Significant = ifelse(`Control vs. enriched (t-test)` <= 0.05, 'yes', 'no'),
-    pvalue = `Control vs. enriched (t-test)`,
-    N_tested = 6,
-    Stats_adj = ' ',
+    In_EE = Regulation,
+    Fold_change = log2FC,
+    Arrows = case_when( # dplyr case when, instead of ifelse
+      log2FC > 2.5 ~ '+++',
+      log2FC > 1 ~ '++',
+      log2FC > .05 ~ '+',
+      log2FC > -.05 ~ '=',
+      log2FC > -1 ~ '-',
+      log2FC > -2.5 ~ '--',
+      log2FC <= -2.5 ~ '---',
+      ),
+    Significant = ifelse(adj.pvalue <= 0.05, 'yes', 'no'),
+    pvalue = adj.pvalue,
+    N_tested = ' ',
+    Stats_adj = 'adjusted',
     Note = ' ',
-    Full_name = `Protein names`,
+    Full_name = Protein.names,
     Uniprot_rat_accession = Entry,
-    Uniprot_entry_name = `Entry Name`,
+    Uniprot_entry_name = Entry.Name,
     Uniprot_link = ifelse(!is.na(Entry),
                           paste0('https://www.uniprot.org/uniprotkb/', Entry,'/entry'),
                           ' '),
     Wikipedia_link = ifelse(!is.na(Entry),
                             paste0('https://en.wikipedia.org/wiki/',
-                                   `Gene Names (primary)`),
+                                   `gene.names.primary.mouse`),
                             ' '),
-    Curation_method = ifelse(!is.na(Entry), 'auto - ncbi_gi-to-uniprot', 'manual'),
-    Class_group = Class,
+    Curation_method = case_when(
+      Reviewed == "reviewed" & map_method_df == "by_primary_gene" ~ "auto - reviewed (primary gene name)",
+      Reviewed == "reviewed" & map_method_df == "by_synonym" ~ "auto - reviewed (synonym)",
+      Reviewed == "unreviewed" & map_method_df == "by_primary_gene" ~ "auto - ref proteome (primary gene name)",
+      Reviewed == "unreviewed" & map_method_df == "by_synonym" ~ "auto - ref proteome (synonym)",
+      is.na(Entry.Name) ~ "manual - na" 
+    ),
+    Class_group = ' ',
     Other_link = ' ',
     Other_comments = 'misc shows combined provided info from their df',
-    misc = paste0(Protein, '_')
+    misc = paste0(Protein, '_', EntryName,  `Protein Name`)
   )
+```
+
+```{r}
+lit_re %>%
+  count(Curation_method) %>%
+  arrange(desc(n))
+```
+
+```{r}
+# #write out | na values = blank
+# write_excel_csv(lit_re,
+#                 "output/2025_12_15_Borgmeyer_2021_Hip_SJ_proteomics_lit_re_rats_v1.csv",
+#                 na = "")
 ```
