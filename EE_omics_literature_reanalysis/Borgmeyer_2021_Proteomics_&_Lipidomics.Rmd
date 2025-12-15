@@ -191,9 +191,12 @@ mouse_ref <- mouse_ref_proteome_2025_12_13 %>%
 #colnames(mouse_ref_proteome_2025_12_13)
 
 my_cols <- c("Entry", "Entry.Name", "Protein.names", "Gene.Names..primary.",
-             "Gene.Names", "Annotation", "Reviewed", "Protein.existence",
-             "Protein.families", "Length", "Organism", "Keywords", "Keyword.ID",
-             "Function..CC.", "Miscellaneous..CC.", "Pathway",  "GeneID",
+             "Gene.Names", "Gene.Names..synonym.",  "Annotation", "Reviewed",
+             "Protein.existence", "Protein.families", "Length", "Organism",
+             "Keywords", "Keyword.ID", "Function..CC.", "Miscellaneous..CC.", "Pathway",
+             "GeneID", "Gene.Ontology..GO.", "Gene.Ontology..cellular.component.",
+             "Gene.Ontology..molecular.function.", "Gene.Ontology..biological.process.",
+             "Gene.Ontology.IDs", "KEGG", "Reactome", "STRING",
              "Entry.version", "Date.of.creation", "Date.of.last.modification",
              "Date.of.last.sequence.modification"
              )
@@ -202,12 +205,32 @@ my_cols <- c("Entry", "Entry.Name", "Protein.names", "Gene.Names..primary.",
 
 ```{r}
 mouse_ref <- mouse_ref_proteome_2025_12_13 %>% 
-  dplyr::select(all_of(my_cols))
+  dplyr::select(all_of(my_cols)) %>%
+  mutate(existence_ranking = case_when( # ranking level of evidence
+    Protein.existence == "Evidence at protein level" ~ 5,
+    Protein.existence == "Evidence at transcript level" ~ 4,
+    Protein.existence == "Inferred from homology" ~ 3, 
+    Protein.existence == "Predicted" ~ 2, 
+    Protein.existence == "Uncertain" ~ 1
+    ), .after = Protein.existence)
 ```
 
 ```{r}
+# https://www.uniprot.org/help/protein_existence - see rankings 
+unique(rat_ref_proteome_2025_12_13$Protein.existence) 
+
+
 rat_ref <- rat_ref_proteome_2025_12_13 %>% 
-  dplyr::select(all_of(my_cols))
+  dplyr::select(all_of(my_cols)) %>%
+  mutate(existence_ranking = case_when( # ranking level of evidence
+    Protein.existence == "Evidence at protein level" ~ 5,
+    Protein.existence == "Evidence at transcript level" ~ 4,
+    Protein.existence == "Inferred from homology" ~ 3, 
+    Protein.existence == "Predicted" ~ 2, 
+    Protein.existence == "Uncertain" ~ 1
+    ), .after = Protein.existence) #%>%
+  #mutate(occupied = rowSums(!is.na(rat_ref))) # some blanks not recognised
+  #mutate(occupied = rowSums(!= "")) # recognises blanks better but still some na
 ```
 
 ```{r}
@@ -252,55 +275,61 @@ to_check <- rat_genes_hip %>%
 ```
 
 ```{r}
-rat_genes_hip_ranked_1 <- rat_genes_hip %>%
-  group_by(Reviewed, Gene.Names..primary., Protein.names) %>%
-  slice_max(Annotation, n = 1) %>%
-  ungroup
-
-mean(rat_genes_hip_ranked_1$Annotation)  # 2.804 #  check to show selecting correctly
-
-rat_filtered_out_1 <- rat_genes_hip %>% # check those filtered out.
-  filter(!(Entry %in% rat_genes_hip_ranked_1$Entry))
-```
-
-```{r}
-rat_genes_hip_ranked_2 <- rat_genes_hip_ranked_1 %>%
-  group_by(Gene.Names..primary., Protein.names) %>%
-  filter(
-    # if at least 1 is reviewed = TRUE (ignore NAs in evaluation)
-    if (any(Reviewed == "reviewed", na.rm = TRUE)) {
-      Reviewed == "reviewed" # then keep only reviewed
-    } else { #else keep what is there (keep unreviewed if no reviewed available)
-      TRUE
-    }
-  ) %>%
-  ungroup()
+rat_hip_map_1 <- left_join(hippro_df, rat_ref, #369 entries when mapped
+                           by = join_by(EntryName == Gene.Names..primary.)) %>%
+  
+  group_by(EntryName) %>% # 178 from Borgmeyer
+  filter(if(any(Reviewed == "reviewed", na.rm = TRUE)) {
+    Reviewed == "reviewed"
+  } else {TRUE}) %>%  # 205
+  slice_max(Annotation, n = 1) %>% # 193 
+  slice_max(existence_ranking, n = 1) #%>% # 189
+  #slice_max(occupied, n = 1) # 187
   
 
-  
+length(unique(rat_hip_map_1$EntryName))
 ```
 
 ```{r}
-rat_reviewed_only <- rat_genes_hip %>%
-  filter(Reviewed == "reviewed")
-```
-
-```{r}
-rat_hip_map_1 <- left_join(hippro_df, rat_reviewed_only,
-                           by = join_by(EntryName == Gene.Names..primary.))
-
-```
-
-```{r}
-# 54/178 (reviewed map)
-rat_hip_map_1_only <- rat_hip_map_1 %>%
-  filter(!(is.na(Entry)))
-
+# see duplicates
+rat_hip_map_1 %>%
+   count(EntryName) %>%
+   arrange(desc(n))
 ```
 
 ```{r}
 rat_hip_map_1_na <- rat_hip_map_1 %>%
   filter(is.na(Entry))
+```
+
+```{r}
+intersect(rat_hip_map_1_na$EntryName, rat_genes_hip$Gene.Names..synonym.)
+```
+
+```{r}
+rat_genes_hip_split <- rat_genes_hip %>%
+  mutate(synonyms = str_split(Gene.Names..synonym., " ")) %>%  # now should be , sep
+  tidyr::unnest(synonyms)
+```
+
+```{r}
+rat_hip_map_2 <- hippro_df %>%
+  filter(EntryName %in% rat_hip_map_1_na$EntryName) %>%
+  left_join(rat_genes_hip_split,
+            by = join_by(EntryName == synonyms)) # works recovers 9 more 
+```
+
+------------------------------------------------------------------------
+
+```{r}
+rat_mouse <- bind_rows(list(rat_ref = rat_ref, mouse_ref = mouse_ref), .id = "df")
+```
+
+```{r}
+synaptophysin <- rat_mouse %>%
+  filter(Protein.names == "Synaptophysin") # interesting - the gene names are the same here!!! 
+
+# TO DO - map from Borgmeyer uniprot accession, then take primary gene names & map to rat. Should be higher that way. 
 ```
 
 ------------------------------------------------------------------------
