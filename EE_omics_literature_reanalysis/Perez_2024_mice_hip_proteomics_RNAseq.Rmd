@@ -14,7 +14,11 @@ library(tidyverse)
 library(readxl)
 ```
 
-## Proteomics
+# Proteomics
+
+## Set up
+
+### Read in proteomics sheets
 
 ```{r}
 prot_df_EEall <- read_excel("input/Perez_2024_EE_age_proteomics_sds20_41467_2024_49608_MOESM23_ESM.xlsx",
@@ -27,6 +31,8 @@ prot_df_EEold <- read_excel("input/Perez_2024_EE_age_proteomics_sds20_41467_2024
                              sheet = "EEold")
 ```
 
+#### Bind into a master file
+
 ```{r}
 prot_df <- bind_rows(list(all = prot_df_EEall,
                           young = prot_df_EEyng,
@@ -34,10 +40,13 @@ prot_df <- bind_rows(list(all = prot_df_EEall,
                      .id = "proteomics_id")
 ```
 
+### Uniprot dataframes
+
 ```{r}
 # load in uniprot df
 load(file = "input/mouse_ref_proteome_2025_12_13_54864x295.rda")
 load(file = "input/rat_ref_proteome_2025_12_13_51872x295.rda")
+load(file = "input/rat_other_proteome_2025_12_15_39538x295.rda")
 ```
 
 ```{r}
@@ -59,7 +68,27 @@ my_cols <- c("Entry", "Entry.Name", "Protein.names", "Gene.Names..primary.",
 
 ```
 
+#### Adding additional metrics to the UniProt dataframes
+
+*The code below adds additional metrics to the uniprot dataframe including a calculation score for protein existence ranked from highest (evidence at the protein level) & and occupied metric that measures the number of NA values per row. These scoring metrics are useful to break ties when there are multiple instances of a mapping (see later ...).*
+
+[Stepwise process includes...]{.smallcaps}
+
+1.  [Selecting desired columns (based on the `my_cols` list above)]{.smallcaps}
+
+2.  [Make a `Protein.existence` column with assigned rankings. For example, `Protein.existence == "Evidence at protein level" ~ 5` will allow it to try to keep the highest scoring observation when using `slice_max()` down the line (see <https://www.uniprot.org/help/protein_existence> for more info).]{.smallcaps}
+
+3.  [Calculating NAs per row. this metric will allow keeping the row with the most info (is partially covered by the existing annotation column that is supplied by uniprot but still useful to break further ties at the end).]{.smallcaps}
+
+    1.  [Note: some blank entries have `NA` but some are `""` (just blank) (which makes them automatically chr class btw), to convert them to all `NA` without disturbing other columns use `na_if()` from dplyr (<https://dplyr.tidyverse.org/reference/na_if.html>) & then mutate across where is.character (see below).]{.smallcaps}
+
+    2.  [Afterwards then the next computed column occupied will correctly count the NA across the row using baseR rowSums]{.smallcaps}
+
 ```{r}
+# https://www.uniprot.org/help/protein_existence - see rankings 
+unique(rat_ref_proteome_2025_12_13$Protein.existence) 
+
+# MOUSE REF PROTEOME
 mouse_ref <- mouse_ref_proteome_2025_12_13 %>% 
   dplyr::select(all_of(my_cols)) %>%
   mutate(existence_ranking = case_when( # ranking level of evidence
@@ -68,14 +97,19 @@ mouse_ref <- mouse_ref_proteome_2025_12_13 %>%
     Protein.existence == "Inferred from homology" ~ 3, 
     Protein.existence == "Predicted" ~ 2, 
     Protein.existence == "Uncertain" ~ 1
-    ), .after = Protein.existence)
+    ), .after = Protein.existence) %>%
+  mutate(across(where(is.character), ~ na_if(.x, ""))) 
+
+
+# need to run in separate line as mouse ref is input (otheriwise object not found )
+mouse_ref <- mouse_ref %>% 
+  mutate(occupied = rowSums(!is.na(mouse_ref)))
+
+# 2025_12_15 - NOTE DID NOT GET MOUSE OTHER PROTEOME FROM UNIPROT BECAUSE IT SAYS CONTAIMINATED!
 ```
 
 ```{r}
-# https://www.uniprot.org/help/protein_existence - see rankings 
-unique(rat_ref_proteome_2025_12_13$Protein.existence) 
-
-
+# RAT REF PROTEOME
 rat_ref <- rat_ref_proteome_2025_12_13 %>% 
   dplyr::select(all_of(my_cols)) %>%
   mutate(existence_ranking = case_when( # ranking level of evidence
@@ -84,17 +118,44 @@ rat_ref <- rat_ref_proteome_2025_12_13 %>%
     Protein.existence == "Inferred from homology" ~ 3, 
     Protein.existence == "Predicted" ~ 2, 
     Protein.existence == "Uncertain" ~ 1
-    ), .after = Protein.existence) #%>%
-  #mutate(occupied = rowSums(!is.na(rat_ref))) # some blanks not recognised
-  #mutate(occupied = rowSums(!= "")) # recognises blanks better but still some na
+    ), .after = Protein.existence) %>%
+  mutate(across(where(is.character), ~ na_if(.x, ""))) 
+
+rat_ref <- rat_ref %>%
+  mutate(occupied = rowSums(!is.na(rat_ref)))
 ```
 
 ```{r}
-# just unnest UNIPROT (ignore UNIPROT_DB since the other df has this info anyway.)
-# otherwise Error in 
-# `tidyr::unnest()`: ! In row 279, can't recycle input of size 3 to size 2.
+# RAT OTHER PROTEOME 
+rat_other <- other_rat_proteome_2025_12_15 %>%
+    dplyr::select(all_of(my_cols)) %>%
+    mutate(existence_ranking = case_when( # ranking level of evidence
+    Protein.existence == "Evidence at protein level" ~ 5,
+    Protein.existence == "Evidence at transcript level" ~ 4,
+    Protein.existence == "Inferred from homology" ~ 3, 
+    Protein.existence == "Predicted" ~ 2, 
+    Protein.existence == "Uncertain" ~ 1
+    ), .after = Protein.existence) %>%
+  mutate(across(where(is.character), ~ na_if(.x, ""))) 
 
-#  occassionally some uniprot ids are 2 in 1 row, sep by ; must unnest
+rat_other <- rat_other %>%
+  mutate(occupied = rowSums(!is.na(rat_other)))
+```
+
+## Mapping
+
+### Mice: Map provided UniProt accession ➝ Gene names & other UP info
+
+,Map uniprot accessions provided by perez to uniprot mice df to get primary gene names etc
+
+Note: occasionally some uniprot ids are 2 in 1 row, sep by ; must unnest. So need to mutate a new column by string_split to recognize the ; when multiple entires are in one Perez's UNIPROT column. Then use tidyr unnest() to split & expand.
+
+Side note: just unnest UNIPROT (ignore UNIPROT_DB since the other df has this info anyway.) otherwise Error in `tidyr::unnest()`: ! In row 279, can't recycle input of size 3 to size 2.
+
+Join join provided df to uniprot mouse df (left_join keeps all of x (original df))
+
+```{r}
+#  String split & unnest to deal with 2 in 1 accessions in cells
 prot_df_unnested <- prot_df %>%
   mutate(split_UNIPROT = str_split(UNIPROT, ";"),
          .after = UNIPROT) %>%
@@ -102,80 +163,270 @@ prot_df_unnested <- prot_df %>%
 ```
 
 ```{r}
+# Join Perez df to mouse_ref by uniprot accession. 
 prot_df_mouse <- left_join(prot_df_unnested, mouse_ref,
                            by = join_by(UNIPROT == Entry))
 
-sum(is.na(prot_df_mouse$Entry.Name)) # 291 of 6558
-#sum(!(is.na(prot_df_mouse$Entry.Name))) # 6558
+sum(is.na(prot_df_mouse$Entry.Name)) # check unmapped | 291 of 6558 unmapped
+#sum(!(is.na(prot_df_mouse$Entry.Name))) # 6558 
 ```
 
+### Rat
+
+#### Rat 1 - Map uniprot rat (primary genes) to mice primary genes
+
+Now with the mapped mouse df. Use the prot_df_mouse, select cols of interest, rename those that will duplicate (to avoid .x at the end when joining, & then join.
+
+Probably could have just mutated .x to .m, but oh well.
+
 ```{r}
+#colnames(prot_df_mouse)
+
 prot_df_map_rat_1 <- prot_df_mouse %>%
-  dplyr::select(proteomics_id:Gene.Names) %>% #cols 1:17
-  rename(entry.name.mouse = Entry.Name, # new = old
-         protein.names.mouse = Protein.names,
-         gene.names.primary.mouse = Gene.Names..primary.,
-         gene.names.mouse =  Gene.Names) %>%
-  left_join(rat_ref, # many to many warning 
-            by = join_by(gene.names.primary.mouse == Gene.Names..primary.))
+  dplyr::select(proteomics_id:Gene.Names, Annotation:Protein.existence,
+                Protein.families:Length, GeneID:Ensembl) %>% # 24 cols
+  rename(entry.name.m = Entry.Name, # new = old
+         protein.names.m = Protein.names,
+         gene.names.primary.m = Gene.Names..primary.,
+         gene.names.m =  Gene.Names,
+         annotation.m = Annotation,
+         reviewed.m = Reviewed,
+         protein.existence.m = Protein.existence,
+         protein.families.m = Protein.families,
+         length.m = Length,
+         GeneID.m = GeneID,
+         Ensembl.m = Ensembl) %>%
+  # group_by(proteomics_id) %>%
+  left_join(rat_ref, # many to many warning
+            by = join_by(gene.names.primary.m == Gene.Names..primary.))
+
+# gives many to many warning (fine?) but why 337629 (prev 24513) 
+# unique entries are the same though 
 ```
 
+#### Rat map 2 - trim multi entries (by group!!!)
+
+Make sure to group by proteomics_id so it doesn't delete adjacent groups! (e.g. EEold).
+
+Takes prot_df_map_rat_1 then filters out any NAs enties (so unable to map by primary gene name), then groups by proteomics_id (so EEyoung, EEold, EEall), then gene names & then UNIPROT id (provided by Perez) (this is to deal with any gene ids that get dealt to multiple unique uniprot accession entries). Afterwards, the filtering begins - swissprot reviewed \> best annotation score \> existence ranking \> occupied (least NAs).
+
 ```{r}
+# informs grouping.
 length(unique(prot_df_map_rat_1$proteomics_id)) # 3
-length(unique(prot_df_map_rat_1$UNIPROT)) # 2250
-length(unique(prot_df_map_rat_1$gene.names.primary.mouse)) # 2187
+length(unique(prot_df_map_rat_1$gene.names.primary.m)) # 2186
+length(unique(prot_df_map_rat_1$split_UNIPROT)) # 8040
+length(unique(prot_df_map_rat_1$Entry)) # 8040
 ```
 
 ```{r}
 # take non empty entries & then group & filter any with multiples
 # based on reviewed > annotation score > protein existence
-prot_df_map_rat_2 <- prot_df_map_rat_1 %>% #24513
-  filter(!(is.na(Entry))) %>% #24117
-  group_by(proteomics_id, gene.names.primary.mouse, UNIPROT) %>% # eeh??? check?
+
+prot_df_map_rat_2 <- prot_df_map_rat_1 %>% #24513 | 337629
+  group_by(proteomics_id, gene.names.primary.m, split_UNIPROT) %>% # group by
+    # 1 - remove NAs
+  filter(!(is.na(Entry))) %>% #24117 | 337524
+    # 2 - keep reviewed/swissprot entries
   # or maybe group by just proteomics_id, gene - since rat map is based on gene???
   filter(if(any(Reviewed == "reviewed", na.rm = TRUE)) {
      Reviewed == "reviewed" # if reviewed = keep,
-   } else {TRUE}) %>% #10278 - if none, keep the unreviewed ones & then filter below
-  slice_max(Annotation, n = 1) %>% #8445
-  slice_max(existence_ranking, n = 1) #7905
+   } else {TRUE}) %>% #10278|44907 - if none, keep unreviewed ones, & then filter below
+    # 3
+  slice_max(Annotation, n = 1) %>% #8445|10773
+    # 4 # keep entry with least NAs
+  slice_max(existence_ranking, n = 1) %>% #7905|9942
+    # 5 - keep entry with least NAs
+  slice_max(occupied, n = 1) %>% # |7017 
+  
+  # still 216 with duplicate entries 
+    # 6 - final 
+  mutate(id_priority = case_when(
+    # does not help!!! 
+    # !is.na(GeneID.m) & !is.na(GeneID) & !is.na(Ensembl.m) & !is.na(Ensembl) ~ 10,
+    # !is.na(GeneID.m) & !is.na(GeneID) & !is.na(Ensembl) ~ 8,
+    # !is.na(Gene.Ontology.IDs) & !is.na(GeneID) & !is.na(Ensembl) & !is.na(KEGG) ~ 6,
+    # !is.na(GeneID.m) & !is.na(GeneID) & !is.na(Ensembl) & !is.na(KEGG) ~ 6,
+    # !is.na(Reactome) & !is.na(GeneID) & !is.na(Ensembl) & !is.na(KEGG) ~ 6, 
+    #!is.na(Function..CC.) & !is.na(GeneID) & !is.na(Ensembl) & !is.na(KEGG) ~ 6, 
+    #!is.na(STRING) & !is.na(GeneID) & !is.na(Ensembl) & !is.na(KEGG) ~ 7, 
+    
+    !is.na(GeneID) & !is.na(Ensembl) & !is.na(KEGG) ~ 6, # has geneID & ensembl & KEGG!
+    !is.na(GeneID) & !is.na(Ensembl) ~ 5, # has both geneID & ensembl!
+    !is.na(GeneID) ~ 4, # has only gene ID
+    !is.na(Ensembl) ~ 3, # has only Ensembl
+    !is.na(KEGG) ~ 2, # has only KEGG
+    TRUE ~ 0 # all others (if all above were FALSE, then TRUE - so it writes 0)
+  )) %>%
+  slice_max(id_priority, n = 1) %>%
+  dplyr::select(-id_priority) # rm col otherwise will have uneven lengths for binding 
 
+# 1st 6849 (geneID & ensembl - still has duplicates -> 153)
+# 2nd 6924? (geneID & ensembl & kegg - still has duplicates -> 129)
 ```
+
+```{r}
+prot_df_map_rat_2_dups <- prot_df_map_rat_2 %>%
+  count(gene.names.primary.m) %>%
+  filter(n > 1) # 216 with duplicate entries
+# 216 with duplicate entries | after (GeneID & Ensembl trim) = 153 
+
+prot_df_maps_rat_2_inspect <- prot_df_map_rat_2 %>%
+  filter(gene.names.primary.m %in% prot_df_map_rat_2_dups$gene.names.primary.m)
+```
+
+```{r}
+# dropped a bit due to removing the NA values ?
+length(unique(prot_df_map_rat_2$gene.names.primary.m)) # 2151
+length(unique(prot_df_map_rat_2$split_UNIPROT)) # 2248
+length(unique(prot_df_map_rat_2$Entry)) # 2242
+```
+
+#### Rat map 3 - map nas with gene synonyms
+
+*Filter NA Entries (no rat accession), then select & peel back columns (to avoid duplicating in subsequent join), then filter out non NAs in the gene.names.primary.m col otherwise remaps & results in \>3mil cols*
 
 ```{r}
 prot_df_map_rat_1_na <- prot_df_map_rat_1 %>%
-  filter(is.na(Entry)) %>% #396 obs
-  dplyr::select(proteomics_id:gene.names.mouse) %>% # peel back
-  filter(!is.na(gene.names.primary.mouse)) # filter out NAs otherwise maps >3 mil below
+  filter(is.na(Entry)) %>% #396|105 obs?
+  dplyr::select(proteomics_id:Ensembl.m) %>% # peel back to 24 cols
+  filter(!is.na(gene.names.primary.m)) # filter out non NAs otherwise maps >3 mil below
 ```
 
 ```{r}
+# Prep rat_ref_split df 
 rat_ref_split <- rat_ref %>% #51872 to 55829
   mutate(split_synonyms = str_split(Gene.Names..synonym., " ")) %>% #sep split by space
   tidyr::unnest(split_synonyms)
 ```
 
+Recovered Sh3bgrl, Tceal3, Mtco2, Mtnd1, Mtnd5, Eif2s3x (gene synonyms that match mouse primary)
+
 ```{r}
-# note filtered NAs in gene.names.primary.mouse (otherwise maps 3 million as NA to NA)
+# note filtered NAs in gene.names.primary.m (otherwise maps 3 million as NA to NA)
 # results in 18 of 105 recovered (or 6 proteins (since 3 groups))
 prot_df_map_rat_3 <- left_join(prot_df_map_rat_1_na, rat_ref_split,
-                               by = join_by(gene.names.primary.mouse == split_synonyms))
+                               by = join_by(gene.names.primary.m == split_synonyms))
 
 sum(is.na(prot_df_map_rat_3$Entry)) # still 87 NA
 # many of those NAs see either too specific or too general or non reference prote.
 # e.g.  Histone H3,  RIKEN cDNA 2900026A02 gene, etc unmapped
 ```
 
+#### Rat map 4 - map remaining missing values to other rat proteome
+
 ```{r}
-prot_df_map_rat_4 <- bind_rows(list(by_primary_gene = prot_df_map_rat_2,
-                                    by_synonym = prot_df_map_rat_3),
-                               .id = "map_method_df") %>%
-  arrange(proteomics_id, desc(dir), gene.names.primary.mouse)
-
-
+prot_df_map_rat_3_na <- prot_df_map_rat_3 %>%
+  filter(is.na(Entry)) %>% #|87
+  dplyr::select(proteomics_id:Ensembl.m) %>% # peel back to 24 cols
+  filter(!is.na(gene.names.primary.m)) # filter out non NAs otherwise maps >3 mil below
 ```
 
 ```{r}
-prot_df_map_rat_sig <- prot_df_map_rat_4 %>%
+prot_df_map_rat_4 <- left_join(prot_df_map_rat_3_na, rat_other,
+                               by = join_by(
+                                 gene.names.primary.m == Gene.Names..primary.)) %>%
+  # recovered Grcc10, Timm8a1, H3f3a, Phpt1, Vbp1 
+  group_by(proteomics_id, gene.names.primary.m, split_UNIPROT) %>%
+  filter(if(any(Reviewed == "reviewed", na.rm = TRUE)) {
+     Reviewed == "reviewed"
+   } else {TRUE}) %>%
+  slice_max(Annotation, n = 1) %>%
+  slice_max(existence_ranking, n = 1) %>%
+  slice_max(occupied, n = 1) # goes from 90 entries to 87 - only drops dup of Grcc10
+
+
+sum(is.na(prot_df_map_rat_4$Entry)) # still 72 NA (or 24 missing?)
+
+# Note: deleted rat_other_split with synonyms as it did not further recover any IDs. 
+# hence combining this chunk
+# note the join has 90 entries & follow up filter drops it to 3 (so only removes the 3)
+```
+
+### Combine rat maps
+
+```{r}
+prot_df_map_rat_combined <- bind_rows(list(by_ref_primary_gene = prot_df_map_rat_2,
+                                           by_ref_synonym = prot_df_map_rat_3, 
+                                           by_other_primary_gene = prot_df_map_rat_4),
+                                      .id = "map_method") %>%
+  arrange(proteomics_id, desc(dir), gene.names.primary.m) 
+  
+dim(prot_df_map_rat_combined) # 7209 x 58
+```
+
+```{r}
+# # export
+# write_excel_csv(prot_df_map_rat_combined,
+#                 "output/2025_12_16_Perez_2024_proteomics_map_rat_combined_v1.csv")
+```
+
+Make proteomics lit review file
+
+```{r}
+
+# for lit review table | Note - duplicates have not been removed - to do manually
+lit_review <- prot_df_map_rat_combined %>%
+  mutate(
+    Year = 2024,
+    Author = 'Perez',
+    Animal = 'Mice',
+    Condition = "Fraction - Synaptic Junction",
+    Region = 'Hippocampus',
+    Whole = 'No',
+    Exp_type = 'Protein',
+    Method = 'PROTEOMICS_LCMS_LFQ_OS',
+    Used_name = `Protein Name`,
+    Mod = " ",
+    Mod_type = " ",
+    Gene_name = `gene.names.primary.m`, # genename used to map mouse primary to rat gene
+    Comparison = 2,
+    In_EE = Regulation,
+    Fold_change = log2FC,
+    Arrows = case_when( # dplyr case when, instead of ifelse
+      log2FC > 2.5 ~ '+++',
+      log2FC > 1 ~ '++',
+      log2FC > .05 ~ '+',
+      log2FC > -.05 ~ '=',
+      log2FC > -1 ~ '-',
+      log2FC > -2.5 ~ '--',
+      log2FC <= -2.5 ~ '---',
+      ),
+    Significant = ifelse(adj.pvalue <= 0.05, 'yes', 'no'),
+    pvalue = adj.pvalue,
+    N_tested = ' ',
+    Stats_adj = 'adjusted',
+    Note = ' ',
+    Full_name = Protein.names,
+    Uniprot_rat_accession = Entry,
+    Uniprot_entry_name = Entry.Name,
+    Uniprot_link = ifelse(!is.na(Entry),
+                          paste0('https://www.uniprot.org/uniprotkb/', Entry,'/entry'),
+                          ' '),
+    Wikipedia_link = ifelse(!is.na(Entry),
+                            paste0('https://en.wikipedia.org/wiki/',
+                                   `gene.names.primary.mouse`),
+                            ' '),
+    Curation_method = case_when(
+      Reviewed == "reviewed" & map_method_df == "by_primary_gene" ~ "auto - reviewed (primary gene name)",
+      Reviewed == "reviewed" & map_method_df == "by_synonym" ~ "auto - reviewed (synonym)",
+      Reviewed == "unreviewed" & map_method_df == "by_primary_gene" ~ "auto - ref proteome (primary gene name)",
+      Reviewed == "unreviewed" & map_method_df == "by_synonym" ~ "auto - ref proteome (synonym)",
+      is.na(Entry.Name) ~ "manual - na" 
+    ),
+    Class_group = ' ',
+    Other_link = ' ',
+    Other_comments = 'misc shows combined provided info from their df',
+    misc = paste0(Protein, '_', EntryName,  `Protein Name`)
+  )
+```
+
+```{r}
+prot_df_map_rat_sig <- prot_df_map_rat_combined  %>%
+  filter(adj.P.Val <= 0.05) # 2097 entries! 
+```
+
+```{r}
+prot_df_map_rat_keywords <- prot_df_map_rat_4 %>%
   filter(adj.P.Val <= 0.05) %>% # 2309
   filter(!is.na(Entry)) %>% # 2278
   mutate(hashtags = str_split(Keywords, ";")) %>%
@@ -225,7 +476,16 @@ mRNA_df <- bind_rows(list(all = rna_df_EEall,
 ```
 
 ```{r}
+# from 59505 to...
+mRNA_df_adj_sig <- mRNA_df %>%
+  filter(padj <= 0.05) # huh barely any sig @ adjp <=0.05 190 (345 if 0.1 instead)
+
+
 mRNA_df_sig <- mRNA_df %>%
-  filter(padj <= 0.05) # huh barely any significant... #190
+  filter(pvalue <= 0.05) # if using normal p value 3942 significant... 
+
+```
+
+```{r}
 
 ```
