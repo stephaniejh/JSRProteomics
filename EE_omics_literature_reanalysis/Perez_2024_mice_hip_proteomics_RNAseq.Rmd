@@ -9,9 +9,12 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+NOTE: some exported randomly have **Q6LED0 Histone H3.1 in the exported sheets? not sure why? look into?**
+
 ```{r}
 library(tidyverse)
 library(readxl)
+library(writexl)
 ```
 
 # Proteomics
@@ -241,15 +244,6 @@ prot_df_map_rat_2 <- prot_df_map_rat_1 %>% #24513 | 337629
   # still 216 with duplicate entries 
     # 6 - final 
   mutate(id_priority = case_when(
-    # does not help!!! 
-    # !is.na(GeneID.m) & !is.na(GeneID) & !is.na(Ensembl.m) & !is.na(Ensembl) ~ 10,
-    # !is.na(GeneID.m) & !is.na(GeneID) & !is.na(Ensembl) ~ 8,
-    # !is.na(Gene.Ontology.IDs) & !is.na(GeneID) & !is.na(Ensembl) & !is.na(KEGG) ~ 6,
-    # !is.na(GeneID.m) & !is.na(GeneID) & !is.na(Ensembl) & !is.na(KEGG) ~ 6,
-    # !is.na(Reactome) & !is.na(GeneID) & !is.na(Ensembl) & !is.na(KEGG) ~ 6, 
-    #!is.na(Function..CC.) & !is.na(GeneID) & !is.na(Ensembl) & !is.na(KEGG) ~ 6, 
-    #!is.na(STRING) & !is.na(GeneID) & !is.na(Ensembl) & !is.na(KEGG) ~ 7, 
-    
     !is.na(GeneID) & !is.na(Ensembl) & !is.na(KEGG) ~ 6, # has geneID & ensembl & KEGG!
     !is.na(GeneID) & !is.na(Ensembl) ~ 5, # has both geneID & ensembl!
     !is.na(GeneID) ~ 4, # has only gene ID
@@ -257,28 +251,33 @@ prot_df_map_rat_2 <- prot_df_map_rat_1 %>% #24513 | 337629
     !is.na(KEGG) ~ 2, # has only KEGG
     TRUE ~ 0 # all others (if all above were FALSE, then TRUE - so it writes 0)
   )) %>%
-  slice_max(id_priority, n = 1) %>%
-  dplyr::select(-id_priority) # rm col otherwise will have uneven lengths for binding 
+  slice_max(id_priority, n = 1, with_ties = FALSE) %>% 
+  dplyr::select(-id_priority)
 
 # 1st 6849 (geneID & ensembl - still has duplicates -> 153)
 # 2nd 6924? (geneID & ensembl & kegg - still has duplicates -> 129)
+# note varying combos of Gene.ID.m, Ensembl.m,  Reactome, STRING, 
+# also tried go_id_count - did not resolve - seems to be isoforms? i think
 ```
 
 ```{r}
-prot_df_map_rat_2_dups <- prot_df_map_rat_2 %>%
-  count(gene.names.primary.m) %>%
-  filter(n > 1) # 216 with duplicate entries
-# 216 with duplicate entries | after (GeneID & Ensembl trim) = 153 
-
-prot_df_maps_rat_2_inspect <- prot_df_map_rat_2 %>%
-  filter(gene.names.primary.m %in% prot_df_map_rat_2_dups$gene.names.primary.m)
+# # 216 with duplicate entries | after (GeneID & Ensembl trim) = 153 
+# # 129 KEGG,GeneID& Ensembl| 0 eeny meeny miny moe then with_ties 
+# 
+# # for checking duplicate entries trimming (see case_when in the chunk above)
+# prot_df_map_rat_2_dups <- prot_df_map_rat_2 %>%
+#   count(gene.names.primary.m) %>%
+#   filter(n > 1) 
+# 
+# prot_df_maps_rat_2_inspect <- prot_df_map_rat_2 %>%
+#   filter(gene.names.primary.m %in% prot_df_map_rat_2_dups$gene.names.primary.m)
 ```
 
 ```{r}
 # dropped a bit due to removing the NA values ?
 length(unique(prot_df_map_rat_2$gene.names.primary.m)) # 2151
 length(unique(prot_df_map_rat_2$split_UNIPROT)) # 2248
-length(unique(prot_df_map_rat_2$Entry)) # 2242
+length(unique(prot_df_map_rat_2$Entry)) # 2151
 ```
 
 #### Rat map 3 - map nas with gene synonyms
@@ -299,7 +298,7 @@ rat_ref_split <- rat_ref %>% #51872 to 55829
   tidyr::unnest(split_synonyms)
 ```
 
-Recovered Sh3bgrl, Tceal3, Mtco2, Mtnd1, Mtnd5, Eif2s3x (gene synonyms that match mouse primary)
+Recovered Sh3bgrl, Tceal3, Mtco2, Mtnd1, Mtnd5, Eif2s3x (gene synonyms that match mouse primary). No duplicates here so no need to rank.
 
 ```{r}
 # note filtered NAs in gene.names.primary.m (otherwise maps 3 million as NA to NA)
@@ -310,6 +309,11 @@ prot_df_map_rat_3 <- left_join(prot_df_map_rat_1_na, rat_ref_split,
 sum(is.na(prot_df_map_rat_3$Entry)) # still 87 NA
 # many of those NAs see either too specific or too general or non reference prote.
 # e.g.  Histone H3,  RIKEN cDNA 2900026A02 gene, etc unmapped
+```
+
+```{r}
+prot_df_map_rat_3_filtered <- prot_df_map_rat_3 %>%
+  filter(!is.na(Entry))
 ```
 
 #### Rat map 4 - map remaining missing values to other rat proteome
@@ -346,12 +350,12 @@ sum(is.na(prot_df_map_rat_4$Entry)) # still 72 NA (or 24 missing?)
 
 ```{r}
 prot_df_map_rat_combined <- bind_rows(list(by_ref_primary_gene = prot_df_map_rat_2,
-                                           by_ref_synonym = prot_df_map_rat_3, 
+                                           by_ref_synonym = prot_df_map_rat_3_filtered, 
                                            by_other_primary_gene = prot_df_map_rat_4),
-                                      .id = "map_method") %>%
+                                      .id = "map_method_df") %>%
   arrange(proteomics_id, desc(dir), gene.names.primary.m) 
   
-dim(prot_df_map_rat_combined) # 7209 x 58
+dim(prot_df_map_rat_combined) # 6849 x 58 | still some duplicates?
 ```
 
 ```{r}
@@ -363,36 +367,40 @@ dim(prot_df_map_rat_combined) # 7209 x 58
 Make proteomics lit review file
 
 ```{r}
+plot(prot_df_map_rat_combined$logFC)
+```
+
+```{r}
 
 # for lit review table | Note - duplicates have not been removed - to do manually
-lit_review <- prot_df_map_rat_combined %>%
+lit_review_proteomics <- prot_df_map_rat_combined %>%
   mutate(
     Year = 2024,
     Author = 'Perez',
     Animal = 'Mice',
-    Condition = "Fraction - Synaptic Junction",
+    Condition = proteomics_id,
     Region = 'Hippocampus',
-    Whole = 'No',
+    Whole = 'Yes',
     Exp_type = 'Protein',
-    Method = 'PROTEOMICS_LCMS_LFQ_OS',
-    Used_name = `Protein Name`,
+    Method = 'PROTEOMICS_LCMS_LFQ_DIA_OS',
+    Used_name = SYMBOL,
     Mod = " ",
     Mod_type = " ",
     Gene_name = `gene.names.primary.m`, # genename used to map mouse primary to rat gene
     Comparison = 2,
-    In_EE = Regulation,
-    Fold_change = log2FC,
+    In_EE = dir,
+    Fold_change = logFC, # prob the same as log2FC?
     Arrows = case_when( # dplyr case when, instead of ifelse
-      log2FC > 2.5 ~ '+++',
-      log2FC > 1 ~ '++',
-      log2FC > .05 ~ '+',
-      log2FC > -.05 ~ '=',
-      log2FC > -1 ~ '-',
-      log2FC > -2.5 ~ '--',
-      log2FC <= -2.5 ~ '---',
+      logFC > 2.5 ~ '+++',
+      logFC > 1 ~ '++',
+      logFC > .05 ~ '+',
+      logFC > -.05 ~ '=',
+      logFC > -1 ~ '-',
+      logFC > -2.5 ~ '--',
+      logFC <= -2.5 ~ '---',
       ),
-    Significant = ifelse(adj.pvalue <= 0.05, 'yes', 'no'),
-    pvalue = adj.pvalue,
+    Significant = ifelse(adj.P.Val <= 0.05, 'yes', 'no'),
+    pvalue = adj.P.Val,
     N_tested = ' ',
     Stats_adj = 'adjusted',
     Note = ' ',
@@ -404,20 +412,68 @@ lit_review <- prot_df_map_rat_combined %>%
                           ' '),
     Wikipedia_link = ifelse(!is.na(Entry),
                             paste0('https://en.wikipedia.org/wiki/',
-                                   `gene.names.primary.mouse`),
-                            ' '),
+                                   `gene.names.primary.m`), ' '),
+    
     Curation_method = case_when(
-      Reviewed == "reviewed" & map_method_df == "by_primary_gene" ~ "auto - reviewed (primary gene name)",
-      Reviewed == "reviewed" & map_method_df == "by_synonym" ~ "auto - reviewed (synonym)",
-      Reviewed == "unreviewed" & map_method_df == "by_primary_gene" ~ "auto - ref proteome (primary gene name)",
-      Reviewed == "unreviewed" & map_method_df == "by_synonym" ~ "auto - ref proteome (synonym)",
-      is.na(Entry.Name) ~ "manual - na" 
-    ),
+      Reviewed == "reviewed" & map_method_df == "by_ref_primary_gene"
+        ~ "auto - ref & reviewed (primary gene name)",
+      
+      Reviewed == "unreviewed" & map_method_df == "by_ref_primary_gene"
+        ~ "auto - ref & unreviewed (primary gene name)",
+      
+      Reviewed == "reviewed" & map_method_df == "by_ref_synonym"
+        ~ "auto - ref & reviewed (synonym)",
+      
+      Reviewed == "unreviewed" & map_method_df == "by_ref_synonym"
+        ~ "auto - ref proteome (synonym)",
+      
+      Reviewed == "reviewed" & map_method_df == "by_other_primary_gene"
+        ~ "auto - other & reviewed (primary gene name)",
+      
+      is.na(Entry.Name)
+        ~ "manual - na"),
+    
     Class_group = ' ',
     Other_link = ' ',
-    Other_comments = 'misc shows combined provided info from their df',
-    misc = paste0(Protein, '_', EntryName,  `Protein Name`)
+    Other_comments = 'misc shows combined gene_uniprot_ensembl info from their df',
+    misc = paste0(SYMBOL, '_', UNIPROT, '_',  GENEID)
   )
+```
+
+Write excel
+
+<https://r4ds.hadley.nz/spreadsheets.html#sec-writing-to-excel>
+
+```{r}
+# results in 3 x [2283 x 89] df
+split_prot_df_map_rat <- split(lit_review_proteomics,
+                               lit_review_proteomics$proteomics_id)
+
+# then add the combined one at the end 
+split_prot_df_map_rat$combined <- lit_review_proteomics
+```
+
+```{r}
+# #writes out by sheet (using writexl package)
+# write_xlsx(split_prot_df_map_rat,
+#            path = "output/2025_12_16_Perez_2024_proteomics_lit_review_all_v1.xlsx")
+```
+
+Significant Only
+
+```{r}
+lit_review_proteomics_sig <- lit_review_proteomics %>%
+  filter(adj.P.Val <= 0.05) #6936 to 2015
+
+split_prot_df_map_rat_sig <- split(lit_review_proteomics_sig,
+                                   lit_review_proteomics_sig$proteomics_id)
+
+split_prot_df_map_rat_sig$combined <- lit_review_proteomics_sig
+```
+
+```{r}
+# write_xlsx(split_prot_df_map_rat_sig,
+#            path = "output/2025_12_16_Perez_2024_proteomics_lit_review_sig_v1.xlsx")
 ```
 
 ```{r}
@@ -443,12 +499,19 @@ prot_rat_sig_count <- prot_df_map_rat_sig %>%
 ```
 
 ```{r}
+find_mouse_Q6LED0 <- mouse_ref %>%
+  filter(Entry == "Q6LED0")
 
+find_rat_Q6LED0 <- rat_ref %>%
+  filter(Entry == "Q6LED0")
+
+find_rat_other_Q6LED0 <- rat_other %>%
+  filter(Entry == "Q6LED0")
 ```
 
 ------------------------------------------------------------------------
 
-## mRNA
+# mRNA
 
 ### Read in mRNA/transcirptomics DEG excel sheets (sup ds 18)
 
@@ -472,7 +535,53 @@ rna_df_EEold <- read_excel("input/Perez_2024_EE_age_transcriptomics_sds18_41467_
 mRNA_df <- bind_rows(list(all = rna_df_EEall,
                           young = rna_df_EEyng,
                           old = rna_df_EEold),
-                     .id = "transcriptomics_id")
+                     .id = "transcriptomics_id") %>%
+  rename(ENS_GENEID = GENEID) %>%
+  # make new col remove all letters but keeping 11 digit identifier (otherwise ENSMUSG)
+  mutate(ENS_GENEID_NUM = paste0(gsub("[[:alpha:]]", "", ENS_GENEID)))
+```
+
+```{r}
+# split cells with multiple ensembl id entries so 1 entry per cell
+# trim the dots at the end due to 
+mouse_ref_4_mRNA <- mouse_ref %>%
+  mutate(ensembl.split.m = str_split(Ensembl, ";"),
+         .after = Ensembl) %>%
+  tidyr::unnest(ensembl.split.m) %>% # from 54864 to 121602
+  mutate(ensembl_short = paste0(gsub("\\..*", "", ensembl.split.m)),
+         .after = ensembl.split.m) %>%
+  mutate(ensembl_short_no = paste0(gsub("[[:alpha:]]", "", ensembl_short)),
+         .after = ensembl_short)
+```
+
+```{r}
+mRNA_df_mouse_1 <- left_join(mRNA_df, mouse_ref_4_mRNA,
+                           by = join_by(SYMBOL == Gene.Names..primary.)) 
+
+mRNA_df_mouse_1_mapped <- mRNA_df_mouse_1 %>%
+  filter(!is.na(Entry))
+
+mRNA_df_mouse_1_na <- mRNA_df_mouse_1 %>%
+  filter(is.na(Entry)) %>%
+  select(transcriptomics_id:ENS_GENEID_NUM)
+```
+
+```{r}
+mRNA_df_mouse_2 <- left_join(mRNA_df_mouse_1_na, mouse_ref_4_mRNA,
+                             by = join_by(ENS_GENEID_NUM == ensembl_short_no))
+
+sum(!is.na(mRNA_df_mouse_2$Entry)) #4587 mapped & 9006 unmapped
+
+mRNA_df_mouse_2_mapped <- mRNA_df_mouse_2 %>%
+  filter(!is.na(Entry))
+
+mRNA_df_mouse_2_na<- mRNA_df_mouse_2 %>%
+  filter(is.na(Entry)) %>%
+  select(transcriptomics_id:ENS_GENEID_NUM)
+```
+
+```{r}
+
 ```
 
 ```{r}
@@ -487,5 +596,5 @@ mRNA_df_sig <- mRNA_df %>%
 ```
 
 ```{r}
-
+length(intersect(mRNA_df$SYMBOL, prot_df$SYMBOL)) # 2227 intersect. 
 ```
