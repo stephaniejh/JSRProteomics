@@ -1,0 +1,260 @@
+---
+title: "2025_11_21_Park_2015_transcriptomics_EExAging"
+author: "Stephanie Huang"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Mapping method: maps the gene name provided in their dataframe (mouse) then directly \*
+
+Tried to map Ref_Seq from their id column but is a mess. Their ID column is ref_seq, mirbase (e.g. MI0005496)
+
+## Load Packages
+
+```{r}
+library(readxl)
+library(dplyr)
+library(stringr)
+library(tidyr)
+library(ggplot2)
+```
+
+## Load data
+
+```{r}
+# S11 Table. Differentially expressed genes in young EE over young SH.
+s11_EEyng <-read_excel("input/Park_2015_SAGEseq_mRNA_EExAging_s11_yngEE.xlsx",
+                      skip = 4) # skip weird merge headers (take row 5 headers)
+
+# this one does not had the row 5 header, skip 2 (weird title) to get r3 headers
+s13_EEold <-read_excel("input/Park_2015_SAGEseq_mRNA_EExAging_s13_oldEE.xlsx",
+                      skip = 2) 
+
+# then trim 1st 2 empty rows
+s13_EEold <- s13_EEold[-1:-2,] # 1st id is NM_001081078	Lct  
+```
+
+```{r}
+park_raw_comb <- bind_rows(list(EE_yng = s11_EEyng,
+                                EE_old = s13_EEold), .id = "transcriptomics_id")
+```
+
+### Uniprot df
+
+```{r}
+# load in uniprot df
+load(file = "input/mouse_ref_proteome_2025_12_13_54864x295.rda")
+load(file = "input/rat_ref_proteome_2025_12_13_51872x295.rda")
+load(file = "input/rat_other_proteome_2025_12_15_39538x295.rda")
+```
+
+```{r}
+# cols I want from uniprot
+
+#colnames(mouse_ref_proteome_2025_12_13)
+
+my_cols <- c("Entry", "Entry.Name", "Protein.names", "Gene.Names..primary.",
+             "Gene.Names", "Gene.Names..synonym.",  "Annotation", "Reviewed",
+             "Protein.existence", "Protein.families", "Length", "Organism",
+             "Keywords", "Keyword.ID", "Function..CC.", "Miscellaneous..CC.", "Pathway",
+             "GeneID", "Ensembl", "RefSeq", 
+             "Gene.Ontology..GO.", "Gene.Ontology..cellular.component.",
+             "Gene.Ontology..molecular.function.", "Gene.Ontology..biological.process.",
+             "Gene.Ontology.IDs", "KEGG", "Reactome", "STRING",
+             "Entry.version", "Date.of.creation", "Date.of.last.modification",
+             "Date.of.last.sequence.modification"
+             )
+```
+
+```{r}
+# https://www.uniprot.org/help/protein_existence - see rankings 
+unique(rat_ref_proteome_2025_12_13$Protein.existence) 
+
+# MOUSE REF PROTEOME
+mouse_ref <- mouse_ref_proteome_2025_12_13 %>% 
+  dplyr::select(all_of(my_cols)) %>%
+  mutate(existence_ranking = case_when( # ranking level of evidence
+    Protein.existence == "Evidence at protein level" ~ 5,
+    Protein.existence == "Evidence at transcript level" ~ 4,
+    Protein.existence == "Inferred from homology" ~ 3, 
+    Protein.existence == "Predicted" ~ 2, 
+    Protein.existence == "Uncertain" ~ 1
+    ), .after = Protein.existence) %>%
+  mutate(across(where(is.character), ~ na_if(.x, ""))) 
+
+
+# need to run in separate line as mouse ref is input (otheriwise object not found )
+mouse_ref <- mouse_ref %>% 
+  mutate(occupied = rowSums(!is.na(mouse_ref)))
+
+# 2025_12_15 - NOTE DID NOT GET MOUSE OTHER PROTEOME FROM UNIPROT BECAUSE IT SAYS CONTAIMINATED!
+```
+
+```{r}
+# RAT REF PROTEOME
+rat_ref <- rat_ref_proteome_2025_12_13 %>% 
+  dplyr::select(all_of(my_cols)) %>%
+  mutate(existence_ranking = case_when( # ranking level of evidence
+    Protein.existence == "Evidence at protein level" ~ 5,
+    Protein.existence == "Evidence at transcript level" ~ 4,
+    Protein.existence == "Inferred from homology" ~ 3, 
+    Protein.existence == "Predicted" ~ 2, 
+    Protein.existence == "Uncertain" ~ 1
+    ), .after = Protein.existence) %>%
+  mutate(across(where(is.character), ~ na_if(.x, ""))) 
+
+rat_ref <- rat_ref %>%
+  mutate(occupied = rowSums(!is.na(rat_ref)))
+```
+
+Mouse to Mouse map
+
+```{r}
+# by gene name
+mRNA_mouse_map_1 <- left_join(park_raw_comb, mouse_ref,
+                           by = join_by(`Gene name` == Gene.Names..primary.))
+
+sum(is.na(mRNA_mouse_map_1$Entry)) # 227 empty
+length(unique(mRNA_mouse_map_1$Entry)) # 1862 unique
+```
+
+```{r}
+mouse_ref_ref_seq <- mouse_ref %>%
+  mutate(ref_seq_split = str_split(RefSeq, ";")) %>%
+  tidyr::unnest(ref_seq_split) %>% #from 54864 to 114352
+  mutate(ref_seq_trim = paste0(gsub("\\..*", "", ref_seq_split)))
+```
+
+```{r}
+# "_dup_?[0-9]+$" trims the _dup at the end
+park_raw_comb_2 <- park_raw_comb %>%
+  mutate(identifier_trimmed = paste(gsub("_dup_?[0-9]+$", "", Identifier)),
+         .after = Identifier)
+```
+
+```{r}
+mRNA_mouse_map_2 <- left_join(park_raw_comb_2, mouse_ref_ref_seq,
+                              by = join_by(identifier_trimmed == ref_seq_trim))
+
+sum(is.na(mRNA_mouse_map_2$Entry)) # 1115
+length(unique(mRNA_mouse_map_2$Entry)) # 1
+```
+
+Direct Gene (park df mouse) to Uniprot Rat Ref Proteome
+
+```{r}
+mRNA_rat_map_1 <-left_join(park_raw_comb, rat_ref,
+                           by = join_by(`Gene name` == Gene.Names..primary.))
+
+sum(is.na(mRNA_rat_map_1$Entry)) # 301 empty
+length(unique(mRNA_rat_map_1$Entry)) # 1784 unique
+
+mRNA_rat_map_1_mapped <- mRNA_rat_map_1 %>%
+  filter(!is.na(Entry))
+
+mRNA_rat_map_1_na <- mRNA_rat_map_1 %>%
+  filter(is.na(Entry)) %>%
+  select(transcriptomics_id:`Mean SY`)
+```
+
+```{r}
+# note gene names is all, gene names synonym is all except gene names primary
+# expands from 51872 to 55829
+rat_ref_split <- rat_ref %>%
+  mutate(synonyms_split = str_split(Gene.Names..synonym., " "),
+         .after = Gene.Names..synonym.) %>%
+  tidyr::unnest(synonyms_split)
+```
+
+```{r}
+# recovered 44
+mRNA_rat_map_2 <-left_join(mRNA_rat_map_1_na, rat_ref_split,
+                           by = join_by(`Gene name` == synonyms_split))
+
+sum(is.na(mRNA_rat_map_2$Entry)) # 252/301 empty
+length(unique(mRNA_rat_map_2$Entry)) # 44 unique
+
+# rat other only recovered 1 extra (ignore)
+```
+
+```{r}
+# checks to inform grouping below
+length(unique(park_raw_comb$transcriptomics_id)) # 2
+length(unique(park_raw_comb$`Gene name`)) # 872
+length(unique(park_raw_comb$Identifier)) # 1104
+```
+
+```{r}
+mRNA_rat_map_comb <- bind_rows(list(by_ref_primary_gene = mRNA_rat_map_1_mapped,
+                                    by_ref_synonym = mRNA_rat_map_2),
+                               .id = "map_method_df") %>% # 2584
+  group_by(map_method_df, transcriptomics_id, `Gene name`, Identifier) %>%
+  
+
+  
+```
+
+```{r}
+
+```
+
+```{r}
+# merged
+park_df <- left_join(park_raw, mouse_uniprot_trim,
+                     join_by(`Gene name`== `Gene Names (primary)`),
+                     multiple = "first") # keeps only 1st match (otherwise >800)
+```
+
+```{r}
+sum(is.na(park_df$`Entry`)) # 92 which did not match the primary gene name
+```
+
+```{r}
+colnames(park_df)
+str(park_df)
+```
+
+```{r}
+# Originally all 4 means columns are Mean EA, Mean EY, Mean SA, Mean SY
+# so recognise common prefix & then take the remainder to the groups variable
+# and the the value & put into means column
+# end up with long form df with 2 cols - Group & Mean 
+park_df_long <- park_df %>%
+  pivot_longer(cols = starts_with("Mean "), 
+               names_to = "Group",
+               names_prefix = "Mean ",
+               values_to = "Mean")
+```
+
+```{r}
+density_plot <- ggplot(park_df_long,
+                       aes(x = Mean, fill = Group)) + 
+  geom_histogram(binwidth = 10, color = "grey10", alpha = .4) +
+  xlim(0,1000) +
+  facet_wrap(~Group, ncol = 1) + 
+  theme_bw()
+
+density_plot
+```
+
+```{r}
+bp_mean_dist <- ggplot(park_df_long,
+                       aes(x = Group, y = Mean, fill = Group)) +
+  geom_boxplot(outliers = FALSE, alpha = 0.5) +
+  labs(title = "",
+       subtitle = "Yes! EE Young has the higher values (more transciptional activity?) 
+       \nGraph has outliers removed btw via geom_boxplot (outliers = FALSE)") +
+  theme_bw()
+
+bp_mean_dist
+```
+
+```{r}
+# keep only if present is true! 
+isPresent_df <- park_df %>%
+  filter(`isPresent` == "TRUE")
+```
