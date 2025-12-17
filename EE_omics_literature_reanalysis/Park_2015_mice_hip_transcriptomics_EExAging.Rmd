@@ -24,6 +24,7 @@ library(dplyr)
 library(stringr)
 library(tidyr)
 library(ggplot2)
+library(ggrepel) #  for geom_text_repel()
 ```
 
 ## Load data
@@ -467,7 +468,42 @@ lit_review_mRNA_2 <- mRNA_rat_map_comb %>% #1101
 
 ## Extras
 
-lm
+```{r}
+volcano_pv <- ggplot(lit_review_mRNA_2, 
+                     aes(x = `log2 Signal`, y = -log10(`P-value`),
+                         label = Gene_name)) +
+  geom_point(aes(color = case_when(
+    `P-value` < 0.05 & `log2 Signal` > 0.05 ~ "Upregulated (p<0.05)",
+    `P-value` < 0.05 & `log2 Signal` < -0.05 ~ "Downregulated (p<0.05)",
+                                   TRUE ~ "Not Significant")),
+            alpha = 1, size = 2, shape = 1) +
+  xlim(-8,12) +
+  geom_vline(xintercept = 0, linetype = "dashed",
+             color = "grey40", linewidth = .5) +
+  scale_color_manual(values = c("firebrick3", 
+                                "royalblue4", 
+                                 "grey80"),
+                     breaks = c("Upregulated (p<0.05)", 
+                                "Downregulated (p<0.05)", 
+                                "Not Significant"),
+                     labels = c("Upregulated Proteins (p<0.05)", 
+                                "Downregulated Proteins (p<0.05)", 
+                                "Not Significant")) +
+  
+  geom_text_repel() +
+  facet_wrap(~transcriptomics_id, ncol = 1) +
+  labs(
+    title = "Park 2015 - Lit Review 2 df volcano plot mRNA Hip Aging x EE (2025_12_17)",
+       x = "Log2 Signal",
+       y = "-Log10(p-value)",
+       color = "mRNA Regulation") +
+  theme_bw() +
+  theme(legend.position = "bottom")
+
+
+
+volcano_pv
+```
 
 DataPrep
 
