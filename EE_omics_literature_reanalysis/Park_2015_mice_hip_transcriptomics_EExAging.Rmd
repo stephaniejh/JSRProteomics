@@ -538,13 +538,14 @@ volcano_pv
 lit_review_mRNA_2 |> 
   #dplyr::select(-(c(`Av. Ratio`, ))) |>
   dplyr::select(c(Condition, In_EE, Gene_name, Entry, Entry.Name,
-                  Protein.names, Fold_change, pvalue)) |>
-  dplyr::arrange(pvalue, Gene_name) |>
+                  Protein.names, Fold_change, pvalue,
+                  `Mean EA`, `Mean EY`, `Mean SA`,  `Mean SY`)) |>
+  dplyr::arrange(pvalue, Fold_change) |>
   gt(
     groupname_col = "Condition",
     rowname_col = "In_EE"
   ) |>
-  fmt_number(decimals = 3) |>
+  fmt_number(decimals = 2) |>
     tab_header(
     title = "Park et al., 2015 - SAGEseq mRNA - Hippocampus (Mice) - Aging x EE",
     subtitle = "2025_12_17 - lit_review_mRNA_2 - mapped genes 2 UP rat + summed genes"
