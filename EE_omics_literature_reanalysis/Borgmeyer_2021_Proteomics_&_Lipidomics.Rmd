@@ -176,11 +176,6 @@ load(file = "input/rat_ref_proteome_2025_12_13_51872x295.rda")
 ```
 
 ```{r}
-mouse_ref <- mouse_ref_proteome_2025_12_13 %>% 
-
-```
-
-```{r}
 # cols I want from uniprot
 # my_cols <- c('accession', 'id', 'gene_names', 'gene_primary', 'protein_name',
 #              	'xref_proteomes', '	reviewed', 'annotation_score', 'protein_existence',
