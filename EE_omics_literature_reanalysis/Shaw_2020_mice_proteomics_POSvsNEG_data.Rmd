@@ -1,0 +1,152 @@
+---
+title: "2025_10_28_Shaw_2020_proteomics_data"
+author: "Stephanie Huang"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Legit kinda weird! - Has a billion rodents, the mapping of groups & samples is confusing
+
+
+```{r}
+library(tidyverse) # ggplot, dplyr, etc
+library(ggrepel) #  for geom_text_repel()
+library(gt) # gt() tables
+```
+
+
+```{r}
+frontal_file <- read_csv("input/Shaw_2020_UCLan_Preomics_Data_Frontal.csv", col_names = FALSE)
+
+colnames(frontal_file) <- frontal_file[3,] # assign row 3 as headers
+
+frontal_file <- frontal_file[-1:-3,] # negative index (rm rows 1-3) |data starts r4
+
+# 1st data obs is ODP2_MESAU 
+```
+
+```{r}
+head(frontal_file)
+str(frontal_file)
+```
+
+
+```{r}
+hippo_file <- read_csv("input/Shaw_2020_UCLan_Preomics_Data_Hippocampus.csv", col_names = FALSE)
+
+colnames(hippo_file) <- hippo_file[3,] # assign row 3 as header
+
+hippo_file <- hippo_file[-1:-3,] # negative index (rm rows 1-3) |data starts r4
+# 1st data obs is KPCA mouse
+```
+
+```{r}
+head(hippo_file)
+str(hippo_file)
+```
+
+```{r}
+fr_others <- frontal_file %>%
+  filter(!str_detect(Accession, "MOUSE|RAT")) # not mouse or rat
+
+# gives weird rodents - 80 of 977 are not mice or rats 
+# like GNAI2_CAVPO (Gerbil) ODP2_MESAU Golden Hamster | GNAI2_CAVPO Guinea Pig
+```
+
+```{r}
+fr_mice <- frontal_file %>%
+  filter(str_detect(Accession, "MOUSE"))
+
+# 675/977 contain mice, 
+```
+
+```{r}
+Frontal <- frontal_file %>%
+  filter(`Anova (p)` < 0.0505) %>%
+  select(1:12) %>%
+  mutate_at(c('Confidence score', 'Anova (p)', 'q Value',
+              'Max fold change', 'Power'), as.numeric)
+```
+
+```{r}
+Hippo <- hippo_file %>%
+  filter(`Anova (p)` < 0.0505) %>%
+  select(1:12) %>%
+  mutate_at(c('Confidence score', 'Anova (p)', 'q Value',
+              'Max fold change', 'Power'), as.numeric)
+```
+
+```{r}
+combined <- bind_rows(list(Frontal = Frontal, Hippocampus = Hippo), .id = "Region")
+```
+
+```{r}
+summary(combined)
+```
+
+
+```{r fig.height=11, fig.width=11}
+volcano_pv <- ggplot(combined, 
+                     aes(x = `Max fold change`, y = -log10(`Anova (p)`),
+                         label = Accession)) +
+  geom_point(aes(color = case_when(
+    `Anova (p)` < 0.05 & `Max fold change` > 0.05 ~ "Upregulated (p<0.05)",
+    `Anova (p)` < 0.05 & `Max fold change` < -0.05 ~ "Downregulated (p<0.05)",
+                                   TRUE ~ "Not Significant")),
+            alpha = 1, size = 2, shape = 1) +
+  xlim(-8,12) +
+  geom_vline(xintercept = 0, linetype = "dashed",
+             color = "grey40", linewidth = .5) +
+  scale_color_manual(values = c("firebrick3", 
+                                "royalblue4", 
+                                 "grey80"),
+                     breaks = c("Upregulated (p<0.05)", 
+                                "Downregulated (p<0.05)", 
+                                "Not Significant"),
+                     labels = c("Upregulated Proteins (p<0.05)", 
+                                "Downregulated Proteins (p<0.05)", 
+                                "Not Significant")) +
+  
+  geom_text_repel() +
+  facet_wrap(~Region, ncol = 1) +
+  labs(
+    title = "???? no fold change? or is this just up in EE?",
+       x = "Log2 Signal",
+       y = "-Log10(p-value)",
+       color = "mRNA Regulation") +
+  theme_bw() +
+  theme(legend.position = "bottom")
+
+
+
+volcano_pv
+```
+
+
+```{r}
+combined |>
+  gt(
+    groupname_col = "Region"
+    ) |>
+  fmt_number(decimals = 3) |>
+  # data_color(columns = "Regulation") +
+  tab_options(table.font.size=11.5) |>
+  tab_header(
+    title = "Shaw et al., 2020 Proteomics - NEG vs POS",
+    subtitle = "From Frontal (47/48) & Hippocampus (5) - p-value <0.0505"
+  )
+  # tab_style(
+  #   style = cell_fill(color = "lightblue"),
+  #   locations = cells_body(rows = log2FC < 0)
+  # )
+```
+
+
+```{r}
+
+```
+
