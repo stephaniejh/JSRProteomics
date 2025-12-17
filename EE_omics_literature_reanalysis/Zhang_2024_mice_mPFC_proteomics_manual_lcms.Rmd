@@ -9,6 +9,8 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+This is the old version with the nooby method + Uniprot.ws testing + for loop testing 
+
 ### Library
 
 ```{r}
@@ -492,3 +494,8 @@ lit_re <- com_rat_df %>%
 #                 "output/2025_12_13_Zhang_2024_mPFC_lit_re_mapped_w_rat_ID_v1.csv",
 #                 na = "")
 ```
+
+```{r}
+
+```
+
