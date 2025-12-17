@@ -9,17 +9,23 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-NOTE: some exported randomly have **Q6LED0 Histone H3.1 in the exported sheets? not sure why? look into?**
+# Proteomics
+
+*from (Perez et al., 2024) A multiomic atlas of the aging hippocampus reveals molecular changes in response to environmental enrichment [nature communications] <https://doi.org/10.1038/s41467-024-49608-z>*
+
+-   Their provided dfs have the uniprot accession from mice. So mapped those to the mouse_ref (uniprot df), to get gene names which were then mapped to the rat gene gene names (where uniprot infor was pulled) to get rat proteins & other details.
+
+-   NOTE: some exported randomly have **Q6LED0 Histone H3.1 in the exported sheets? not sure why? look into?**
+
+## Set up
 
 ```{r}
 library(tidyverse)
 library(readxl)
 library(writexl)
+library(ggrepel) #  for geom_text_repel()
+library(gt)
 ```
-
-# Proteomics
-
-## Set up
 
 ### Read in proteomics sheets
 
@@ -481,120 +487,261 @@ prot_df_map_rat_sig <- prot_df_map_rat_combined  %>%
   filter(adj.P.Val <= 0.05) # 2097 entries! 
 ```
 
-```{r}
-prot_df_map_rat_keywords <- prot_df_map_rat_4 %>%
-  filter(adj.P.Val <= 0.05) %>% # 2309
-  filter(!is.na(Entry)) %>% # 2278
-  mutate(hashtags = str_split(Keywords, ";")) %>%
-  tidyr::unnest(hashtags) # 22696
-```
+### Plots
 
-```{r}
-prot_rat_sig_count <- prot_df_map_rat_sig %>%
-  #group_by(proteomics_id, dir) %>%
-  group_by(proteomics_id) %>%
-  filter(hashtags != "Reference proteome") %>% 
-  count(hashtags, sort = TRUE) 
+```{r fig.height=16, fig.width=12}
+# color coding doesn't work!?!?
+volcano_pv <- lit_review_proteomics_sig %>%
+  ungroup() %>%
+  ggplot(aes(x = logFC, y = -log2(adj.P.Val),
+                         label = Gene_name)) +
+  geom_point(aes(color = case_when(
+    adj.P.Val < 0.05 & logFC > 0.05 ~ "Upregulated (adj.p<0.05)",
+    adj.P.Val < 0.05 & logFC < -0.05 ~ "Downregulated (adj.p<0.05)",
+                                   TRUE ~ "Not Significant")),
+            alpha = 1, size = 1, shape = 1) +
+  # xlim(-8,12) +
+  geom_vline(xintercept = 0, linetype = "dashed",
+             color = "grey40", linewidth = .5) +
+  scale_color_manual(values = c("firebrick3", 
+                                "royalblue4", 
+                                 "grey80"),
+                     breaks = c("Upregulated (p<0.05)", 
+                                "Downregulated (p<0.05)", 
+                                "Not Significant"),
+                     labels = c("Upregulated Proteins (p<0.05)", 
+                                "Downregulated Proteins (p<0.05)", 
+                                "Not Significant")) +
   
+  geom_text_repel() +
+  facet_wrap(~proteomics_id, ncol = 1,
+             scales = "free_y") +
+  labs(
+    title = "Perez 2024 - Proteomics - Hippocampus (Mice) - Aging x EE (2025_12_16/17)",
+    subtitle = "lit_review_proteomics_sig df - map up mouse (provided) 2 up mouse gene 2 up rat gene",
+       x = "Log2 Signal",
+       y = "-Log2(adj.p-value)",
+       color = "mRNA Regulation") +
+  theme_bw() +
+  theme(legend.position = "bottom")
+
+
+
+volcano_pv
+```
+
+### gt tables 
+
+ignore
+
+```         
+NA  Q6LED0  H31_RAT Histone H3.1
+```
+
+#### gt 1 - All (EE vs SH)
+
+```{r}
+# EE VS SH (ALL)
+# gt 1 - by fold change direction & pvalue
+lit_review_proteomics_sig |> 
+  dplyr::ungroup() |>
+  dplyr:: filter(Condition == "all") %>%
+  #dplyr::select(-(c(`Av. Ratio`, ))) |>
+  dplyr::select(c(Condition, In_EE, Gene_name, Entry, Entry.Name,
+                  Protein.names, Fold_change, adj.P.Val)) |>
+  dplyr::arrange(desc(In_EE), adj.P.Val, Fold_change) |>
+  gt(
+    groupname_col = "Condition",
+    rowname_col = "In_EE"
+  ) |>
+  fmt_number(decimals = 3) |>
+    tab_header(
+    title = "All - Perez 2024 - Proteomics - Hippocampus (Mice) (adj.p <=0.05 only)",
+    subtitle = "2025_12_17 - lit_review_proteomics_sig - (EE vs SH - by all)"
+    ) |>
+    tab_options(table.font.size=11.5,
+                stub.font.weight = "bold",
+                row_group.font.weight = "bold",
+                row_group.font.size = 12.5,
+                column_labels.font.size = 12.5,
+                column_labels.font.weight = "bold")   
+```
+
+#### gt 2 - Young (EE vs SH)
+
+```{r}
+# EE VS SH (Young)
+# gt 2 - by fold change direction & pvalue
+lit_review_proteomics_sig |> 
+  dplyr::ungroup() |>
+  dplyr:: filter(Condition == "young") %>%
+  #dplyr::select(-(c(`Av. Ratio`, ))) |>
+  dplyr::select(c(Condition, In_EE, Gene_name, Entry, Entry.Name,
+                  Protein.names, Fold_change, adj.P.Val)) |>
+  dplyr::arrange(desc(In_EE), adj.P.Val, Fold_change) |>
+  gt(
+    groupname_col = "Condition",
+    rowname_col = "In_EE"
+  ) |>
+  fmt_number(decimals = 3) |>
+    tab_header(
+    title = "Young - Perez 2024 - Proteomics - Hippocampus (Mice) (adj.p <=0.05 only)",
+    subtitle = "2025_12_17 - lit_review_proteomics_sig - (EE vs SH - by young)"
+    ) |>
+    tab_options(table.font.size=11.5,
+                stub.font.weight = "bold",
+                row_group.font.weight = "bold",
+                row_group.font.size = 12.5,
+                column_labels.font.size = 12.5,
+                column_labels.font.weight = "bold")   
+```
+
+#### gt 3 - Old  (EE vs SH)
+
+```{r}
+# EE VS SH (Yold)
+# gt 3 - by fold change direction & pvalue
+lit_review_proteomics_sig |> 
+  dplyr::ungroup() |>
+  dplyr:: filter(Condition == "old") %>%
+  #dplyr::select(-(c(`Av. Ratio`, ))) |>
+  dplyr::select(c(Condition, In_EE, Gene_name, Entry, Entry.Name,
+                  Protein.names, Fold_change, adj.P.Val)) |>
+  dplyr::arrange(desc(In_EE), adj.P.Val, Fold_change) |>
+  gt(
+    groupname_col = "Condition",
+    rowname_col = "In_EE"
+  ) |>
+  fmt_number(decimals = 3) |>
+    tab_header(
+    title = "Old - Perez 2024 - Proteomics - Hippocampus (Mice) (adj.p <=0.05 only)",
+    subtitle = "2025_12_17 - lit_review_proteomics_sig - (EE vs SH - by old)"
+    ) |>
+    tab_options(table.font.size=11.5,
+                stub.font.weight = "bold",
+                row_group.font.weight = "bold",
+                row_group.font.size = 12.5,
+                column_labels.font.size = 12.5,
+                column_labels.font.weight = "bold")   
+```
+
+### Extra
+
+```{r}
+# prot_df_map_rat_keywords <- prot_df_map_rat_4 %>%
+#   filter(adj.P.Val <= 0.05) %>% # 2309
+#   filter(!is.na(Entry)) %>% # 2278
+#   mutate(hashtags = str_split(Keywords, ";")) %>%
+#   tidyr::unnest(hashtags) # 22696
 ```
 
 ```{r}
-find_mouse_Q6LED0 <- mouse_ref %>%
-  filter(Entry == "Q6LED0")
+# prot_rat_sig_count <- prot_df_map_rat_sig %>%
+#   #group_by(proteomics_id, dir) %>%
+#   group_by(proteomics_id) %>%
+#   filter(hashtags != "Reference proteome") %>% 
+#   count(hashtags, sort = TRUE) 
+```
 
-find_rat_Q6LED0 <- rat_ref %>%
-  filter(Entry == "Q6LED0")
-
-find_rat_other_Q6LED0 <- rat_other %>%
-  filter(Entry == "Q6LED0")
+```{r}
+# find_mouse_Q6LED0 <- mouse_ref %>%
+#   filter(Entry == "Q6LED0")
+# 
+# find_rat_Q6LED0 <- rat_ref %>%
+#   filter(Entry == "Q6LED0")
+# 
+# find_rat_other_Q6LED0 <- rat_other %>%
+#   filter(Entry == "Q6LED0")
 ```
 
 ------------------------------------------------------------------------
 
 # mRNA
 
+NOTE: Tested a little bit, but commented out to knit, continue later.
+
 ### Read in mRNA/transcirptomics DEG excel sheets (sup ds 18)
 
 ```{r}
-# some NAs in the original df were directly coded as NA
-# so need to specify na = "NA" otherwise some get classed as character & cant bind
-rna_df_EEall <- read_excel("input/Perez_2024_EE_age_transcriptomics_sds18_41467_2024_49608_MOESM21_ESM.xlsx",
-                             sheet = "EEall", 
-                           na = "NA")
-
-rna_df_EEyng <- read_excel("input/Perez_2024_EE_age_transcriptomics_sds18_41467_2024_49608_MOESM21_ESM.xlsx",
-                           sheet = "EEyng",
-                           na = "NA")
-
-rna_df_EEold <- read_excel("input/Perez_2024_EE_age_transcriptomics_sds18_41467_2024_49608_MOESM21_ESM.xlsx",
-                           sheet = "EEold",
-                           na = "NA")
+# # some NAs in the original df were directly coded as NA
+# # so need to specify na = "NA" otherwise some get classed as character & cant bind
+# rna_df_EEall <- read_excel("input/Perez_2024_EE_age_transcriptomics_sds18_41467_2024_49608_MOESM21_ESM.xlsx",
+#                              sheet = "EEall", 
+#                            na = "NA")
+# 
+# rna_df_EEyng <- read_excel("input/Perez_2024_EE_age_transcriptomics_sds18_41467_2024_49608_MOESM21_ESM.xlsx",
+#                            sheet = "EEyng",
+#                            na = "NA")
+# 
+# rna_df_EEold <- read_excel("input/Perez_2024_EE_age_transcriptomics_sds18_41467_2024_49608_MOESM21_ESM.xlsx",
+#                            sheet = "EEold",
+#                            na = "NA")
 ```
 
 ```{r}
-mRNA_df <- bind_rows(list(all = rna_df_EEall,
-                          young = rna_df_EEyng,
-                          old = rna_df_EEold),
-                     .id = "transcriptomics_id") %>%
-  rename(ENS_GENEID = GENEID) %>%
-  # make new col remove all letters but keeping 11 digit identifier (otherwise ENSMUSG)
-  mutate(ENS_GENEID_NUM = paste0(gsub("[[:alpha:]]", "", ENS_GENEID)))
+# mRNA_df <- bind_rows(list(all = rna_df_EEall,
+#                           young = rna_df_EEyng,
+#                           old = rna_df_EEold),
+#                      .id = "transcriptomics_id") %>%
+#   rename(ENS_GENEID = GENEID) %>%
+#   # make new col remove all letters but keeping 11 digit identifier (otherwise ENSMUSG)
+#   mutate(ENS_GENEID_NUM = paste0(gsub("[[:alpha:]]", "", ENS_GENEID)))
 ```
 
 ```{r}
-# split cells with multiple ensembl id entries so 1 entry per cell
-# trim the dots at the end due to 
-mouse_ref_4_mRNA <- mouse_ref %>%
-  mutate(ensembl.split.m = str_split(Ensembl, ";"),
-         .after = Ensembl) %>%
-  tidyr::unnest(ensembl.split.m) %>% # from 54864 to 121602
-  mutate(ensembl_short = paste0(gsub("\\..*", "", ensembl.split.m)),
-         .after = ensembl.split.m) %>%
-  mutate(ensembl_short_no = paste0(gsub("[[:alpha:]]", "", ensembl_short)),
-         .after = ensembl_short)
+# # split cells with multiple ensembl id entries so 1 entry per cell
+# # trim the dots at the end due to 
+# mouse_ref_4_mRNA <- mouse_ref %>%
+#   mutate(ensembl.split.m = str_split(Ensembl, ";"),
+#          .after = Ensembl) %>%
+#   tidyr::unnest(ensembl.split.m) %>% # from 54864 to 121602
+#   mutate(ensembl_short = paste0(gsub("\\..*", "", ensembl.split.m)),
+#          .after = ensembl.split.m) %>%
+#   mutate(ensembl_short_no = paste0(gsub("[[:alpha:]]", "", ensembl_short)),
+#          .after = ensembl_short)
 ```
 
 ```{r}
-mRNA_df_mouse_1 <- left_join(mRNA_df, mouse_ref_4_mRNA,
-                           by = join_by(SYMBOL == Gene.Names..primary.)) 
-
-mRNA_df_mouse_1_mapped <- mRNA_df_mouse_1 %>%
-  filter(!is.na(Entry))
-
-mRNA_df_mouse_1_na <- mRNA_df_mouse_1 %>%
-  filter(is.na(Entry)) %>%
-  select(transcriptomics_id:ENS_GENEID_NUM)
+# mRNA_df_mouse_1 <- left_join(mRNA_df, mouse_ref_4_mRNA,
+#                            by = join_by(SYMBOL == Gene.Names..primary.)) 
+# 
+# mRNA_df_mouse_1_mapped <- mRNA_df_mouse_1 %>%
+#   filter(!is.na(Entry))
+# 
+# mRNA_df_mouse_1_na <- mRNA_df_mouse_1 %>%
+#   filter(is.na(Entry)) %>%
+#   select(transcriptomics_id:ENS_GENEID_NUM)
 ```
 
 ```{r}
-mRNA_df_mouse_2 <- left_join(mRNA_df_mouse_1_na, mouse_ref_4_mRNA,
-                             by = join_by(ENS_GENEID_NUM == ensembl_short_no))
-
-sum(!is.na(mRNA_df_mouse_2$Entry)) #4587 mapped & 9006 unmapped
-
-mRNA_df_mouse_2_mapped <- mRNA_df_mouse_2 %>%
-  filter(!is.na(Entry))
-
-mRNA_df_mouse_2_na<- mRNA_df_mouse_2 %>%
-  filter(is.na(Entry)) %>%
-  select(transcriptomics_id:ENS_GENEID_NUM)
+# mRNA_df_mouse_2 <- left_join(mRNA_df_mouse_1_na, mouse_ref_4_mRNA,
+#                              by = join_by(ENS_GENEID_NUM == ensembl_short_no))
+# 
+# sum(!is.na(mRNA_df_mouse_2$Entry)) #4587 mapped & 9006 unmapped
+# 
+# mRNA_df_mouse_2_mapped <- mRNA_df_mouse_2 %>%
+#   filter(!is.na(Entry))
+# 
+# mRNA_df_mouse_2_na<- mRNA_df_mouse_2 %>%
+#   filter(is.na(Entry)) %>%
+#   select(transcriptomics_id:ENS_GENEID_NUM)
 ```
 
 ```{r}
-
-```
-
-```{r}
-# from 59505 to...
-mRNA_df_adj_sig <- mRNA_df %>%
-  filter(padj <= 0.05) # huh barely any sig @ adjp <=0.05 190 (345 if 0.1 instead)
-
-
-mRNA_df_sig <- mRNA_df %>%
-  filter(pvalue <= 0.05) # if using normal p value 3942 significant... 
 
 ```
 
 ```{r}
-length(intersect(mRNA_df$SYMBOL, prot_df$SYMBOL)) # 2227 intersect. 
+# # from 59505 to...
+# mRNA_df_adj_sig <- mRNA_df %>%
+#   filter(padj <= 0.05) # huh barely any sig @ adjp <=0.05 190 (345 if 0.1 instead)
+# 
+# 
+# mRNA_df_sig <- mRNA_df %>%
+#   filter(pvalue <= 0.05) # if using normal p value 3942 significant... 
+
+```
+
+```{r}
+# length(intersect(mRNA_df$SYMBOL, prot_df$SYMBOL)) # 2227 intersect. 
 ```
