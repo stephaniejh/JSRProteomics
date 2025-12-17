@@ -11,9 +11,13 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # SAGEseq Transcriptomics - Aging x EE
 
-Mapping method: maps the gene name provided in their dataframe (mouse) then directly \*
+*From (Park et al., 2015) Integrative Transcriptome Profiling of Cognitive Aging and Its Preservation through Ser/Thr Protein Phosphatase Regulation [PLOSone] <doi:10.1371/journal.pone.0130891>*
 
-Tried to map Ref_Seq from their id column but is a mess. Their ID column is ref_seq, mirbase (e.g. MI0005496)
+-   (2025_12_16) - Mapping method: maps the gene name provided in their dataframe (mouse) then directly \*
+
+    -   Tried to map Ref_Seq from their id column but is a mess. Their ID column is ref_seq, mirbase (e.g. MI0005496)
+
+-   (2025_12_17) NOTE to self - very confusing data - so be careful with export lit review tables! Look into later.
 
 ## Load Packages
 
@@ -25,6 +29,7 @@ library(stringr)
 library(tidyr)
 library(ggplot2)
 library(ggrepel) #  for geom_text_repel()
+library(gt)
 ```
 
 ## Load data
@@ -165,11 +170,11 @@ Won't map, even after fixing ids, not sure why ⟶ just map by gene id to rat
 # intersect(mouse_ref_ref_seq$ref_seq_trim, park_raw_comb_2$identifier_trimmed) #0?
 ```
 
-### Mouse to Rat 
+### Mouse to Rat
 
 Direct Gene (park df mouse) to Uniprot Rat Ref Proteome
 
-#### Rat Map 1  -  Mouse gene name to Rat primary gene name
+#### Rat Map 1 - Mouse gene name to Rat primary gene name
 
 ```{r}
 length(unique(park_raw_comb$`Gene name`)) # 872 unique genes
@@ -380,19 +385,31 @@ lit_review_mRNA_1 <- mRNA_rat_map_comb %>%
 #                 na = "")
 ```
 
-### Lit Review 2 
+### Lit Review 2
+
+```{r}
+# to inform grouping > broadest to narrowest (otherwise chops off!)
+length(unique(lit_review_mRNA_1$transcriptomics_id)) # 2
+length(unique(lit_review_mRNA_1$map_method_df)) # 2
+length(unique(lit_review_mRNA_1$Reviewed)) # 3
+length(unique(lit_review_mRNA_1$Protein.names)) #693
+length(unique(lit_review_mRNA_1$Entry)) #697
+length(unique(lit_review_mRNA_1$Entry.Name)) #697
+length(unique(lit_review_mRNA_1$`Gene name`)) #860
+```
 
 ```{r}
 # Summarises by gene name (to collapse multi entries) so 1 val per gene per group.
-# keeps only entries that were TRUE (maybe look into this later)
-# also keeps non NAs
-lit_review_mRNA_2 <- mRNA_rat_map_comb %>% #1101
-  filter(isPresent == TRUE) %>% # 945
-  group_by(map_method_df, transcriptomics_id, Reviewed, `Gene name`, Entry,
-           Entry.Name, Protein.names) %>%
-  summarise(across(where(is.numeric), mean)) %>% # 732
+# for example some genes were identified multiple times (diff transcript ID)
+# so collapse for simplicity into a summarised value 
+
+lit_review_mRNA_2 <- mRNA_rat_map_comb %>% # starts off 1101
+  #filter(isPresent == TRUE) %>% # confused by this
+  group_by(transcriptomics_id, map_method_df,  Reviewed, # see ordering above
+           Protein.names, Entry, Entry.Name, `Gene name`) %>%
+  summarise(across(where(is.numeric), ~ mean(.x, na.rm = TRUE))) %>% # ends 870 rows
   ungroup() %>%
-  filter(!is.na(Entry)) %>% #612
+  #filter(!is.na(Entry)) %>% # unmapped ones.
     mutate(
     Space = " ",
     Year = 2015,
@@ -462,13 +479,22 @@ lit_review_mRNA_2 <- mRNA_rat_map_comb %>% #1101
 ```{r}
 # #writes out
 # write_excel_csv(lit_review_mRNA_2,
-#                 "output/2025_12_17_Park_2015_mRNA_lit_review_EExAging_trimmed_summed_v2.csv",
+#                 "output/2025_12_17_Park_2015_mRNA_lit_review_EExAging_summed_v2.csv",
 #                 na = "")
+```
+
+```{r}
+# 
+lit_2_counts <- lit_review_mRNA_2 %>%
+  count(Gene_name) %>%
+  arrange(desc(n))
 ```
 
 ## Extras
 
-```{r}
+#### Volcano Plot
+
+```{r fig.height=8, fig.width=12}
 volcano_pv <- ggplot(lit_review_mRNA_2, 
                      aes(x = `log2 Signal`, y = -log10(`P-value`),
                          label = Gene_name)) +
@@ -505,11 +531,110 @@ volcano_pv <- ggplot(lit_review_mRNA_2,
 volcano_pv
 ```
 
-DataPrep
+#### gt
 
 ```{r}
-mRNA_rat_map_comb_long <- 
+# gt 1 - by fold change direction & pvalue
+lit_review_mRNA_2 |> 
+  #dplyr::select(-(c(`Av. Ratio`, ))) |>
+  dplyr::select(c(Condition, In_EE, Gene_name, Entry, Entry.Name,
+                  Protein.names, Fold_change, pvalue)) |>
+  dplyr::arrange(pvalue, Gene_name) |>
+  gt(
+    groupname_col = "Condition",
+    rowname_col = "In_EE"
+  ) |>
+  fmt_number(decimals = 3) |>
+    tab_header(
+    title = "Park et al., 2015 - SAGEseq mRNA - Hippocampus (Mice) - Aging x EE",
+    subtitle = "2025_12_17 - lit_review_mRNA_2 - mapped genes 2 UP rat + summed genes"
+    ) |>
+    tab_options(table.font.size=11.5,
+                stub.font.weight = "bold",
+                row_group.font.weight = "bold",
+                row_group.font.size = 12.5,
+                column_labels.font.size = 12.5,
+                column_labels.font.weight = "bold")   
 ```
+
+#### Lit Review 3 - (collapsed groups)
+
+Some weird ones are sig (probably not good to do since data is unclear) - ignore - did not export?
+
+```{r}
+# lit_review_mRNA_3 <- mRNA_rat_map_comb %>% #1101
+#   filter(isPresent == TRUE) %>% # 945
+#   group_by(map_method_df, Reviewed, `Gene name`, Entry,
+#            Entry.Name, Protein.names) %>%
+#   summarise(across(where(is.numeric), mean)) %>% # 732
+#   ungroup() %>%
+#   filter(!is.na(Entry)) %>% #612
+#     mutate(
+#     Space = " ",
+#     Year = 2015,
+#     Author = 'Park',
+#     Animal = 'Mice',
+#     Condition = ' ',
+#     Region = 'Hippocampus',
+#     Whole = 'Yes',
+#     Exp_type = 'mRNA',
+#     Method = 'TRANSCRIPTOMICS_SAGEseq',
+#     Used_name = `Gene name`,
+#     Mod = " ",
+#     Mod_type = " ",
+#     Gene_name = `Gene name`, # genename used to map mouse primary to rat gene
+#     Comparison = 2,
+#     In_EE = ifelse(`log2 Signal` > 0, "Up", "Down"), # computed! 
+#     Fold_change = `log2 Signal`, # prob the same as log2FC?
+#     Arrows = case_when( # dplyr case when, instead of ifelse
+#       `log2 Signal` > 2.5 ~ '+++',
+#       `log2 Signal` > 1 ~ '++',
+#       `log2 Signal` > .05 ~ '+',
+#       `log2 Signal` > -.05 ~ '=',
+#       `log2 Signal` > -1 ~ '-',
+#       `log2 Signal` > -2.5 ~ '--',
+#       `log2 Signal` <= -2.5 ~ '---',
+#       ),
+#     Significant = ifelse(`P-value` <= 0.05, 'yes', 'no'),
+#     pvalue = `P-value`,
+#     N_tested = 3, # 3 per group (3 x 4 - EE x Aging)
+#     Stats_adj = 'unadjusted',
+#     Note = '', 
+#     Full_name = Protein.names,
+#     Uniprot_rat_accession = Entry,
+#     Uniprot_entry_name = Entry.Name,
+#     Uniprot_link = ifelse(!is.na(Entry),
+#                           paste0('https://www.uniprot.org/uniprotkb/', Entry,'/entry'),
+#                           ' '),
+#     Wikipedia_link = ifelse(!is.na(Entry),
+#                             paste0('https://en.wikipedia.org/wiki/',
+#                                    `Gene name`), ' '),
+#     
+#     Curation_method = case_when(
+#       Reviewed == "reviewed" & map_method_df == "by_ref_primary_gene"
+#         ~ "auto - ref & reviewed (primary gene name)",
+#       
+#       Reviewed == "unreviewed" & map_method_df == "by_ref_primary_gene"
+#         ~ "auto - ref & unreviewed (primary gene name)",
+#       
+#       Reviewed == "reviewed" & map_method_df == "by_ref_synonym"
+#         ~ "auto - ref & reviewed (synonym)",
+#       
+#       Reviewed == "unreviewed" & map_method_df == "by_ref_synonym"
+#         ~ "auto - ref proteome (synonym)",
+#       
+#       is.na(Entry.Name)
+#         ~ "manual - na"),
+#     
+#     Class_group = ' ',
+#     Other_link = ' ',
+#     Other_comments = ' ',
+#     misc = ' '
+#   ) %>%
+#   arrange(desc(In_EE), Gene_name)
+```
+
+\~ \~ \~ \~
 
 ### Map remaining (just to see)
 
@@ -538,45 +663,38 @@ mRNA_mouse_map_3 <- left_join(mRNA_rat_map_2_na, mouse_ref, #274
 ```
 
 ```{r}
-# Originally all 4 means columns are Mean EA, Mean EY, Mean SA, Mean SY
-# so recognise common prefix & then take the remainder to the groups variable
-# and the the value & put into means column
-# end up with long form df with 2 cols - Group & Mean 
-park_df_long <- park_df %>%
-  pivot_longer(cols = starts_with("Mean "), 
-               names_to = "Group",
-               names_prefix = "Mean ",
-               values_to = "Mean")
+# # Originally all 4 means columns are Mean EA, Mean EY, Mean SA, Mean SY
+# # so recognise common prefix & then take the remainder to the groups variable
+# # and the the value & put into means column
+# # end up with long form df with 2 cols - Group & Mean 
+# park_df_long <- park_df %>%
+#   pivot_longer(cols = starts_with("Mean "), 
+#                names_to = "Group",
+#                names_prefix = "Mean ",
+#                values_to = "Mean")
 ```
 
 ```{r}
-density_plot <- ggplot(park_df_long,
-                       aes(x = Mean, fill = Group)) + 
-  geom_histogram(binwidth = 10, color = "grey10", alpha = .4) +
-  xlim(0,1000) +
-  facet_wrap(~Group, ncol = 1) + 
-  theme_bw()
-
-density_plot
+# density_plot <- ggplot(park_df_long,
+#                        aes(x = Mean, fill = Group)) + 
+#   geom_histogram(binwidth = 10, color = "grey10", alpha = .4) +
+#   xlim(0,1000) +
+#   facet_wrap(~Group, ncol = 1) + 
+#   theme_bw()
+# 
+# density_plot
 ```
 
 ```{r}
-bp_mean_dist <- ggplot(park_df_long,
-                       aes(x = Group, y = Mean, fill = Group)) +
-  geom_boxplot(outliers = FALSE, alpha = 0.5) +
-  labs(title = "",
-       subtitle = "Yes! EE Young has the higher values (more transciptional activity?) 
-       \nGraph has outliers removed btw via geom_boxplot (outliers = FALSE)") +
-  theme_bw()
-
-bp_mean_dist
-```
-
-```{r}
-# keep only if present is true! 
-isPresent_df <- park_df %>%
-  filter(`isPresent` == "TRUE")
-
+# bp_mean_dist <- ggplot(park_df_long,
+#                        aes(x = Group, y = Mean, fill = Group)) +
+#   geom_boxplot(outliers = FALSE, alpha = 0.5) +
+#   labs(title = "",
+#        subtitle = "Yes! EE Young has the higher values (more transciptional activity?) 
+#        \nGraph has outliers removed btw via geom_boxplot (outliers = FALSE)") +
+#   theme_bw()
+# 
+# bp_mean_dist
 ```
 
 ------------------------------------------------------------------------
@@ -591,7 +709,7 @@ Data from Supplementary Table 1
 
 -   [Also, tried linear model only has 3 sig. Most are not significant as it seems the variance is huge! massive standard errors!]{.smallcaps}
 
-    -    [Rab GDP dissociation inhibitor alpha (P15105) ⟶ ProteinGDIA -1.638e+02 4.479e+01 -3.657 0.000278 \*\*\*]{.smallcaps}
+    -   [Rab GDP dissociation inhibitor alpha (P15105) ⟶ ProteinGDIA -1.638e+02 4.479e+01 -3.657 0.000278 \*\*\*]{.smallcaps}
 
     -   Isoform of inositol 1,4,5-trisphosphate-gated calcium channel (P11881) [⟶ ProteinITPR1 -3.247e+02 4.479e+01 -7.249 1.36e-12 \*\*\*]{.smallcaps}
 
@@ -600,59 +718,59 @@ Data from Supplementary Table 1
 LOOK INTO LATER!!!
 
 ```{r}
-# this one does not had the row 5 header, skip 2 (weird title) to get r3 headers
-s1_prot <-read_excel("input/Park_2015_iTRAQ_proteomics_aging_s1_all_pep.xlsx",
-                      skip = 2,
-                     range = cell_rows(3:1651),
-                     na = c("---", "###")) # get --- ### & input as na (+ prevents misasignment as character)
-
-# then trim 1st 2 empty rows
-s1_prot <- s1_prot[-1:-2,] #1st entry is P62806 & last is Q6PFF0
+# # this one does not had the row 5 header, skip 2 (weird title) to get r3 headers
+# s1_prot <-read_excel("input/Park_2015_iTRAQ_proteomics_aging_s1_all_pep.xlsx",
+#                       skip = 2,
+#                      range = cell_rows(3:1651),
+#                      na = c("---", "###")) # get --- ### & input as na (+ prevents misasignment as character)
+# 
+# # then trim 1st 2 empty rows
+# s1_prot <- s1_prot[-1:-2,] #1st entry is P62806 & last is Q6PFF0
 ```
 
 ```{r}
-# instpect raw
-# colnames(s1_prot)
-# unique(s1_prot$Protein)
-summary(s1_prot)
+# # instpect raw
+# # colnames(s1_prot)
+# # unique(s1_prot$Protein)
+# summary(s1_prot)
 ```
 
 ```{r}
-prot_aging_1 <- s1_prot %>% #1646
-  filter(Expect <= 0.05) %>% #1595
-  filter(!(str_detect(Protein, "ZCont0"))) %>% #1587 | rm those w/ ZCont0 contaminants
-  group_by(Group, `Accession Number`, Protein, `Protein description`) %>%
-  summarise(across(`Tag  114/117`:`Tag  116/117`, ~ mean(.x, na.rm = TRUE))) %>%
-  ungroup()
+# prot_aging_1 <- s1_prot %>% #1646
+#   filter(Expect <= 0.05) %>% #1595
+#   filter(!(str_detect(Protein, "ZCont0"))) %>% #1587 | rm those w/ ZCont0 contaminants
+#   group_by(Group, `Accession Number`, Protein, `Protein description`) %>%
+#   summarise(across(`Tag  114/117`:`Tag  116/117`, ~ mean(.x, na.rm = TRUE))) %>%
+#   ungroup()
 
-
-```
-
-```{r}
-prot_count_1 <- prot_aging_1 %>%
-  count(Protein) %>%
-  arrange(desc(n)) 
-
-# with 2 or more obs (so 1 in aging & in 1 young?)
-prot_count_2 <- prot_count_1 %>%
-  filter(n > 1)
-```
-
-```{r}
-prot_aging_2 <- prot_aging %>%
-  filter(Protein %in% prot_count_2$Protein) %>%
-  pivot_longer(cols = starts_with("Tag "),
-               names_to = "Tag",
-               values_to = "value") %>%
-  mutate(across(where(is.character), as.factor ))
 
 ```
 
 ```{r}
-prot_aging_2_plot <- ggplot(prot_aging_2, 
-                            aes(x = Protein, y = value, fill = Group)) +
-  geom_boxplot() +
-  theme_bw()
+# prot_count_1 <- prot_aging_1 %>%
+#   count(Protein) %>%
+#   arrange(desc(n)) 
+# 
+# # with 2 or more obs (so 1 in aging & in 1 young?)
+# prot_count_2 <- prot_count_1 %>%
+#   filter(n > 1)
+```
+
+```{r}
+# prot_aging_2 <- prot_aging %>%
+#   filter(Protein %in% prot_count_2$Protein) %>%
+#   pivot_longer(cols = starts_with("Tag "),
+#                names_to = "Tag",
+#                values_to = "value") %>%
+#   mutate(across(where(is.character), as.factor ))
+
+```
+
+```{r}
+# prot_aging_2_plot <- ggplot(prot_aging_2, 
+#                             aes(x = Protein, y = value, fill = Group)) +
+#   geom_boxplot() +
+#   theme_bw()
 
 ```
 
@@ -661,13 +779,13 @@ see <https://stats.oarc.ucla.edu/stat/data/intro_r/intro_r_interactive_flat.html
 -   `summary()`: regression table of coefficients, standard errors, test statistics, and p-values, as well as overall model fit statistics
 
 ```{r}
-m2 <- lm(formula = value ~ Protein + Group, data = prot_aging_2)
-
-summary(m2) # summary produces regression table and model fit stats
-# coef(m1) # just model coefficients
-# confint(m1) # 95% confidence intervals
-
-# first 5 observed values, predicted values and residuals
-# cbind() joins column vectors into a matrix
-#cbind(prot_aging_2$value, predict(m1), residuals(m1))
+# m2 <- lm(formula = value ~ Protein + Group, data = prot_aging_2)
+# 
+# summary(m2) # summary produces regression table and model fit stats
+# # coef(m1) # just model coefficients
+# # confint(m1) # 95% confidence intervals
+# 
+# # first 5 observed values, predicted values and residuals
+# # cbind() joins column vectors into a matrix
+# #cbind(prot_aging_2$value, predict(m1), residuals(m1))
 ```
