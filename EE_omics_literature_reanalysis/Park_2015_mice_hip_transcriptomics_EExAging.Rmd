@@ -9,6 +9,8 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+# SAGEseq Transcriptomics - Aging x EE
+
 Mapping method: maps the gene name provided in their dataframe (mouse) then directly \*
 
 Tried to map Ref_Seq from their id column but is a mess. Their ID column is ref_seq, mirbase (e.g. MI0005496)
@@ -17,6 +19,7 @@ Tried to map Ref_Seq from their id column but is a mess. Their ID column is ref_
 
 ```{r}
 library(readxl)
+library(readr)
 library(dplyr)
 library(stringr)
 library(tidyr)
@@ -111,7 +114,11 @@ rat_ref <- rat_ref %>%
   mutate(occupied = rowSums(!is.na(rat_ref)))
 ```
 
-Mouse to Mouse map
+## Mapping
+
+### Mouse to Mouse map
+
+#### Map 1 - by Gene Name (primary)
 
 ```{r}
 # by gene name
@@ -129,37 +136,65 @@ mouse_ref_ref_seq <- mouse_ref %>%
   mutate(ref_seq_trim = paste0(gsub("\\..*", "", ref_seq_split)))
 ```
 
+#### Map 2 - by Ref Seq
+
+Won't map, even after fixing ids, not sure why ⟶ just map by gene id to rat
+
 ```{r}
-# "_dup_?[0-9]+$" trims the _dup at the end
-park_raw_comb_2 <- park_raw_comb %>%
-  mutate(identifier_trimmed = paste(gsub("_dup_?[0-9]+$", "", Identifier)),
-         .after = Identifier)
+# #unique(park_raw_comb$Type)
+#  
+# # "_dup_?[0-9]+$" trims the _dup at the end
+# park_raw_comb_2 <- park_raw_comb %>%
+#   filter(Type %in% c("transcript", "rRNA", "tRNA")) %>% # removes miRNA
+#   mutate(identifier_trimmed = paste(gsub("_dup_?[0-9]+$", "", Identifier)),
+#        .after = Identifier)
 ```
 
 ```{r}
-mRNA_mouse_map_2 <- left_join(park_raw_comb_2, mouse_ref_ref_seq,
-                              by = join_by(identifier_trimmed == ref_seq_trim))
-
-sum(is.na(mRNA_mouse_map_2$Entry)) # 1115
-length(unique(mRNA_mouse_map_2$Entry)) # 1
+# mRNA_mouse_map_2 <- left_join(park_raw_comb_2, mouse_ref_ref_seq,
+#                               by = join_by(identifier_trimmed == ref_seq_trim))
+# 
+# sum(is.na(mRNA_mouse_map_2$Entry)) # 1115
+# length(unique(mRNA_mouse_map_2$Entry)) # 1
+# 
+# # tried again, still can't map even when filtering out miRNA (which has mirbase)
 ```
+
+```{r}
+# intersect(mouse_ref_ref_seq$ref_seq_trim, park_raw_comb_2$identifier_trimmed) #0?
+```
+
+### Mouse to Rat 
 
 Direct Gene (park df mouse) to Uniprot Rat Ref Proteome
 
-```{r}
-mRNA_rat_map_1 <-left_join(park_raw_comb, rat_ref,
-                           by = join_by(`Gene name` == Gene.Names..primary.))
+#### Rat Map 1  -  Mouse gene name to Rat primary gene name
 
-sum(is.na(mRNA_rat_map_1$Entry)) # 301 empty
-length(unique(mRNA_rat_map_1$Entry)) # 1784 unique
+```{r}
+length(unique(park_raw_comb$`Gene name`)) # 872 unique genes
+```
+
+```{r}
+# map by primary gene 
+mRNA_rat_map_1 <-left_join(park_raw_comb, rat_ref,
+                           by = join_by(`Gene name` == Gene.Names..primary.)) %>%
+  filter(Type == "transcript") # removes miRNA, tRNA, rRNA
+
+sum(is.na(mRNA_rat_map_1$Entry)) # 291 empty
+length(unique(mRNA_rat_map_1$Entry)) # 1778 unique
 
 mRNA_rat_map_1_mapped <- mRNA_rat_map_1 %>%
   filter(!is.na(Entry))
 
+# unmapped by primary gene | 291 missing
 mRNA_rat_map_1_na <- mRNA_rat_map_1 %>%
   filter(is.na(Entry)) %>%
-  select(transcriptomics_id:`Mean SY`)
+  select(transcriptomics_id:`Mean SY`) # peel back
+
+length(unique(mRNA_rat_map_1_na$`Gene name`)) #199 unique genes left
 ```
+
+#### Rat Map 2 - Mouse gene name to rat gene synonym (for unmapped in 1st)
 
 ```{r}
 # note gene names is all, gene names synonym is all except gene names primary
@@ -171,31 +206,291 @@ rat_ref_split <- rat_ref %>%
 ```
 
 ```{r}
-# recovered 44
+# recovered (36 unique genes)
 mRNA_rat_map_2 <-left_join(mRNA_rat_map_1_na, rat_ref_split,
                            by = join_by(`Gene name` == synonyms_split))
 
-sum(is.na(mRNA_rat_map_2$Entry)) # 252/301 empty
-length(unique(mRNA_rat_map_2$Entry)) # 44 unique
+sum(is.na(mRNA_rat_map_2$Entry)) # 244/291 empty
+length(unique(mRNA_rat_map_2$Entry)) # 43 unique
 
-# rat other only recovered 1 extra (ignore)
+
+# 
+mRNA_rat_map_2_mapped <- mRNA_rat_map_2 %>%
+  filter(!is.na(Entry))
+
+# unmapped by rat synonym & primary gene | 244 missing
+mRNA_rat_map_2_na <- mRNA_rat_map_2 %>%
+  filter(is.na(Entry)) %>%
+  select(transcriptomics_id:`Mean SY`) # peel back
+
+length(unique(mRNA_rat_map_2_na$`Gene name`)) #164 unique genes left
+
+# tested rat other proteome - only recovered 1 extra (decided to ignore, not worth)
 ```
+
+### Combine Dfs
 
 ```{r}
 # checks to inform grouping below
 length(unique(park_raw_comb$transcriptomics_id)) # 2
 length(unique(park_raw_comb$`Gene name`)) # 872
 length(unique(park_raw_comb$Identifier)) # 1104
+
+# length(unique(mRNA_mouse_map_2$Identifier)) # 1104
+# length(unique(mRNA_mouse_map_2$identifier_trimmed)) # 1049
 ```
 
 ```{r}
 mRNA_rat_map_comb <- bind_rows(list(by_ref_primary_gene = mRNA_rat_map_1_mapped,
                                     by_ref_synonym = mRNA_rat_map_2),
-                               .id = "map_method_df") %>% # 2584
-  group_by(map_method_df, transcriptomics_id, `Gene name`, Identifier) %>%
+                               .id = "map_method_df") %>% # 2584|2579|
+
+  # group with `Mean EA` as Idenfitied isn't quite as unique as i thought
+  # this way it retains all ariginal data! 
+  group_by(map_method_df, transcriptomics_id, `Gene name`, Identifier, `Mean EA`) %>%
+
+  filter(if(any(Reviewed == 'reviewed', na.rm = TRUE)) { #1773|1768|
+    Reviewed == "reviewed"
+  } else {TRUE}) %>%
+
+  slice_max(Annotation, n = 1) %>% #1445|1450|
+  slice_max(existence_ranking, n = 1) %>% #1337|1332|
+  slice_max(occupied, n = 1) %>% # 1137|1132|
+
+  mutate(id_priority = case_when( 
+    !is.na(GeneID) & !is.na(Ensembl) & !is.na(KEGG) & is.na(RefSeq) ~ 7, # has 4
+    !is.na(GeneID) & !is.na(Ensembl) & !is.na(KEGG) ~ 6, # has both geneID & ensembl!
+    !is.na(GeneID) & !is.na(Ensembl) ~ 5,
+    !is.na(GeneID) ~ 4, # has only gene ID
+    !is.na(Ensembl) ~ 3, # has only Ensembl
+    !is.na(KEGG) ~ 2, # has only KEGG
+    TRUE ~ 0 # all others (if all above were FALSE, then TRUE - so it writes 0)
+  )) %>%
+  slice_max(id_priority, n = 1, with_ties = FALSE) %>% # 11
+  dplyr::select(-id_priority) 
+
+# #with ties = FALSE ends with 1101, which is the length of original - 5 miRNA
+# length(unique(mRNA_rat_map_comb$identifier_trimmed)) #850
+
+```
+
+```{r}
+sum(is.na(mRNA_rat_map_comb$Entry)) # still 247 empties 
+# note some extra map mice but some others are just not in uniprot! (since RNA data)
+```
+
+```{r}
+# export combinded file
+# write_excel_csv(mRNA_rat_map_comb, 
+#                 "output/Park_2015_mRNA_mouse2rat_map_EExAging_v1_w_unmapped.csv")
+```
+
+## Make lit review df
+
+### Plot Log2
+
+```{r}
+plot(mRNA_rat_map_comb$`log2 Ratio`) # equivalent to log2 ratio?
+plot(mRNA_rat_map_comb$`log2 Signal`) 
+par(mfrow = c(1, 2)) 
+#par(mfrow = c(2, 1)) 
+```
+
+```{r}
+summary(mRNA_rat_map_comb)
+```
+
+### Lit Review 1
+
+```{r}
+# NOTE THIS VERSION HAS MULTI & NA
+# e.g. BDNF was OBSERVED MULTIPLE TIMES (with id)
+# for lit review table | Note - duplicates have not been removed - to do manually
+lit_review_mRNA_1 <- mRNA_rat_map_comb %>%
+  mutate(
+    Space = " ",
+    Year = 2015,
+    Author = 'Park',
+    Animal = 'Mice',
+    Condition = paste0("Age - ", transcriptomics_id),
+    Region = 'Hippocampus',
+    Whole = 'Yes',
+    Exp_type = 'mRNA',
+    Method = 'TRANSCRIPTOMICS_SAGEseq',
+    Used_name = `Gene name`,
+    Mod = " ",
+    Mod_type = " ",
+    Gene_name = `Gene name`, # genename used to map mouse primary to rat gene
+    Comparison = 2,
+    In_EE = ifelse(`log2 Signal` > 0, "Up", "Down"), # computed! 
+    Fold_change = `log2 Signal`, # prob the same as log2FC?
+    Arrows = case_when( # dplyr case when, instead of ifelse
+      `log2 Signal` > 2.5 ~ '+++',
+      `log2 Signal` > 1 ~ '++',
+      `log2 Signal` > .05 ~ '+',
+      `log2 Signal` > -.05 ~ '=',
+      `log2 Signal` > -1 ~ '-',
+      `log2 Signal` > -2.5 ~ '--',
+      `log2 Signal` <= -2.5 ~ '---',
+      ),
+    Significant = ifelse(`P-value` <= 0.05, 'yes', 'no'),
+    pvalue = `P-value`,
+    N_tested = 3, # 3 per group (3 x 4 - EE x Aging)
+    Stats_adj = 'unadjusted',
+    Note = '', 
+    Full_name = Protein.names,
+    Uniprot_rat_accession = Entry,
+    Uniprot_entry_name = Entry.Name,
+    Uniprot_link = ifelse(!is.na(Entry),
+                          paste0('https://www.uniprot.org/uniprotkb/', Entry,'/entry'),
+                          ' '),
+    Wikipedia_link = ifelse(!is.na(Entry),
+                            paste0('https://en.wikipedia.org/wiki/',
+                                   `Gene name`), ' '),
+    
+    Curation_method = case_when(
+      Reviewed == "reviewed" & map_method_df == "by_ref_primary_gene"
+        ~ "auto - ref & reviewed (primary gene name)",
+      
+      Reviewed == "unreviewed" & map_method_df == "by_ref_primary_gene"
+        ~ "auto - ref & unreviewed (primary gene name)",
+      
+      Reviewed == "reviewed" & map_method_df == "by_ref_synonym"
+        ~ "auto - ref & reviewed (synonym)",
+      
+      Reviewed == "unreviewed" & map_method_df == "by_ref_synonym"
+        ~ "auto - ref proteome (synonym)",
+      
+      is.na(Entry.Name)
+        ~ "manual - na"),
+    
+    Class_group = ' ',
+    Other_link = ' ',
+    Other_comments = 'misc shows combined gene_identifier from their df',
+    misc = paste0(`Gene name`, '_', Identifier)
+  ) %>%
+  arrange(transcriptomics_id, desc(In_EE), Gene_name)
+```
+
+```{r}
+# #writes out
+# write_excel_csv(lit_review_mRNA_1,
+#                 "output/2025_12_17_Park_2015_mRNA_lit_review_EExAging_multi_nas_v1.csv",
+#                 na = "")
+```
+
+### Lit Review 2 
+
+```{r}
+# Summarises by gene name (to collapse multi entries) so 1 val per gene per group.
+# keeps only entries that were TRUE (maybe look into this later)
+# also keeps non NAs
+lit_review_mRNA_2 <- mRNA_rat_map_comb %>% #1101
+  filter(isPresent == TRUE) %>% # 945
+  group_by(map_method_df, transcriptomics_id, Reviewed, `Gene name`, Entry,
+           Entry.Name, Protein.names) %>%
+  summarise(across(where(is.numeric), mean)) %>% # 732
+  ungroup() %>%
+  filter(!is.na(Entry)) %>% #612
+    mutate(
+    Space = " ",
+    Year = 2015,
+    Author = 'Park',
+    Animal = 'Mice',
+    Condition = paste0("Age - ", transcriptomics_id),
+    Region = 'Hippocampus',
+    Whole = 'Yes',
+    Exp_type = 'mRNA',
+    Method = 'TRANSCRIPTOMICS_SAGEseq',
+    Used_name = `Gene name`,
+    Mod = " ",
+    Mod_type = " ",
+    Gene_name = `Gene name`, # genename used to map mouse primary to rat gene
+    Comparison = 2,
+    In_EE = ifelse(`log2 Signal` > 0, "Up", "Down"), # computed! 
+    Fold_change = `log2 Signal`, # prob the same as log2FC?
+    Arrows = case_when( # dplyr case when, instead of ifelse
+      `log2 Signal` > 2.5 ~ '+++',
+      `log2 Signal` > 1 ~ '++',
+      `log2 Signal` > .05 ~ '+',
+      `log2 Signal` > -.05 ~ '=',
+      `log2 Signal` > -1 ~ '-',
+      `log2 Signal` > -2.5 ~ '--',
+      `log2 Signal` <= -2.5 ~ '---',
+      ),
+    Significant = ifelse(`P-value` <= 0.05, 'yes', 'no'),
+    pvalue = `P-value`,
+    N_tested = 3, # 3 per group (3 x 4 - EE x Aging)
+    Stats_adj = 'unadjusted',
+    Note = '', 
+    Full_name = Protein.names,
+    Uniprot_rat_accession = Entry,
+    Uniprot_entry_name = Entry.Name,
+    Uniprot_link = ifelse(!is.na(Entry),
+                          paste0('https://www.uniprot.org/uniprotkb/', Entry,'/entry'),
+                          ' '),
+    Wikipedia_link = ifelse(!is.na(Entry),
+                            paste0('https://en.wikipedia.org/wiki/',
+                                   `Gene name`), ' '),
+    
+    Curation_method = case_when(
+      Reviewed == "reviewed" & map_method_df == "by_ref_primary_gene"
+        ~ "auto - ref & reviewed (primary gene name)",
+      
+      Reviewed == "unreviewed" & map_method_df == "by_ref_primary_gene"
+        ~ "auto - ref & unreviewed (primary gene name)",
+      
+      Reviewed == "reviewed" & map_method_df == "by_ref_synonym"
+        ~ "auto - ref & reviewed (synonym)",
+      
+      Reviewed == "unreviewed" & map_method_df == "by_ref_synonym"
+        ~ "auto - ref proteome (synonym)",
+      
+      is.na(Entry.Name)
+        ~ "manual - na"),
+    
+    Class_group = ' ',
+    Other_link = ' ',
+    Other_comments = ' ',
+    misc = ' '
+  ) %>%
+  arrange(transcriptomics_id, desc(In_EE), Gene_name)
   
+```
 
+```{r}
+# #writes out
+# write_excel_csv(lit_review_mRNA_2,
+#                 "output/2025_12_17_Park_2015_mRNA_lit_review_EExAging_trimmed_summed_v2.csv",
+#                 na = "")
+```
+
+## Extras
+
+lm
+
+DataPrep
+
+```{r}
+mRNA_rat_map_comb_long <- 
+```
+
+### Map remaining (just to see)
+
+```{r}
+# Tries to map the 244 empty cells from un mapped rat 2 
+mRNA_mouse_map_3 <- left_join(mRNA_rat_map_2_na, mouse_ref, #274
+                              by = join_by(`Gene name` == Gene.Names..primary.)) %>%
+  group_by(transcriptomics_id, `Gene name`, Identifier, `Mean EA`) %>%
+
+  filter(if(any(Reviewed == 'reviewed', na.rm = TRUE)) { #273
+    Reviewed == "reviewed"
+  } else {TRUE}) %>%
+  slice_max(Annotation, n = 1) %>% #257
+  slice_max(existence_ranking, n = 1) %>% #252
+  slice_max(occupied, n = 1)  #244/
   
+# most recovered are unreviered with low annotation scores anyway
 ```
 
 ```{r}
@@ -203,19 +498,7 @@ mRNA_rat_map_comb <- bind_rows(list(by_ref_primary_gene = mRNA_rat_map_1_mapped,
 ```
 
 ```{r}
-# merged
-park_df <- left_join(park_raw, mouse_uniprot_trim,
-                     join_by(`Gene name`== `Gene Names (primary)`),
-                     multiple = "first") # keeps only 1st match (otherwise >800)
-```
 
-```{r}
-sum(is.na(park_df$`Entry`)) # 92 which did not match the primary gene name
-```
-
-```{r}
-colnames(park_df)
-str(park_df)
 ```
 
 ```{r}
@@ -257,4 +540,98 @@ bp_mean_dist
 # keep only if present is true! 
 isPresent_df <- park_df %>%
   filter(`isPresent` == "TRUE")
+
+```
+
+------------------------------------------------------------------------
+
+# Aging Peptides/Proteins/Phosphopeptides
+
+Data from Supplementary Table 1
+
+-   [NOTE - return to later for subsequent comparison of age. Data is a bit messy (not 100% clear on their processing). Results are not that exciting...]{.smallcaps}
+
+-   [Some weird values (e.g. some 1000s, these huge numbers seem to be driving differences...) look in to..]{.smallcaps}
+
+-   [Also, tried linear model only has 3 sig. Most are not significant as it seems the variance is huge! massive standard errors!]{.smallcaps}
+
+    -    [Rab GDP dissociation inhibitor alpha (P15105) ⟶ ProteinGDIA -1.638e+02 4.479e+01 -3.657 0.000278 \*\*\*]{.smallcaps}
+
+    -   Isoform of inositol 1,4,5-trisphosphate-gated calcium channel (P11881) [⟶ ProteinITPR1 -3.247e+02 4.479e+01 -7.249 1.36e-12 \*\*\*]{.smallcaps}
+
+    -   Isoform of E3 ubiquitin-protein ligase UHRF2 (Q7TMI3) [⟶]{.smallcaps} [ProteinWRIP1 -1.539e+02 4.479e+01 -3.436 0.000633 \*\*\*]{.smallcaps}
+
+LOOK INTO LATER!!!
+
+```{r}
+# this one does not had the row 5 header, skip 2 (weird title) to get r3 headers
+s1_prot <-read_excel("input/Park_2015_iTRAQ_proteomics_aging_s1_all_pep.xlsx",
+                      skip = 2,
+                     range = cell_rows(3:1651),
+                     na = c("---", "###")) # get --- ### & input as na (+ prevents misasignment as character)
+
+# then trim 1st 2 empty rows
+s1_prot <- s1_prot[-1:-2,] #1st entry is P62806 & last is Q6PFF0
+```
+
+```{r}
+# instpect raw
+# colnames(s1_prot)
+# unique(s1_prot$Protein)
+summary(s1_prot)
+```
+
+```{r}
+prot_aging_1 <- s1_prot %>% #1646
+  filter(Expect <= 0.05) %>% #1595
+  filter(!(str_detect(Protein, "ZCont0"))) %>% #1587 | rm those w/ ZCont0 contaminants
+  group_by(Group, `Accession Number`, Protein, `Protein description`) %>%
+  summarise(across(`Tag  114/117`:`Tag  116/117`, ~ mean(.x, na.rm = TRUE))) %>%
+  ungroup()
+
+
+```
+
+```{r}
+prot_count_1 <- prot_aging_1 %>%
+  count(Protein) %>%
+  arrange(desc(n)) 
+
+# with 2 or more obs (so 1 in aging & in 1 young?)
+prot_count_2 <- prot_count_1 %>%
+  filter(n > 1)
+```
+
+```{r}
+prot_aging_2 <- prot_aging %>%
+  filter(Protein %in% prot_count_2$Protein) %>%
+  pivot_longer(cols = starts_with("Tag "),
+               names_to = "Tag",
+               values_to = "value") %>%
+  mutate(across(where(is.character), as.factor ))
+
+```
+
+```{r}
+prot_aging_2_plot <- ggplot(prot_aging_2, 
+                            aes(x = Protein, y = value, fill = Group)) +
+  geom_boxplot() +
+  theme_bw()
+
+```
+
+see <https://stats.oarc.ucla.edu/stat/data/intro_r/intro_r_interactive_flat.html#linear-regression>
+
+-   `summary()`: regression table of coefficients, standard errors, test statistics, and p-values, as well as overall model fit statistics
+
+```{r}
+m2 <- lm(formula = value ~ Protein + Group, data = prot_aging_2)
+
+summary(m2) # summary produces regression table and model fit stats
+# coef(m1) # just model coefficients
+# confint(m1) # 95% confidence intervals
+
+# first 5 observed values, predicted values and residuals
+# cbind() joins column vectors into a matrix
+#cbind(prot_aging_2$value, predict(m1), residuals(m1))
 ```
