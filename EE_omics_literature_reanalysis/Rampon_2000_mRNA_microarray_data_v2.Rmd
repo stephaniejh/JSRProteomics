@@ -1,0 +1,40 @@
+---
+title: "Rampon_2000_mRNA_microarray_data_v2"
+author: "Stephanie Huang"
+date: "2025-12-19"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Rampon et al., 2000 mapping v2
+
+Continuation of v1
+
+*from Rampon et al., 2000 Effects of environmental enrichment on gene expression in the brain [in PNAS] <https://doi.org/10.1073/pnas.97.23.12880>*
+
+Script details: this is a continuation of 'Rampon_2000_mRNA_microarray_data_v1.Rmd'.
+
+Try mapping based on Protein descriptions?
+
+## Setup
+
+### Load Packages
+
+```{}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
