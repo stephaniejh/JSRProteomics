@@ -15,7 +15,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 *Script details - This is the old v1 mapping for Rampon mRNA (embl ebi ids) to Uniprot Mouse IDs. Only around 1/2 were successfully mapped, so the remaining were manually filled in after using info from <https://www.ebi.ac.uk/biostudies/europepmc/studies/S-EPMC18858> and then manually mapping.*
 
--   [***See next part - v2 script '2025_12_19_EE_Rampon_2000_mRNA_v2.Rmd 'for more complete mapping & analysis.***]{.underline}
+-   [***See next part - v2 script 'EE_Rampon_2000_mRNA_v2.Rmd 'for more complete mapping & analysis.***]{.underline}
 
 -   *Also notethat the current script is quite clunky & a bit outdated. See the new versions of the mapping - used for testing & figuring out the mapping process.*
 
