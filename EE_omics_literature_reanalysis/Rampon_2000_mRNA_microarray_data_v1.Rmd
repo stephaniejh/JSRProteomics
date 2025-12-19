@@ -1,5 +1,5 @@
 ---
-title: "2025_11_17_EE_Rampon_2000_mRNA"
+title: "2025_11_17_EE_Rampon_2000_mRNA_v1"
 author: "Stephanie Huang"
 date: "`r Sys.Date()`"
 output: html_document
@@ -9,7 +9,19 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-Note EMBL doesn't seem available in the clusterprofiler annotationsdbi bitr() functions.
+# Rampon et al., 2000 - mapping v1
+
+*from Rampon et al., 2000 Effects of environmental enrichment on gene expression in the brain [in PNAS] <https://doi.org/10.1073/pnas.97.23.12880>*
+
+*Script details - This is the old v1 mapping for Rampon mRNA (embl ebi ids) to Uniprot Mouse IDs. Only around 1/2 were successfully mapped, so the remaining were manually filled in after using info from <https://www.ebi.ac.uk/biostudies/europepmc/studies/S-EPMC18858> and then manually mapping.*
+
+-   [***See next part - v2 script '2025_12_19_EE_Rampon_2000_mRNA_v2.Rmd 'for more complete mapping & analysis.***]{.underline}
+
+-   *Also notethat the current script is quite clunky & a bit outdated. See the new versions of the mapping - used for testing & figuring out the mapping process.*
+
+------------------------------------------------------------------------
+
+Note that EMBL ids doesn't seem to be available in the clusterprofiler annotationsdbi bitr() functions.
 
 ### Load Packages
 
