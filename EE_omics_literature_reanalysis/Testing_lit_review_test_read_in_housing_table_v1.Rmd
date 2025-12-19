@@ -1,0 +1,57 @@
+---
+title: "Testing_lit_review_test_read_in_housing_table_v1"
+author: "Stephanie Huang"
+date: "2025-12-19"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Load Packages
+
+```{r}
+library(readxl)
+library(dplyr)
+library(stringr)
+library(ggplot2)
+library(gt)
+library(lubridate)
+```
+
+# Read in data
+
+```{r}
+housing_mice_df <- read_excel("input/test_2025_12_19_EE_omics_lit_review_mRNA_Proteins.xlsx",
+                              sheet = "mice_housing")
+```
+
+
+```{r}
+str(housing_mice_df)
+summary(housing_mice_df)
+colnames(housing_mice_df)
+```
+
+
+```{r}
+housing_mice_calc <- housing_mice_df %>% 
+  group(animal_type year, author) %>%
+  ()
+```
+
+```{r}
+m
+```
+
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
