@@ -1,0 +1,93 @@
+---
+title: "Wassouf_2018_RNAseq_rawcounts"
+author: "Stephanie Huang"
+date: "2025-12-20"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Data was retrieved from: <https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE96961>
+
+### Setup
+
+```{r}
+library(tidyverse)
+library(readr)
+library(readxl)
+```
+
+```{r}
+df_1 <- read_csv("input/Wassouf_2018_RNAseq_GSE96961_rawcounts.csv")
+```
+
+```{r}
+# load in uniprot df
+load(file = "input/mouse_ref_proteome_2025_12_13_54864x295.rda")
+load(file = "input/rat_ref_proteome_2025_12_13_51872x295.rda")
+# load(file = "input/rat_other_proteome_2025_12_15_39538x295.rda")
+```
+
+```{r}
+summary(df_1)
+```
+
+```{r}
+
+```
+
+### Sample information.
+
+The data was matched to the samples based on the following details.
+
+Example of matching
+
+-   See the following link <https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM2546841>
+
+    -   Sample GSM2546841
+
+    -   Title: WT_SE_1
+
+    -   Description - Sample name: I14R018b05
+
+    -   GSM2546842 \| I14R018b06 \| WT_SE_2
+
+    -   GSM2546843 \| I14R018b07 \| WT_SE_3
+
+    -   GSM2546844 \| I14R018b08 \| WT_SE_4
+
+    -   GSM2546845 \| I14R018b01 \| WT_EE_1
+
+    -   GSM2546848 \| I14R018b04 \| WT_EE_4
+
+    -   GSM2546849 \| I14R018b13 \| TG_SE_1
+
+    -   GSM2546853 \| I14R018b09 \| TG_EE_1
+
+```{r}
+#ids_codes <- colnames(df_1[,-1]) # gets the column names except 1st ("Ensembl ID)
+
+# new_names <- c("orig_ENSEMBL", rep("WT_EE",4), rep("WT_SE", 4),
+#                   rep("TG_EE", 4), rep("TG_SE", 4))
+
+new_names <- c("orig_ENSEMBL",
+               'WT_EE__01_01', 'WT_EE__02_02', 'WT_EE__03_03', 'WT_EE__03_04',
+               'WT_SE__01_05', 'WT_SE__02_06', 'WT_SE__03_07', 'WT_SE__04_08',
+               'TG_EE__01_09', 'TG_EE__02_10', 'TG_EE__03_11', 'TG_EE__04_12',
+               'TG_SE__01_13', 'TG_SE__02_14', 'TG_SE__03_15', 'TG_SE__04_16')
+               
+
+colnames(df_1) <- new_names
+
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
