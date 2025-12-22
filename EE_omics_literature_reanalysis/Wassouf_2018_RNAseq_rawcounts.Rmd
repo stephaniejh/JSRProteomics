@@ -14,116 +14,28 @@ Data was retrieved from: <https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE
 ### Setup
 
 ```{r}
+# # https://bioconductor.org/packages/release/bioc/vignettes/DESeq2/inst/doc/DESeq2.html
+# if (!require("BiocManager", quietly = TRUE))
+#     install.packages("BiocManager")
+# 
+# BiocManager::install("DESeq2")
+```
+
+```{r}
 library(tidyverse)
 library(readr)
 library(readxl)
 library(ggplot2)
+library(DESeq2)
+# library(UniProt.ws)
+library(pheatmap)
 ```
 
 ```{r}
 df_1 <- read_csv("input/Wassouf_2018_RNAseq_GSE96961_rawcounts.csv")
 ```
 
-```{r}
-# load in uniprot df
-load(file = "input/mouse_ref_proteome_2025_12_13_54864x295.rda")
-load(file = "input/rat_ref_proteome_2025_12_13_51872x295.rda")
-# load(file = "input/rat_other_proteome_2025_12_15_39538x295.rda")
-```
-
-### Prepare Uniprot df files
-
-See Perez_2024_mice_hip_proteomics_RNAseq.Rmd reanalysis script for more detail explanations.
-
-```{r}
-# cols I want from uniprot
-
-#colnames(mouse_ref_proteome_2025_12_13)
-
-my_cols <- c("Entry", "Entry.Name", "Protein.names", "Gene.Names..primary.",
-             "Gene.Names", "Gene.Names..synonym.",  "Annotation", "Reviewed",
-             "Protein.existence", "Protein.families", "Length", "Organism",
-             "Keywords", "Keyword.ID", "Function..CC.", "Miscellaneous..CC.", "Pathway",
-             "GeneID", "Ensembl", "RefSeq", "EMBL", "eggNOG",
-             "Gene.Ontology..GO.", "Gene.Ontology..cellular.component.",
-             "Gene.Ontology..molecular.function.", "Gene.Ontology..biological.process.",
-             "Gene.Ontology.IDs", "KEGG", "Reactome", "STRING",
-             "Entry.version", "Date.of.creation", "Date.of.last.modification",
-             "Date.of.last.sequence.modification"
-             )
-
-```
-
-### Mouse uniprot reference data
-
-#### Setup further setup of mouse db
-
-```{r}
-# https://www.uniprot.org/help/protein_existence - see rankings 
-unique(rat_ref_proteome_2025_12_13$Protein.existence) 
-
-# MOUSE REF PROTEOME
-mouse_ref <- mouse_ref_proteome_2025_12_13 %>% 
-  dplyr::select(all_of(my_cols)) %>%
-  mutate(existence_ranking = case_when( # ranking level of evidence
-    Protein.existence == "Evidence at protein level" ~ 5,
-    Protein.existence == "Evidence at transcript level" ~ 4,
-    Protein.existence == "Inferred from homology" ~ 3, 
-    Protein.existence == "Predicted" ~ 2, 
-    Protein.existence == "Uncertain" ~ 1
-    ), .after = Protein.existence) %>%
-  mutate(across(where(is.character), ~ na_if(.x, ""))) 
-
-
-# need to run in separate line as mouse ref is input (otheriwise object not found )
-mouse_ref <- mouse_ref %>% 
-  mutate(occupied = rowSums(!is.na(mouse_ref)))
-
-# 2025_12_15 - NOTE DID NOT GET MOUSE OTHER PROTEOME FROM UNIPROT BECAUSE IT SAYS CONTAIMINATED!
-
-```
-
-#### Make a Ensembl split mouse df
-
--   <https://r4ds.hadley.nz/regexps.html#character-classes>
-
-```{r}
-mouse_ensembl_split <- mouse_ref %>%
-  mutate(ensembl_split = str_split(Ensembl, ";"),
-         .after = Ensembl) %>%
-  tidyr::unnest(ensembl_split) %>% #
-  mutate(ensembl_split_trim  = paste0(gsub("\\..*", "", ensembl_split)),
-         .after = ensembl_split) %>%
-  mutate(ensembl_digits_up = paste0(gsub("\\D", "", ensembl_split_trim)), .after=ensembl_split_trim)
-
-
-#print(mouse_ensembl_split[1, 20:23]) # check
-# goes from ...
-# ENSMUST00000097080.4 [A0A5F8MPU3-2];ENSMUST00000238949.2 [A0A5F8MPU3-1]; > 
-# ENSMUST00000097080.4 [A0A5F8MPU3-2] >
-# ENSMUST00000097080 >
-# 00000097080
-```
-
-### Rat uniprot reference data
-
-```{r}
-# RAT REF PROTEOME
-rat_ref <- rat_ref_proteome_2025_12_13 %>% 
-  dplyr::select(all_of(my_cols)) %>%
-  mutate(existence_ranking = case_when( # ranking level of evidence
-    Protein.existence == "Evidence at protein level" ~ 5,
-    Protein.existence == "Evidence at transcript level" ~ 4,
-    Protein.existence == "Inferred from homology" ~ 3, 
-    Protein.existence == "Predicted" ~ 2, 
-    Protein.existence == "Uncertain" ~ 1
-    ), .after = Protein.existence) %>%
-  mutate(across(where(is.character), ~ na_if(.x, ""))) 
-
-rat_ref <- rat_ref %>%
-  mutate(occupied = rowSums(!is.na(rat_ref)))
-
-```
+### 
 
 ### Sample information.
 
@@ -158,122 +70,326 @@ summary(df_1)
 ```
 
 ```{r}
-#ids_codes <- colnames(df_1[,-1]) # gets the column names except 1st ("Ensembl ID)
+# list2check <- c('Dlg4', 'Syp', 'Bdnf', 'Shank1', 'Shank3', 'Psd95', 'Dlgh4',
+#                 'Arx')
+# 
+# list2check_2 <- c('Aldh1a1','Anxa11','Arx','Bdnf','Bok','Camk2n2','Ccdc136',
+#                   'Cdh22','Coro6','Dagla','Dpp10','Ebf4','Echdc2','Egr3','Fosb',
+#                   'Gng4','Iqgap2','Kif17','Klk8','Lct','Lingo3','Lrrc10b',
+#                   'Myoc','Nap1l5','Nptx2','Pdyn','Plk5','Ptgs2','Rasd1','Sbsn',
+#                   'Sema5a','Sipa1l3','Stmn1','Syt12','Tanc1','Tle2','Tmsb10',
+#                   'Trpc6','Psd95','Shank1','Shank3', # 41 from supplmentary table
+#                   'Syp', 'Dlg4', 'Dlgh4')
+# 
+# pattern_2 <- paste(list2check_2, collapse = "|") # | OR 
+```
 
-# new_names <- c("orig_ENSEMBL", rep("WT_EE",4), rep("WT_SE", 4),
-#                   rep("TG_EE", 4), rep("TG_SE", 4))
+### df_5 - ADD SOME NOTES ON THIS SECTION!
 
+```{r}
+# # match either by primary gene names OR str_detect for multi entries 
+# # MUCH BETTER THAN PREVIOUS ! 
+# df_5 <- df_3 %>%
+#   filter(Gene.Names..primary. %in% list2check_2 | str_detect(Gene.Names, pattern_2)) %>% 
+#   tidyr::pivot_longer(cols = WT_EE__01_01:TG_SE__04_16,
+#                       names_to = c("Genotype", "Housing",  "Sample_No", "Sample_ID"),
+#                       names_pattern = "(.+)_(.+)__(.+)_(.+)", #  .+  -> 1 or more chr
+#                       values_to = "raw_read_counts")
+#   
+```
+
+Interim End - Quick summary note.
+
+------------------------------------------------------------------------
+
+# Testing DESeq2 -
+
+Replication attempt of Wassouf et al., 2018
+
+-   <https://bioconductor.org/packages/release/bioc/vignettes/DESeq2/inst/doc/DESeq2.html>
+
+## Count matrix input
+
+<https://bioconductor.org/packages/release/bioc/vignettes/DESeq2/inst/doc/DESeq2.html#countmat>
+
+```{r}
 new_names <- c("ENSEMBL",
                'WT_EE__01_01', 'WT_EE__02_02', 'WT_EE__03_03', 'WT_EE__03_04',
                'WT_SE__01_05', 'WT_SE__02_06', 'WT_SE__03_07', 'WT_SE__04_08',
                'TG_EE__01_09', 'TG_EE__02_10', 'TG_EE__03_11', 'TG_EE__04_12',
                'TG_SE__01_13', 'TG_SE__02_14', 'TG_SE__03_15', 'TG_SE__04_16')
 
-#colnames(df_1) <- new_names # if writing over original
+colnames(df_1) <- new_names # if writing over original 
 ```
 
-Note: Wassouf provides provides Ensembl gene codes (e.g. "ENSMUSG00000000001") while uniprot gives the transcript (e.g. "ENSMUST00000097080"), so get the unique 12 digit identifier at the end for both datasets to match in left_join
+Make cts matrix from raw data & coldata df for sample/condition info
 
 ```{r}
-df_2 <- df_1 %>%
-  rename_with(~ new_names) %>% # dplyr::rename_with 
-  mutate(ENSEMBL_DIGITS = paste0(gsub("\\D", "", ENSEMBL)), .after = ENSEMBL) 
-
-# also make a column that sums the number of empty rows
-df_2 <- df_2 %>% # needs to be on a separate line
-  mutate(empty_reads = rowSums(df_2 == 0))
-
-# plot histogram to see distribution of empty rows
-hist(df_2$empty_reads)
-```
-
-Join data frames using ensembl IDs
-
-```{r}
-df_3 <- left_join(df_2, mouse_ensembl_split,
-                  by = join_by(ENSEMBL_DIGITS == ensembl_digits_up)) 
-```
-
-Mapping result is not great....
-
-```{r}
-sum(nrow(df_3)) # 47014 rows
-sum(is.na(df_3$Entry)) #35335 unmapped
-sum(!is.na(df_3$Entry)) #11679 mapped
+# # ALL 4 GROUPS 
+# 
+# # make matrix from Wassouf et al.'s raw read count csv
+# cts <- as.matrix(df_1[, 2:17])
+# rownames(cts) <- df_1$ENSEMBL 
+# 
+# # Make sample data/coldata
+# # my method is a bit diff to the DESeq2 userguide since i don't have separate sample df
+# coldata <- data.frame(row.names = new_names[2:17],
+#                       Genotype = c(rep('WT',8), rep('TG',8)),
+#                       Housing = c(rep('EE', 4), rep('SE', 4),
+#                                   rep('EE', 4), rep('SE', 4)),
+#                       stringsAsFactors = TRUE) #
 ```
 
 ```{r}
-df_4 <- df_3 %>%
-  filter(!is.na(Entry)) %>% #11679
-  filter(empty_reads == 0) #4308 rows with 0 empty reads
+# JUST WT SE VS EE
 
+# make matrix from Wassouf et al.'s raw read count csv
+cts <- as.matrix(df_1[, 2:9])
+rownames(cts) <- df_1$ENSEMBL 
+
+# Make sample data/coldata
+# my method is a bit diff to the DESeq2 userguide since i don't have separate sample df
+coldata <- data.frame(row.names = new_names[2:9],
+                      Housing = c(rep('EE', 4), rep('SE', 4)),
+                      stringsAsFactors = TRUE) 
 ```
 
 ```{r}
-list2check <- c('Dlg4', 'Syp', 'Bdnf', 'Shank1', 'Shank3', 'Psd95', 'Dlgh4',
-                'Arx')
+# quick check to make sure in the same order as the samples
+# if not, see the userguide to fix
 
-list2check_2 <- c('Aldh1a1','Anxa11','Arx','Bdnf','Bok','Camk2n2','Ccdc136',
-                  'Cdh22','Coro6','Dagla','Dpp10','Ebf4','Echdc2','Egr3','Fosb',
-                  'Gng4','Iqgap2','Kif17','Klk8','Lct','Lingo3','Lrrc10b',
-                  'Myoc','Nap1l5','Nptx2','Pdyn','Plk5','Ptgs2','Rasd1','Sbsn',
-                  'Sema5a','Sipa1l3','Stmn1','Syt12','Tanc1','Tle2','Tmsb10',
-                  'Trpc6','Psd95','Shank1','Shank3', # 41 from supplmentary table
-                  'Syp', 'Dlg4', 'Dlgh4')
-
-pattern_2 <- paste(list2check_2, collapse = "|") # | OR 
+head(cts,2) # yes matches
+coldata
 ```
 
-### df_5 - ADD SOME NOTES ON THIS SECTION!
+Now construct the DESeqDataSet (dds) object in preparation
 
 ```{r}
-# match either by primary gene names OR str_detect for multi entries 
-# MUCH BETTER THAN PREVIOUS ! 
-df_5 <- df_3 %>%
-  filter(Gene.Names..primary. %in% list2check_2 | str_detect(Gene.Names, pattern_2)) %>% 
-  tidyr::pivot_longer(cols = WT_EE__01_01:TG_SE__04_16,
-                      names_to = c("Genotype", "Housing",  "Sample_No", "Sample_ID"),
-                      names_pattern = "(.+)_(.+)__(.+)_(.+)", #  .+  -> 1 or more chr
-                      values_to = "raw_read_counts")
-  
-  
+#library("DESeq2")
+dds <- DESeqDataSetFromMatrix(countData = cts,
+                              colData = coldata,
+                              design = ~ Housing)
+dds
+```
+
+## Pre-filtering
+
+<https://bioconductor.org/packages/release/bioc/vignettes/DESeq2/inst/doc/DESeq2.html#pre-filtering>
+
+```{r}
+#keeps genes/rows with at least 4 samples with 10 or more read counts
+# (size of 4) count of >= 10 is recommened by DESeq2 - keeps 16925
+# but Wassouf did min of 50? - they got 12287.
+# if you do smallestGroupsize 4 * counts =>50 then you get 12315
+smallestGroupSize <- 4
+keep <- rowSums(counts(dds) >= 50) >= smallestGroupSize 
+dds <- dds[keep,] # index dds with keep to select those that meet condition
+```
+
+Note on factor levels
+
+```{r}
+dds$Housing <- relevel(dds$Housing, ref = "SE") # reference level is SE
+```
+
+## **Differential expression analysis**
+
+```{r}
+# run D
+dds <- DESeq(dds)
+resultsNames(dds) # lists the coefficients
+res <- results(dds, name="Housing_EE_vs_SE")
+```
+
+### **Log fold change shrinkage for visualization and ranking**
+
+```{r}
+resultsNames(dds)
 ```
 
 ```{r}
-df_5_plot <- ggplot(df_5, aes(x = Genotype, y = raw_read_counts,
-                              fill = Housing, color = Genotype)) +
-  geom_boxplot(alpha = 0.5, color = 'grey10') +
-  #geom_point(shape = 1,  size = 0.5) +
-  scale_fill_manual(values = c("#93c47d", "#ffd966")) +
-  facet_wrap(~Gene.Names, ncol = 4, scales = "free_y") +
-  theme_bw()
-
-df_5_plot
+resLFC <- lfcShrink(dds, coef = "Housing_EE_vs_SE", type = "apeglm")
 ```
 
 ```{r}
-df_6 <- df_4 %>%
-  tidyr::pivot_longer(cols = WT_EE__01_01:TG_SE__04_16,
-                      names_to = c("Genotype", "Housing",  "Sample_No", "Sample_ID"),
-                      names_pattern = "(.+)_(.+)__(.+)_(.+)", #  .+  -> 1 or more chr
-                      values_to = "raw_read_counts") %>%
+resOrdered <- res[order(res$padj),]
+sum(res$padj < 0.1, na.rm=TRUE) #60
+summary(res)
+```
+
+```{r}
+# write.csv(as.data.frame(resOrdered), 
+#           file="output/2025_12_22_Wassouf_2018_DESeq2_renalysis_1_WTonly_EEvsSE.csv")
+```
+
+```{r}
+resOrdered_df <- as.data.frame(resOrdered)
+```
+
+```{r}
+resOrdered_df_p.01 <- resOrdered_df %>%
+  filter(pvalue <=0.01) %>%  #267 results
+  tibble::rownames_to_column(var = "ENSEMBL")
+```
+
+```{r}
+# write_excel_csv(resOrdered_df_p.01, "output/2025_12_22_Wassouf_2018_DESeq2_renalysis_1_WTonly_EEvsSE_p01.csv")
+```
+
+Ohhhhhh the reason they have their adjust p-value cutoff at 0.15 is likely due the ones above that give NA! See exported data!
+
+------------------------------------------------------------------------
+
+Map significant ones
+
+```{r}
+# mouseUp <- UniProt.ws(10090)
+```
+
+```{r}
+# keytypes(mouseUp)
+# columns(mouseUp)
+```
+
+```{r}
+# ensembl_to_map <- rownames(resOrdered_df_p.01)
+# # pattern_2 <- paste(list2check_2, collapse = "|") # | OR 
+```
+
+```{r}
+# ensembl_to_up <-  mapUniProt(
+#                     from = "xref_ensembl",
+#                     to = "UniProtKB",
+#                     columns = c("id", "accession", "gene_primary",
+#                                 "organism_name", "protein_name", "reviewed"),
+#                     query = list(organism_id = 10090, ids = ensembl_to_map))
+
+# Error in `req_perform()`:
+# ! HTTP 400 Bad Request.
+```
+
+------------------------------------------------------------------------
+
+Uniprot.ws error so just manually get from uniprot_id mapping
+
+```{r}
+ensembl_2_uniprot <- read_excel("input/Wassouf_2018_DESeq_test_1_EEvsSE_p01_Ensembl_2_Uniprot_idmapping_2025_12_22.xlsx")
+```
+
+```{r}
+resOrdered_df_p.01_mapped <- left_join(resOrdered_df_p.01, ensembl_2_uniprot,
+                                       by = join_by(ENSEMBL == From)) # 850 x 29 
+# 8 unmapped
+```
+
+```{r}
+# length(unique(resOrdered_df_p.01_mapped$ENSEMBL)) # 267
+
+resOrdered_df_p.01_mf <- resOrdered_df_p.01_mapped %>% # 850
+  filter(!is.na(Entry)) %>% # 842
+  filter(!is.na(padj)) %>% # 404
   group_by(ENSEMBL) %>%
-  filter(raw_read_counts >= 50)
+  filter(if(any(Reviewed == "reviewed", na.rm = TRUE)) {
+    Reviewed == "reviewed" 
+  } else{TRUE})  %>% #154
+  slice_max(Annotation, n = 1, with_ties = FALSE) # 134 | or 109 no ties
 
-length(unique(df_6$Gene.Names..primary.)) #3259 unique gene names
+
+length(unique(resOrdered_df_p.01_mf$ENSEMBL)) # 109 |109
+length(unique(resOrdered_df_p.01_mf$`Gene Names`)) # 111 | 109
+length(unique(resOrdered_df_p.01_mf$`Gene Names (primary)`)) # 109 | 109
+length(unique(resOrdered_df_p.01_mf$Entry)) # 134 | 109
+colnames(resOrdered_df_p.01_mf)
 ```
 
-<https://stats.oarc.ucla.edu/r/whatstat/what-statistical-analysis-should-i-usestatistical-analyses-using-r/>
+```{r}
+volcano_adjpv <- ggplot(resOrdered_df_p.01_mf, 
+                     aes(x =log2FoldChange, y = -log2(padj), label = `Gene Names (primary)`)) +
+ geom_point(aes(color = case_when(padj < 0.05 & log2FoldChange > 0 ~ "Upregulated (adj. p<0.05)",
+                                   padj < 0.05 & log2FoldChange < 0 ~ "Downregulated (adj. p<0.05)",
+                                   padj < 0.1 & log2FoldChange > 0 ~ "Upregulated (adj. p<0.1)",
+                                   padj < 0.1 & log2FoldChange < 0 ~ "Downregulated (adj. p<0.1)",
+                                   TRUE ~ "Not Significant")),
+            alpha = 1, size = 3, shape = 1) +
+  # facet_wrap(~ Label) +
+  # xlim(-1,1) +
+  scale_color_manual(values = c("firebrick3", 
+                                "royalblue4", 
+                                "lightpink1", 
+                                "lightblue3" , 
+                                 "grey80"),
+                     breaks = c("Upregulated (adj. p<0.05)", 
+                                "Downregulated (adj. p<0.05)", 
+                                "Upregulated (adj. p<0.1)", 
+                                "Downregulated (adj. p<0.1)", 
+                                "Not Significant"),
+                     labels = c("Upregulated Proteins (up to adj. p<0.05)", 
+                                "Downregulated Proteins (up to adj. p<0.05)", 
+                                "Upregulated Proteins (up to adj. p<0.1)", 
+                                "Downregulated Proteins (up to adj. p<0.1)" , 
+                                "Not Significant")) +
+  
+  geom_text_repel() +
+  labs(title = "Borgmeyer 2021 SuppTable 7 - Significant Proteins (p<0.05) (24 Oct 2025)",
+       subtitle = "Presented like MSstats and my data log2FC & -log2(adj.pvalue)",
+       x = "log2FC",
+       y = "-Log2 (adjusted p-value)",
+       color = "Protein Regulation") +
+  # geom_hline(yintercept = -log2(0.05), linetype = "dashed", linewidth = 0.2,  color = "grey30") +
+  # annotate("text", x = .86, y = -log2(0.05), label = "Adj. p-value cutoff (0.05) \n",
+  #          fontface = 'italic', size = 4, color = "grey10") +
+  # geom_hline(yintercept = -log2(0.1), linetype = "dashed", linewidth = 0.2,  color = "grey50") +
+  # annotate("text", x = .86, y = -log2(0.1), label = "Adj. p-value cutoff (0.1) \n",
+  #          fontface = 'italic', size = 4, color = "grey30") +
+  theme_bw() + 
+  theme(legend.position = "bottom")
 
-<https://stats.oarc.ucla.edu/r/whatstat/what-statistical-analysis-should-i-usestatistical-analyses-using-r/#mmreg>
+
+
+volcano_adjpv
+```
 
 ```{r}
-# Multivariate multiple regression
-# M1 <- lm(cbind(write, read) ~ female + math + science + socst, data = hsb2)
-# require(car)
-# summary(Anova(M1))
+## TO DO - FIX LOLLIPOP CHART
+# # assign colors based on direction. | works by nvm ordering is weird
+# #label_colors <- ifelse(df_3$`EC log2 fold` > 0 , "#dc322f", "#268bd2")
+# 
+# # lollipop - ggplot ver - a big ugly
+# sig_plot <- resOrdered_df_p.01_mf %>%
+#   ggplot(aes(x = reorder(`Gene Names (primary)`, `EC log2 fold`), # orders by log fold
+#                          y = `EC log2 fold`,
+#              color = Direction)) +
+#   geom_segment(aes(x = `Gene Names (primary)`,
+#                    yend = `EC log2 fold`, y = 0)) +
+#   geom_point(aes(alpha = `EC p value`),
+#              shape = 19, size = 4) +
+#   scale_alpha(range = c(1,.1), guide = 'none') + # rev alpha so darker = more significant
+#   # geom_text(aes(label = gene_name), color = "grey10", size = 2.5,
+#   #           position = position_stack()) +
+#   geom_hline(yintercept = 0, color = 'grey20', linewidth = 0.1) +
+#   scale_color_manual(breaks = c("Up", "Down"),
+#                      values = c("#dc322f", "#268bd2"),
+#                      guide = 'none') + 
+#   labs(title = 'Lichti et al., 2014 - EC Log2FC x Gene Name - NAc',
+#        subtitle = 'Rats only (139/1506/2835), sig only, by fraction, LC-MS proteomics',
+#        y = 'EC Log2FC',
+#        x = 'Gene Name') +
+#   #coord_flip() + #fliptheplot
+#   facet_wrap(~fraction, space = 'free_x', scale = 'free_x') +
+#   #theme_void() +
+#   theme_bw() +
+#   theme(
+#     #axis.title = element_blank(),
+#     #axis.text.x = element_blank() 
+#     axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5, # 90, hj1 t/R, vj.5 cent
+#                                size = 9, face = 'italic'), 
+#     axis.text.y = element_text(hjust = 1, color = "grey20", size = 10), # rota 90 & hjust=1 (top/right)
+#         ) 
+# 
+# sig_plot
+```
 
-anova(lm(raw_read_counts ~ `Gene.Names` * Housing * Genotype, data = df_6))
-
-m1 <- lm()
+```{r}
+resOrdered_df_adjp_0.1 <- resOrdered_df_p.01_mf %>%
+  filter(padj <= 0.1) # 59
 ```
