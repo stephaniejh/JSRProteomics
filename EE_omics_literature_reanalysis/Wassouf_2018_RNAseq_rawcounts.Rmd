@@ -17,6 +17,7 @@ Data was retrieved from: <https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE
 library(tidyverse)
 library(readr)
 library(readxl)
+library(ggplot2)
 ```
 
 ```{r}
@@ -30,11 +31,97 @@ load(file = "input/rat_ref_proteome_2025_12_13_51872x295.rda")
 # load(file = "input/rat_other_proteome_2025_12_15_39538x295.rda")
 ```
 
-```{r}
-summary(df_1)
-```
+### Prepare Uniprot df files
+
+See Perez_2024_mice_hip_proteomics_RNAseq.Rmd reanalysis script for more detail explanations.
 
 ```{r}
+# cols I want from uniprot
+
+#colnames(mouse_ref_proteome_2025_12_13)
+
+my_cols <- c("Entry", "Entry.Name", "Protein.names", "Gene.Names..primary.",
+             "Gene.Names", "Gene.Names..synonym.",  "Annotation", "Reviewed",
+             "Protein.existence", "Protein.families", "Length", "Organism",
+             "Keywords", "Keyword.ID", "Function..CC.", "Miscellaneous..CC.", "Pathway",
+             "GeneID", "Ensembl", "RefSeq", "EMBL", "eggNOG",
+             "Gene.Ontology..GO.", "Gene.Ontology..cellular.component.",
+             "Gene.Ontology..molecular.function.", "Gene.Ontology..biological.process.",
+             "Gene.Ontology.IDs", "KEGG", "Reactome", "STRING",
+             "Entry.version", "Date.of.creation", "Date.of.last.modification",
+             "Date.of.last.sequence.modification"
+             )
+
+```
+
+### Mouse uniprot reference data
+
+#### Setup further setup of mouse db
+
+```{r}
+# https://www.uniprot.org/help/protein_existence - see rankings 
+unique(rat_ref_proteome_2025_12_13$Protein.existence) 
+
+# MOUSE REF PROTEOME
+mouse_ref <- mouse_ref_proteome_2025_12_13 %>% 
+  dplyr::select(all_of(my_cols)) %>%
+  mutate(existence_ranking = case_when( # ranking level of evidence
+    Protein.existence == "Evidence at protein level" ~ 5,
+    Protein.existence == "Evidence at transcript level" ~ 4,
+    Protein.existence == "Inferred from homology" ~ 3, 
+    Protein.existence == "Predicted" ~ 2, 
+    Protein.existence == "Uncertain" ~ 1
+    ), .after = Protein.existence) %>%
+  mutate(across(where(is.character), ~ na_if(.x, ""))) 
+
+
+# need to run in separate line as mouse ref is input (otheriwise object not found )
+mouse_ref <- mouse_ref %>% 
+  mutate(occupied = rowSums(!is.na(mouse_ref)))
+
+# 2025_12_15 - NOTE DID NOT GET MOUSE OTHER PROTEOME FROM UNIPROT BECAUSE IT SAYS CONTAIMINATED!
+
+```
+
+#### Make a Ensembl split mouse df
+
+-   <https://r4ds.hadley.nz/regexps.html#character-classes>
+
+```{r}
+mouse_ensembl_split <- mouse_ref %>%
+  mutate(ensembl_split = str_split(Ensembl, ";"),
+         .after = Ensembl) %>%
+  tidyr::unnest(ensembl_split) %>% #
+  mutate(ensembl_split_trim  = paste0(gsub("\\..*", "", ensembl_split)),
+         .after = ensembl_split) %>%
+  mutate(ensembl_digits_up = paste0(gsub("\\D", "", ensembl_split_trim)), .after=ensembl_split_trim)
+
+
+#print(mouse_ensembl_split[1, 20:23]) # check
+# goes from ...
+# ENSMUST00000097080.4 [A0A5F8MPU3-2];ENSMUST00000238949.2 [A0A5F8MPU3-1]; > 
+# ENSMUST00000097080.4 [A0A5F8MPU3-2] >
+# ENSMUST00000097080 >
+# 00000097080
+```
+
+### Rat uniprot reference data
+
+```{r}
+# RAT REF PROTEOME
+rat_ref <- rat_ref_proteome_2025_12_13 %>% 
+  dplyr::select(all_of(my_cols)) %>%
+  mutate(existence_ranking = case_when( # ranking level of evidence
+    Protein.existence == "Evidence at protein level" ~ 5,
+    Protein.existence == "Evidence at transcript level" ~ 4,
+    Protein.existence == "Inferred from homology" ~ 3, 
+    Protein.existence == "Predicted" ~ 2, 
+    Protein.existence == "Uncertain" ~ 1
+    ), .after = Protein.existence) %>%
+  mutate(across(where(is.character), ~ na_if(.x, ""))) 
+
+rat_ref <- rat_ref %>%
+  mutate(occupied = rowSums(!is.na(rat_ref)))
 
 ```
 
@@ -67,27 +154,126 @@ Example of matching
     -   GSM2546853 \| I14R018b09 \| TG_EE_1
 
 ```{r}
+summary(df_1)
+```
+
+```{r}
 #ids_codes <- colnames(df_1[,-1]) # gets the column names except 1st ("Ensembl ID)
 
 # new_names <- c("orig_ENSEMBL", rep("WT_EE",4), rep("WT_SE", 4),
 #                   rep("TG_EE", 4), rep("TG_SE", 4))
 
-new_names <- c("orig_ENSEMBL",
+new_names <- c("ENSEMBL",
                'WT_EE__01_01', 'WT_EE__02_02', 'WT_EE__03_03', 'WT_EE__03_04',
                'WT_SE__01_05', 'WT_SE__02_06', 'WT_SE__03_07', 'WT_SE__04_08',
                'TG_EE__01_09', 'TG_EE__02_10', 'TG_EE__03_11', 'TG_EE__04_12',
                'TG_SE__01_13', 'TG_SE__02_14', 'TG_SE__03_15', 'TG_SE__04_16')
-               
 
-colnames(df_1) <- new_names
+#colnames(df_1) <- new_names # if writing over original
+```
 
+Note: Wassouf provides provides Ensembl gene codes (e.g. "ENSMUSG00000000001") while uniprot gives the transcript (e.g. "ENSMUST00000097080"), so get the unique 12 digit identifier at the end for both datasets to match in left_join
+
+```{r}
+df_2 <- df_1 %>%
+  rename_with(~ new_names) %>% # dplyr::rename_with 
+  mutate(ENSEMBL_DIGITS = paste0(gsub("\\D", "", ENSEMBL)), .after = ENSEMBL) 
+
+# also make a column that sums the number of empty rows
+df_2 <- df_2 %>% # needs to be on a separate line
+  mutate(empty_reads = rowSums(df_2 == 0))
+
+# plot histogram to see distribution of empty rows
+hist(df_2$empty_reads)
+```
+
+Join data frames using ensembl IDs
+
+```{r}
+df_3 <- left_join(df_2, mouse_ensembl_split,
+                  by = join_by(ENSEMBL_DIGITS == ensembl_digits_up)) 
+```
+
+Mapping result is not great....
+
+```{r}
+sum(nrow(df_3)) # 47014 rows
+sum(is.na(df_3$Entry)) #35335 unmapped
+sum(!is.na(df_3$Entry)) #11679 mapped
+```
+
+```{r}
+df_4 <- df_3 %>%
+  filter(!is.na(Entry)) %>% #11679
+  filter(empty_reads == 0) #4308 rows with 0 empty reads
 
 ```
 
 ```{r}
+list2check <- c('Dlg4', 'Syp', 'Bdnf', 'Shank1', 'Shank3', 'Psd95', 'Dlgh4',
+                'Arx')
 
+list2check_2 <- c('Aldh1a1','Anxa11','Arx','Bdnf','Bok','Camk2n2','Ccdc136',
+                  'Cdh22','Coro6','Dagla','Dpp10','Ebf4','Echdc2','Egr3','Fosb',
+                  'Gng4','Iqgap2','Kif17','Klk8','Lct','Lingo3','Lrrc10b',
+                  'Myoc','Nap1l5','Nptx2','Pdyn','Plk5','Ptgs2','Rasd1','Sbsn',
+                  'Sema5a','Sipa1l3','Stmn1','Syt12','Tanc1','Tle2','Tmsb10',
+                  'Trpc6','Psd95','Shank1','Shank3', # 41 from supplmentary table
+                  'Syp', 'Dlg4', 'Dlgh4')
+
+pattern_2 <- paste(list2check_2, collapse = "|") # | OR 
+```
+
+### df_5 - ADD SOME NOTES ON THIS SECTION!
+
+```{r}
+# match either by primary gene names OR str_detect for multi entries 
+# MUCH BETTER THAN PREVIOUS ! 
+df_5 <- df_3 %>%
+  filter(Gene.Names..primary. %in% list2check_2 | str_detect(Gene.Names, pattern_2)) %>% 
+  tidyr::pivot_longer(cols = WT_EE__01_01:TG_SE__04_16,
+                      names_to = c("Genotype", "Housing",  "Sample_No", "Sample_ID"),
+                      names_pattern = "(.+)_(.+)__(.+)_(.+)", #  .+  -> 1 or more chr
+                      values_to = "raw_read_counts")
+  
+  
 ```
 
 ```{r}
+df_5_plot <- ggplot(df_5, aes(x = Genotype, y = raw_read_counts,
+                              fill = Housing, color = Genotype)) +
+  geom_boxplot(alpha = 0.5, color = 'grey10') +
+  #geom_point(shape = 1,  size = 0.5) +
+  scale_fill_manual(values = c("#93c47d", "#ffd966")) +
+  facet_wrap(~Gene.Names, ncol = 4, scales = "free_y") +
+  theme_bw()
 
+df_5_plot
+```
+
+```{r}
+df_6 <- df_4 %>%
+  tidyr::pivot_longer(cols = WT_EE__01_01:TG_SE__04_16,
+                      names_to = c("Genotype", "Housing",  "Sample_No", "Sample_ID"),
+                      names_pattern = "(.+)_(.+)__(.+)_(.+)", #  .+  -> 1 or more chr
+                      values_to = "raw_read_counts") %>%
+  group_by(ENSEMBL) %>%
+  filter(raw_read_counts >= 50)
+
+length(unique(df_6$Gene.Names..primary.)) #3259 unique gene names
+```
+
+<https://stats.oarc.ucla.edu/r/whatstat/what-statistical-analysis-should-i-usestatistical-analyses-using-r/>
+
+<https://stats.oarc.ucla.edu/r/whatstat/what-statistical-analysis-should-i-usestatistical-analyses-using-r/#mmreg>
+
+```{r}
+# Multivariate multiple regression
+# M1 <- lm(cbind(write, read) ~ female + math + science + socst, data = hsb2)
+# require(car)
+# summary(Anova(M1))
+
+anova(lm(raw_read_counts ~ `Gene.Names` * Housing * Genotype, data = df_6))
+
+m1 <- lm()
 ```
