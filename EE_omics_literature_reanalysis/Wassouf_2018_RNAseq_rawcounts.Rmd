@@ -26,9 +26,10 @@ library(tidyverse)
 library(readr)
 library(readxl)
 library(ggplot2)
-library(DESeq2)
-# library(UniProt.ws)
-library(pheatmap)
+library(ggrepel) #  for geom_text_repel() for volcano plot annotations
+library(DESeq2) # for GLM for transcriptomics raw data processing to get DEGs
+# library(UniProt.ws) 
+library(pheatmap) # for heat maps to got with DESeq2 
 ```
 
 ```{r}
@@ -102,9 +103,9 @@ Interim End - Quick summary note.
 
 ------------------------------------------------------------------------
 
-# Testing DESeq2 -
+# Testing DESeq2 - EEvsSH (WT only)
 
-Replication attempt of Wassouf et al., 2018
+Replication attempt of Wassouf et al., 2018 t1/v1 - testing 8 samples only WT_EE vs WT_SE.
 
 -   <https://bioconductor.org/packages/release/bioc/vignettes/DESeq2/inst/doc/DESeq2.html>
 
@@ -122,7 +123,7 @@ new_names <- c("ENSEMBL",
 colnames(df_1) <- new_names # if writing over original 
 ```
 
-Make cts matrix from raw data & coldata df for sample/condition info
+### Make cts matrix from raw data & coldata df for sample/condition info
 
 ```{r}
 # # ALL 4 GROUPS 
@@ -162,7 +163,7 @@ head(cts,2) # yes matches
 coldata
 ```
 
-Now construct the DESeqDataSet (dds) object in preparation
+### Construct DESeqDataSet (dds) object in preparation
 
 ```{r}
 #library("DESeq2")
@@ -208,7 +209,7 @@ resultsNames(dds)
 ```
 
 ```{r}
-resLFC <- lfcShrink(dds, coef = "Housing_EE_vs_SE", type = "apeglm")
+# resLFC <- lfcShrink(dds, coef = "Housing_EE_vs_SE", type = "apeglm")
 ```
 
 ```{r}
@@ -274,6 +275,20 @@ Uniprot.ws error so just manually get from uniprot_id mapping
 
 ```{r}
 ensembl_2_uniprot <- read_excel("input/Wassouf_2018_DESeq_test_1_EEvsSE_p01_Ensembl_2_Uniprot_idmapping_2025_12_22.xlsx")
+
+ensembl_2_uniprot <- ensembl_2_uniprot %>%
+   mutate(existence_ranking = case_when( # ranking level of evidence
+    `Protein existence` == "Evidence at protein level" ~ 5,
+    `Protein existence` == "Evidence at transcript level" ~ 4,
+    `Protein existence` == "Inferred from homology" ~ 3, 
+    `Protein existence` == "Predicted" ~ 2, 
+    `Protein existence` == "Uncertain" ~ 1
+    ), .after = `Protein existence`) %>%
+  mutate(across(where(is.character), ~ na_if(.x, ""))) 
+   
+# need to run in separate line as mouse ref is input (otheriwise object not found )
+ensembl_2_uniprot <- ensembl_2_uniprot %>% 
+  mutate(occupied = rowSums(!is.na(ensembl_2_uniprot)))
 ```
 
 ```{r}
@@ -292,9 +307,12 @@ resOrdered_df_p.01_mf <- resOrdered_df_p.01_mapped %>% # 850
   filter(if(any(Reviewed == "reviewed", na.rm = TRUE)) {
     Reviewed == "reviewed" 
   } else{TRUE})  %>% #154
-  slice_max(Annotation, n = 1, with_ties = FALSE) # 134 | or 109 no ties
+  slice_max(Annotation, n = 1) %>% # 134 | or 109 no ties
+  slice_max(`Protein existence`, n = 1) %>% #134 sill
+  slice_max(occupied, n = 1, with_ties = FALSE) %>% # 119 | or 109 with ties
+  mutate(Regulation = ifelse(log2FoldChange > 0, "Up", "Down"), .after = lfcSE) # add up or down column
 
-
+# checks
 length(unique(resOrdered_df_p.01_mf$ENSEMBL)) # 109 |109
 length(unique(resOrdered_df_p.01_mf$`Gene Names`)) # 111 | 109
 length(unique(resOrdered_df_p.01_mf$`Gene Names (primary)`)) # 109 | 109
@@ -303,14 +321,22 @@ colnames(resOrdered_df_p.01_mf)
 ```
 
 ```{r}
+# write_excel_csv(resOrdered_df_p.01_mf,
+#                 "output/2025_12_23_Wassouf_test_1_EEvsSH_WTonly_mapped_109.csv")
+```
+
+## Results Plots
+
+```{r}
 volcano_adjpv <- ggplot(resOrdered_df_p.01_mf, 
                      aes(x =log2FoldChange, y = -log2(padj), label = `Gene Names (primary)`)) +
- geom_point(aes(color = case_when(padj < 0.05 & log2FoldChange > 0 ~ "Upregulated (adj. p<0.05)",
-                                   padj < 0.05 & log2FoldChange < 0 ~ "Downregulated (adj. p<0.05)",
-                                   padj < 0.1 & log2FoldChange > 0 ~ "Upregulated (adj. p<0.1)",
-                                   padj < 0.1 & log2FoldChange < 0 ~ "Downregulated (adj. p<0.1)",
-                                   TRUE ~ "Not Significant")),
-            alpha = 1, size = 3, shape = 1) +
+ geom_point(aes(color = case_when(
+   padj < 0.05 & log2FoldChange > 0 ~ "Upregulated (adj. p<0.05)",
+   padj < 0.05 & log2FoldChange < 0 ~ "Downregulated (adj. p<0.05)",
+   padj < 0.1 & log2FoldChange > 0 ~ "Upregulated (adj. p<0.1)",
+   padj < 0.1 & log2FoldChange < 0 ~ "Downregulated (adj. p<0.1)",
+   TRUE ~ "Not Significant")),
+   alpha = 1, size = 2.5, shape = 1) +
   # facet_wrap(~ Label) +
   # xlim(-1,1) +
   scale_color_manual(values = c("firebrick3", 
@@ -330,7 +356,7 @@ volcano_adjpv <- ggplot(resOrdered_df_p.01_mf,
                                 "Not Significant")) +
   
   geom_text_repel() +
-  labs(title = "Borgmeyer 2021 SuppTable 7 - Significant Proteins (p<0.05) (24 Oct 2025)",
+  labs(title = "Wassouf 2018 RNAseq DESeq2 test 1 EE vs SE (WT only 8 mice) - Significant Proteins (adjp<0.05) (2025_12_23)",
        subtitle = "Presented like MSstats and my data log2FC & -log2(adj.pvalue)",
        x = "log2FC",
        y = "-Log2 (adjusted p-value)",
@@ -350,46 +376,337 @@ volcano_adjpv
 ```
 
 ```{r}
-## TO DO - FIX LOLLIPOP CHART
-# # assign colors based on direction. | works by nvm ordering is weird
-# #label_colors <- ifelse(df_3$`EC log2 fold` > 0 , "#dc322f", "#268bd2")
-# 
-# # lollipop - ggplot ver - a big ugly
-# sig_plot <- resOrdered_df_p.01_mf %>%
-#   ggplot(aes(x = reorder(`Gene Names (primary)`, `EC log2 fold`), # orders by log fold
-#                          y = `EC log2 fold`,
-#              color = Direction)) +
-#   geom_segment(aes(x = `Gene Names (primary)`,
-#                    yend = `EC log2 fold`, y = 0)) +
-#   geom_point(aes(alpha = `EC p value`),
-#              shape = 19, size = 4) +
-#   scale_alpha(range = c(1,.1), guide = 'none') + # rev alpha so darker = more significant
-#   # geom_text(aes(label = gene_name), color = "grey10", size = 2.5,
-#   #           position = position_stack()) +
-#   geom_hline(yintercept = 0, color = 'grey20', linewidth = 0.1) +
-#   scale_color_manual(breaks = c("Up", "Down"),
-#                      values = c("#dc322f", "#268bd2"),
-#                      guide = 'none') + 
-#   labs(title = 'Lichti et al., 2014 - EC Log2FC x Gene Name - NAc',
-#        subtitle = 'Rats only (139/1506/2835), sig only, by fraction, LC-MS proteomics',
-#        y = 'EC Log2FC',
-#        x = 'Gene Name') +
-#   #coord_flip() + #fliptheplot
-#   facet_wrap(~fraction, space = 'free_x', scale = 'free_x') +
-#   #theme_void() +
-#   theme_bw() +
-#   theme(
-#     #axis.title = element_blank(),
-#     #axis.text.x = element_blank() 
-#     axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5, # 90, hj1 t/R, vj.5 cent
-#                                size = 9, face = 'italic'), 
-#     axis.text.y = element_text(hjust = 1, color = "grey20", size = 10), # rota 90 & hjust=1 (top/right)
-#         ) 
-# 
-# sig_plot
+# TO DO - FIX LOLLIPOP CHART
+# assign colors based on direction. | works by nvm ordering is weird
+#label_colors <- ifelse(df_3$`EC log2 fold` > 0 , "#dc322f", "#268bd2")
+
+colnames(resOrdered_df_p.01_mf)
+
+# lollipop - ggplot ver - a big ugly
+sig_plot <- resOrdered_df_p.01_mf %>%
+  filter(padj < .15) %>%
+  ggplot(aes(x = reorder(`Gene Names (primary)`, log2FoldChange), # orders by log fold
+                         y = log2FoldChange,
+             color = Regulation)) +
+  geom_segment(aes(x = `Gene Names (primary)`,
+                   yend = log2FoldChange, y = 0)) +
+  geom_point(aes(alpha = padj),
+             shape = 19, size = 4) +
+  scale_alpha(range = c(1,.1), guide = 'none') + # rev alpha so darker = more significant
+  # geom_text(aes(label = gene_name), color = "grey10", size = 2.5,
+  #           position = position_stack()) +
+  geom_hline(yintercept = 0, color = 'grey20', linewidth = 0.1) +
+  scale_color_manual(breaks = c("Up", "Down"),
+                     values = c("#dc322f", "#268bd2"),
+                     guide = 'none') +
+  labs(
+    title = 'Wassouf 2018 RNAseq DESeq2 test 1 EE vs SE (WT only 8 mice) - Lollipop for padj < .15 (104 DEG) (2025_12_23)',
+    subtitle = 'Ordered by Log2FC & then alphabetically by gene name, alpha is significance, blue is down and red is up.',
+       y = 'EC Log2FC',
+       x = 'Primary Gene Name') +
+  #coord_flip() + #fliptheplot
+  #facet_wrap(~fraction, space = 'free_x', scale = 'free_x') +
+  #theme_void() +
+  theme_bw() +
+  theme(
+    #axis.title = element_blank(),
+    #axis.text.x = element_blank()
+    axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5, # 90, hj1 t/R, vj.5 cent
+                               size = 9, face = 'italic'),
+    axis.text.y = element_text(hjust = 1, color = "grey20", size = 10), # rota 90 & hjust=1 (top/right)
+        )
+
+sig_plot
+```
+
+------------------------------------------------------------------------
+
+# DESeq2 test 2 (factorial 2 x 2 Housing x Genotype)
+
+See **Multi-factor designs** <https://bioconductor.org/packages/release/bioc/vignettes/DESeq2/inst/doc/DESeq2.html#multi-factor-designs>
+
+<https://master.bioconductor.org/packages/release/workflows/vignettes/rnaseqGene/inst/doc/rnaseqGene.html>
+
+See mentions of SVA (Surrogate variable analysis) mentioned in doc & in the paper.
+
+```{r}
+# ALL 4 GROUPS
+
+# make matrix from Wassouf et al.'s raw read count csv
+cts_t2 <- as.matrix(df_1[, 2:17])
+rownames(cts_t2) <- df_1$ENSEMBL
+
+# Make sample data/coldata
+# my method is a bit diff to the DESeq2 userguide since i don't have separate sample df
+coldata_t2 <- data.frame(row.names = new_names[2:17],
+                      Genotype = c(rep('WT',8), rep('TG',8)),
+                      Housing = c(rep('EE', 4), rep('SE', 4),
+                                  rep('EE', 4), rep('SE', 4)),
+                      stringsAsFactors = TRUE) #
+
+# quick check to make sure in the same order as the samples
+# if not, see the userguide to fix
+head(cts_t2,2) # yes matches
+coldata_t2
+```
+
+Now construct the DESeqDataSet (dds) object in preparation
+
+```{r}
+#library("DESeq2")
+dds_t2 <- DESeqDataSetFromMatrix(countData = cts_t2,
+                              colData = coldata_t2,
+                              design = ~ Housing + Genotype) # 2 x 2?
+dds_t2 
+```
+
+## Pre-filtering
+
+<https://bioconductor.org/packages/release/bioc/vignettes/DESeq2/inst/doc/DESeq2.html#pre-filtering>
+
+```{r}
+#keeps genes/rows with at least 4 samples with 10 or more read counts
+# (size of 4) count of >= 10 is recommened by DESeq2 - keeps 16925
+# but Wassouf did min of 50? - they got 12287.
+# if you do smallestGroupsize 4 * counts =>50 then you get 12315
+smallestGroupSize <- 4
+keep <- rowSums(counts(dds_t2) >= 50) >= smallestGroupSize 
+dds_t2 <- dds_t2[keep,] # index dds with keep to select those that meet condition
+```
+
+## **Differential expression analysis**
+
+```{r}
+# run DESeq 
+dds_t2 <- DESeq(dds_t2)
+
+# outputs
+resultsNames(dds_t2) # lists the coefficients
+res_t2_housing <- results(dds_t2, name="Housing_EE_vs_SE")
+res_t2_genotype <- results(dds_t2, name="Genotype_WT_vs_TG")
+```
+
+### **Log fold change shrinkage for visualization and ranking**
+
+```{r}
+resultsNames(dds_t2)
 ```
 
 ```{r}
-resOrdered_df_adjp_0.1 <- resOrdered_df_p.01_mf %>%
-  filter(padj <= 0.1) # 59
+# HOUSING
+# 13037 tested | padj <.1 | 178 up & 40 down
+resOrdered_t2_housing <- res_t2_housing[order(res_t2_housing$padj),]
+sum(res_t2_housing$padj < 0.1, na.rm=TRUE) #60
+summary(res_t2_housing)
+
+resOrdered_t2_housing_df <- as.data.frame(resOrdered_t2_housing) # unpack as a df
+
+resOrdered_t2_housing_df <- tibble::rownames_to_column(resOrdered_t2_housing_df, var = "ENSEMBL")
 ```
+
+```{r}
+# write_excel_csv(resOrdered_t2_housing_df, "output/2025_12_23_Wassouf_2018_DESeq2_reanalysis_2_EEvsSH_all_16.csv")
+```
+
+```{r}
+# GENOTYPE
+# 13037 tested | padj <.1 | 61 up & 39 down
+resOrdered_t2_genotype <- res_t2_genotype[order(res_t2_genotype$padj),]
+sum(res_t2_genotype$padj < 0.1, na.rm=TRUE) #60
+summary(res_t2_genotype)
+
+resOrdered_t2_genotype_df <- as.data.frame(resOrdered_t2_genotype)
+```
+
+------------------------------------------------------------------------
+
+```{r}
+# read in & set up uniprot annotation file for t2 EE vs SH (all samples)
+# queried uniprot (349 padj <.159) returned 1235
+ensembl_2_uniprot_t2 <- read_excel(
+  'input/Wassouf_2018_DESeq_test_2_EEvsSE_all_adjp15_Ensembl_2_Uniprot_idmapping_2025_12_23.xlsx')
+
+ensembl_2_uniprot_t2 <- ensembl_2_uniprot_t2 %>%
+  mutate(existence_ranking = case_when ( # ranking level of evidence
+    `Protein existence` == "Evidence at protein level" ~ 5,
+    `Protein existence` == "Evidence at transcript level" ~ 4,
+    `Protein existence` == "Inferred from homology" ~ 3, 
+    `Protein existence` == "Predicted" ~ 2, 
+    `Protein existence` == "Uncertain" ~ 1), .after = `Protein existence`) %>%
+  mutate(across(where(is.character), ~ na_if(.x, "")))
+
+# need to run in separate line as mouse ref is input (otheriwise object not found )
+ensembl_2_uniprot_t2 <- ensembl_2_uniprot_t2 %>%
+  mutate(occupied = rowSums(!is.na(ensembl_2_uniprot_t2)))
+```
+
+```{r}
+resOrdered_t2_housing_df_m <- resOrdered_t2_housing_df %>%
+  filter(padj <= 0.159) %>% # returns 349 obs
+  left_join(ensembl_2_uniprot_t2,
+            by = join_by(ENSEMBL == From)) # 3 unmapped (1238 x 31)
+```
+
+```{r}
+# checks
+length(unique(resOrdered_t2_housing_df_m$ENSEMBL)) # 349
+length(unique(resOrdered_t2_housing_df_m$`Gene Names`)) # 527
+length(unique(resOrdered_t2_housing_df_m$`Gene Names (primary)`)) # 351
+length(unique(resOrdered_t2_housing_df_m$Entry)) # 1236
+
+#
+resOrdered_t2_housing_df_mf <- resOrdered_t2_housing_df_m %>%
+  filter(!is.na(Entry)) %>% # 1235
+  group_by(ENSEMBL) %>%
+  filter(if(any(Reviewed == "reviewed", na.rm = TRUE)) { 
+    Reviewed == "reviewed" # keep reviewed if there
+  } else{TRUE}) %>% # 496
+  slice_max(Annotation, n = 1) %>% # 407
+  slice_max(existence_ranking, n = 1) %>% # 406 
+  slice_max(occupied, n = 1, with_ties = FALSE) %>% # 376 | 349 
+  mutate(Regulation = ifelse(log2FoldChange > 0, "Up", "Down"), .after = lfcSE) # add up or down column
+
+
+# checks after
+length(unique(resOrdered_t2_housing_df_mf$ENSEMBL)) # 346
+length(unique(resOrdered_t2_housing_df_mf$`Gene Names`)) # 346
+length(unique(resOrdered_t2_housing_df_mf$`Gene Names (primary)`)) # 346
+length(unique(resOrdered_t2_housing_df_mf$Entry)) # 346
+colnames(resOrdered_t2_housing_df_mf)
+```
+
+```{r}
+# write_excel_csv(resOrdered_t2_housing_df_mf,
+#                 "output/2025_12_23_Wassouf_2018_test_2_EEvsSH_all16_adjp159_mapped_346.csv")
+```
+
+```{r}
+volcano_adjpv_2 <- ggplot(resOrdered_t2_housing_df_mf, 
+                     aes(x =log2FoldChange, y = -log2(padj), label = `Gene Names (primary)`)) +
+ geom_point(aes(color = case_when(
+   padj < 0.05 & log2FoldChange > 0 ~ "Upregulated (adj. p<0.05)",
+   padj < 0.05 & log2FoldChange < 0 ~ "Downregulated (adj. p<0.05)",
+   padj < 0.1 & log2FoldChange > 0 ~ "Upregulated (adj. p<0.1)",
+   padj < 0.1 & log2FoldChange < 0 ~ "Downregulated (adj. p<0.1)",
+   TRUE ~ "Not Significant")),
+   alpha = 1, size = 2.5, shape = 1) +
+  # facet_wrap(~ Label) +
+  # xlim(-1,1) +
+  scale_color_manual(values = c("firebrick3", 
+                                "royalblue4", 
+                                "lightpink1", 
+                                "lightblue3" , 
+                                 "grey80"),
+                     breaks = c("Upregulated (adj. p<0.05)", 
+                                "Downregulated (adj. p<0.05)", 
+                                "Upregulated (adj. p<0.1)", 
+                                "Downregulated (adj. p<0.1)", 
+                                "Not Significant"),
+                     labels = c("Upregulated Proteins (up to adj. p<0.05)", 
+                                "Downregulated Proteins (up to adj. p<0.05)", 
+                                "Upregulated Proteins (up to adj. p<0.1)", 
+                                "Downregulated Proteins (up to adj. p<0.1)" , 
+                                "Not Significant")) +
+  
+  geom_text_repel() +
+  labs(title = "Wassouf 2018 RNAseq DESeq2 test 2 EE vs SE (all 16 mice) - Significant Proteins (adjp<0.159) (2025_12_23)",
+       subtitle = "Presented like MSstats and my data log2FC & -log2(adj.pvalue)",
+       x = "log2FC",
+       y = "-Log2 (adjusted p-value)",
+       color = "Protein Regulation") +
+  # geom_hline(yintercept = -log2(0.05), linetype = "dashed", linewidth = 0.2,  color = "grey30") +
+  # annotate("text", x = .86, y = -log2(0.05), label = "Adj. p-value cutoff (0.05) \n",
+  #          fontface = 'italic', size = 4, color = "grey10") +
+  # geom_hline(yintercept = -log2(0.1), linetype = "dashed", linewidth = 0.2,  color = "grey50") +
+  # annotate("text", x = .86, y = -log2(0.1), label = "Adj. p-value cutoff (0.1) \n",
+  #          fontface = 'italic', size = 4, color = "grey30") +
+  theme_bw() + 
+  theme(legend.position = "bottom")
+
+
+
+volcano_adjpv_2
+```
+
+```{r}
+# lollipop 2
+sig_plot_2 <- resOrdered_t2_housing_df_mf %>%
+  # filter(padj < .15) %>% # overplotted...
+  #filter(padj <= .159 & log2FoldChange > 0.20 | log2FoldChange < -0.20) %>% #
+  # filter(padj <= .10 & log2FoldChange > 0.20 | log2FoldChange < -0.20) %>% #
+  filter(padj <= .05) %>% #
+  ggplot(aes(x = reorder(`Gene Names`, log2FoldChange), # orders by log fold
+                         y = log2FoldChange,
+             color = Regulation)) +
+  geom_segment(aes(x = `Gene Names`,
+                   yend = log2FoldChange, y = 0)) +
+  geom_point(aes(alpha = padj),
+             shape = 19, size = 4) +
+  scale_alpha(range = c(1,.1), guide = 'none') + # rev alpha so darker = more significant
+  # geom_text(aes(label = gene_name), color = "grey10", size = 2.5,
+  #           position = position_stack()) +
+  geom_hline(yintercept = 0, color = 'grey20', linewidth = 0.1) +
+  scale_color_manual(breaks = c("Up", "Down"),
+                     values = c("#dc322f", "#268bd2"),
+                     guide = 'none') +
+  labs(
+    title = 'Wassouf 2018 RNAseq DESeq2 test 2 EE vs SE (all 16 mice) - Lollipop for padj <=.05 (111 DEG) (2025_12_23)',
+    subtitle = 'Ordered by Log2FC & then alphabetically by gene name, alpha is significance, blue is down and red is up.',
+       y = 'EC Log2FC',
+       x = 'Primary Gene Name') +
+  #coord_flip() + #fliptheplot
+  #facet_wrap(~fraction, space = 'free_x', scale = 'free_x') +
+  #theme_void() +
+  theme_bw() +
+  theme(
+    #axis.title = element_blank(),
+    #axis.text.x = element_blank()
+    axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5, # 90, hj1 t/R, vj.5 cent
+                               size = 9, face = 'italic'),
+    axis.text.y = element_text(hjust = 1, color = "grey20", size = 10), # rota 90 & hjust=1 (top/right)
+        )
+
+sig_plot_2
+```
+
+Trying pheatmaps!
+
+<https://davetang.github.io/muse/pheatmap.html>
+
+```{r}
+# davetang example
+# example_file <- "https://davetang.org/file/TagSeqExample.tab"
+# data <- read.delim(example_file, header = TRUE, row.names = "gene")
+# data_subset <- as.matrix(data[rowSums(data)>50000,])
+# dim(data_subset)
+
+cts_subset <- cts[rowSums(cts)>50000,]
+dim(cts_subset) # 144 X 8 
+
+pheatmap(cts_subset)
+```
+
+```{r}
+# EE vs SH (WT only) 
+# Get ENSEMBLS (that are adjp <= 0.1)
+t1_list <- resOrdered_df_p.01_mf$ENSEMBL[resOrdered_df_p.01_mf$padj <= 0.1] #59/109
+
+cts_subset_padj_1 <- cts[t1_list,] # gets the 59 
+dim(cts_subset_padj_1) # 59 X 8 
+
+pheatmap(cts_subset_padj_1)
+```
+
+```{r}
+# Get ENSEMBLS (that are adjp <= 0.05) | keeps 
+t2_list <- resOrdered_t2_housing_df_mf$ENSEMBL[resOrdered_t2_housing_df_mf$padj <=0.05] 
+
+cts_t2_padj_05 <- cts_t2[t2_list,]
+dim(cts_t2_padj_05) # 111 x 16
+
+pheatmap(cts_t2_padj_05)
+
+# looks about the same for most? (since not processed?)
+```
+
+Maybe test heatmaps shown in workflow- <https://master.bioconductor.org/packages/release/workflows/vignettes/rnaseqGene/inst/doc/rnaseqGene.html> OR <https://bioconductor.org/packages/release/bioc/vignettes/DESeq2/inst/doc/DESeq2.html#data-quality-assessment-by-sample-clustering-and-visualization>
