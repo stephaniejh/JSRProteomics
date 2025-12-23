@@ -530,7 +530,7 @@ volcano_pv <- lit_review_proteomics_sig %>%
 volcano_pv
 ```
 
-### gt tables 
+### gt tables
 
 ignore
 
@@ -596,7 +596,7 @@ lit_review_proteomics_sig |>
                 column_labels.font.weight = "bold")   
 ```
 
-#### gt 3 - Old  (EE vs SH)
+#### gt 3 - Old (EE vs SH)
 
 ```{r}
 # EE VS SH (Yold)
