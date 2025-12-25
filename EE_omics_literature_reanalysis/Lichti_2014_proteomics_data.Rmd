@@ -532,3 +532,143 @@ plot(df_3$`EC log2 fold`)
 #                 "output/2025_12_12_Lichti_2014_rats_NAc_data_lit_review_v1.csv",
 #                 na = "")
 ```
+
+------------------------------------------------------------------------
+
+2025_12_24 - while most of the reanalysis matches the results presented in the paper. some did not quite. I suspected this was due to using the mouse database (which i excluded from my analysis). The code below is checking that.
+
+```{r}
+# list of EE vs IC sig proteins shown in table 1 of the paper | 15 genes/proteins
+acc_2_check <- c('P61751', 'Q64611',  'P24268', 'Q641Y8', 'Q63622', 'Q6PDL0',
+                 'Q8BGY2', 'O54921', 'P28741', 'P21396', 'P36506', 'P10637',
+                 'Q80ZA5', 'P07895', 'Q60930')
+
+diff_check <- df_1 %>% 
+  filter(Accession %in% acc_2_check)
+```
+
+```{r}
+
+```
+
+------------------------------------------------------------------------
+
+### Running GO term GSEA with nested for loops
+
+-   <https://www.spsanderson.com/steveondata/posts/2025-03-10/>
+
+-   <https://www.epirhandbook.com/en/new_pages/iteration.html#looping-plots>
+
+-   <https://yulab-smu.top/biomedical-knowledge-mining-book/021-go.html#go-gene-set-enrichment-analysis>
+
+-   See earlier bit of code (above for KEGG) (basic for loop)
+
+-   Error <https://github.com/YuLab-SMU/clusterProfiler/issues/329>
+
+```{r}
+# # make trimmed entrez_id (rm everything after semi colon)
+# df_4 <- df_3 %>%
+#   ungroup() %>%
+#   mutate(entrez_id = str_replace(
+#     GeneID, pattern = ";.*", replacement = ""))
+```
+
+#### Setup containers & prepare info for sequences
+
+```{r}
+# make vector of fractions (cytolsolic, membrane, & nuclear)
+fraction_names <- unique(df_3$fraction)
+
+# make vector of GO analyses | sort this out later. 
+# make do nested nested ?
+GO_names <- c('BP', 'CC', 'MF')
+
+# make container list to store results | empty for lists
+gsea_GO_results_lists <- vector(mode = "list") 
+```
+
+#### Operation
+
+```{r}
+for (fr in fraction_names){ # SEQUENCE - for each item (fr) in fraction_names
+  
+  # OPERATIONS
+  # PART 1
+  # make a ranked gene list for this fraction 
+  
+  geneList_working_df_go <- df_3 %>% # rats only mapped df from Lichti proteomics
+    # filter by item | fraction is column in df_3, fr is i (current item in seq)
+
+    filter(fraction == fr) %>%
+    
+    # compute ranking metric 
+    mutate(ranking = sign(`EC log2 fold`)*(-log10(`EC p value`))) %>%
+    # for any duplicate entries, # average & remove any nas
+    # group_by(Gene.Names..primary.) %>%
+    group_by(Entry) %>%
+    summarise(ranking = mean(ranking, na.rm = TRUE)) %>%
+    # lastly, arrange from largest positive to most negative
+    arrange(-ranking)
+  
+  
+  
+ 
+  # Part 1.2
+  # next, deframe into a named vector needed to supply to fgsea()
+  geneList_vec_working_go <- tibble::deframe(geneList_working_df_go)
+  
+  # geneList_vec_working <- geneList_vec_working[!is.na(names(geneList_vec_working))]
+  
+  
+  # store in list 
+  gsea_GO_results_lists$geneList_vec[[fr]] <- geneList_vec_working_go
+  
+  # Part 1.3 | plots fine but does not save?
+  # Plot ranked gene List
+  gL_plot_go <- plot(geneList_vec_working_go, main = paste0(fr, '- Ranked gene list'))
+  
+  print(gL_plot_go)
+  
+  gsea_GO_results_lists$geneList_plots[[fr]] <- gL_plot_go
+  
+  
+  # PART 2 
+  # nested for loop
+  # so now for each fraction, go through all 3 go terms (BP, CC, MF)
+  for (go in GO_names){ 
+    
+    # operation
+    # run 
+    GO_res_working <- clusterProfiler::gseGO(geneList = geneList_vec_working_go,
+                                             OrgDb = org.Rn.eg.db,
+                                             keyType = "UNIPROT",
+                                             ont = go,
+                                             minGSSize = 10,
+                                             maxGSSize = 500,
+                                             pvalueCutoff = 0.05,
+                                             pAdjustMethod = "BH"
+                                             )
+    
+    # save GO result original to list vec
+    gsea_GO_results_lists$GO_results[[fr]][[go]] <- GO_res_working
+    
+    
+    # # extra (not really needed but save anyway
+    # gsea_GO_results_lists$GO_results_tib[[fr]][[go]] <- tibble::as_tibble(GO_res_working)
+    
+
+    # PART 3
+    #Make dot plots | this one saves properly
+    # Part 3.1 - regular dot plots
+    dp_go <- enrichplot::dotplot(GO_res_working,
+                              showCategory = 30,
+                              title = paste0(stringr::str_glue(
+                                '{fr} - {go} - NAc - Lichti 2014 EE vs IC - gseGO'
+                              )))
+    print(dp_go) # print dot plots
+    gsea_GO_results_lists$dotplots[[fr]][[go]] <- dp_go # save to list
+    
+  }
+  
+}
+```
