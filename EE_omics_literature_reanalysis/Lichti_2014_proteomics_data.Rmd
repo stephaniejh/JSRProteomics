@@ -3,18 +3,42 @@ title: "Lichti_2014_proteomics_data"
 output: html_document
 ---
 
+# Lichti et al., 2014 (Green Group) LC-MS Proteomics Re-analysis (Main effect of housing - EE vs IC rats NAc)
+
+*from 'Environmental enrichment alters protein expression as well as the proteomic response to cocaine in rat nucleus accumbens' in [frontiers in behavioral neuroscience] <https://doi.org/10.3389/fnbeh.2014.00246>*
+
+*Also see Zhang et al., 2016 from Green Group <https://doi.org/10.1016/j.neuroscience.2016.09.051>*
+
+-   [*UNCLEAR 1:*]{.underline} *Not quite sure if their p-values are adjusted or not? The paper mentions using BH as adjustment method? But they only report p-value in the paper & in their column headers are \`EC p value\` - so not sure?*
+    -   *They use \>1.5 fold & \<0.05 cut off, which makes me think they did not use adjusted p-values*
+-   [*UNCLEAR 2:*]{.underline} *Also, not quite sure how they did their GSEA as they did not do it separately for their 3 fractions (only present one result).*
+    -   *I have done it separately for each fraction here.*
+
+[***Contents***]{.underline}
+
+-   *Mapped to more unirprot data*
+-   *Basic plots (scatter, lollipop)*
+-   *gt table of significant proteins (rat only)*
+-   *lit review table (not shown in knit)*
+-   *For loop KEGG gsea (clusterprofiler)*
+-   *Check of table 1 from paper*
+-   *Nested for loop GO gsea*
+    -   *Works on SBS Jennifer server but not laptop (insufficient memory? -\> look into?)*
+
 ### Load Packages
 
-```{r}
+```{r message=FALSE, warning=FALSE}
+library(readxl) # read_excel()
+library(tidyverse) # dplyr, stringr, ggplot2, readr, tidyr
+library(gt) # for gt tables
 library(UniProt.ws) # 1st test -  uniprot api 
-library(tidyverse)
-library(readxl)
-library(gt)
-library(clusterProfiler) #gsea
 library(org.Rn.eg.db) # Rat genome annotation package - incl. AnnotationDbi
-library(msigdbr) # MSigDB gene sets
+library(clusterProfiler) #gsea
 library(enrichplot) # for dotplot()
-library(pathview)
+
+# library(pathview) # commented out atm | (but for visual kegg mapping)
+# library(msigdbr) # commented out atm | MSigDB gene sets 
+# # note some packages called directly instead e.g. cowplot:: & ggrepel::
 ```
 
 ### Load initial Lichti df table
@@ -26,10 +50,12 @@ df_1 <- read_excel("input/Lichti_2014_datasheet_1.XLSX",
 
 ```
 
-```{r}
+```{r paged.print=TRUE}
 colnames(df_1)
 str(df_1)
 length(unique(df_1$Accession)) # 1915
+head(df_1, 10)
+tail(df_1, 10)
 ```
 
 ### Get extra uniprot in via uniprot.ws
@@ -40,7 +66,7 @@ Getting info like protein names, etc
 ratUp <- UniProt.ws(10116) # rat
 ```
 
-```{r}
+```{r eval=FALSE, include=FALSE}
 keytypes(ratUp) # key types that can be retrieved
 
 columns(ratUp) # columns that can be retrieved
@@ -99,9 +125,11 @@ df_3 <- df_2 %>%
 
 ```
 
+### Plots
+
 #### ggplot rat only non sig dot plot
 
-```{r fig.height=5, fig.width=11}
+```{r fig.height=5, fig.width=11.5}
 # non significant plot - looks messy but you get the idea
 ns_plot <- df_3 %>%
   ggplot(aes(x = gene_name, y = `EC log2 fold`, color = Direction, alpha = Significant)) +
@@ -120,7 +148,7 @@ ns_plot
 
 #### ggplot lollipop chart (sig only)
 
-```{r fig.height=5, fig.width=11}
+```{r fig.height=5, fig.width=11.5}
 # assign colors based on direction. | works by nvm ordering is weird
 #label_colors <- ifelse(df_3$`EC log2 fold` > 0 , "#dc322f", "#268bd2")
 
@@ -160,12 +188,71 @@ sig_plot <- df_3 %>%
 sig_plot
 ```
 
+#### ggplot volcano
+
+```{r fig.height=18, fig.width=12}
+volcano_adjpv <- ggplot(df_3, 
+                     aes(x =`EC log2 fold`,
+                         y = -log2(`EC p value`), label = gene_name)) +
+ geom_point(aes(color = case_when(
+   `EC p value` < 0.05 & `EC log2 fold` > 0 ~ "Upregulated (p<0.05)",
+   `EC p value` < 0.05 & `EC log2 fold` < 0 ~ "Downregulated (p<0.05)",
+   `EC p value` < 0.1 & `EC log2 fold` > 0 ~ "Upregulated (p<0.1)",
+   `EC p value` < 0.1 & `EC log2 fold` < 0 ~ "Downregulated (p<0.1)",
+   TRUE ~ "Not Significant")),
+   alpha = 1, size = 2.5, shape = 1) +
+  xlim(-7.5,7.5) +
+  geom_vline(xintercept = -1.5, linewidth =0.2, linetype = "dashed", color = "grey50") +
+  geom_vline(xintercept = 1.5, linewidth =0.2, linetype = "dashed", color = "grey50") +
+  geom_hline(yintercept = -log2(0.05), linetype = "dashed", linewidth = 0.2,  color = "grey30") +
+  scale_color_manual(values = c("firebrick3", 
+                                "royalblue4", 
+                                "lightpink1", 
+                                "lightblue3" , 
+                                 "grey80"),
+                     breaks = c("Upregulated (p<0.05)", 
+                                "Downregulated (p<0.05)", 
+                                "Upregulated (p<0.1)", 
+                                "Downregulated (p<0.1)", 
+                                "Not Significant"),
+                     labels = c("Upregulated Proteins (up to p<0.05)", 
+                                "Downregulated Proteins (up to p<0.05)", 
+                                "Upregulated Proteins (up to p<0.1)", 
+                                "Downregulated Proteins (up to p<0.1)" , 
+                                "Not Significant")) +
+  
+  ggrepel::geom_text_repel() +
+  facet_wrap(~ fraction, ncol = 1, scales = "free_y") +
+  labs(
+    title = "Lichti et al., 2014 LC-MS proteomics NAc rats - main effect of housing (EE vs IC) (2025_12_26)",
+       subtitle = "Split by fraction | Volcano plots made from their provided df, not 100% sure on their p-value if adj or not?",
+       x = "log2FC",
+       y = "-Log2 (p-value)",
+       color = "Protein Regulation") +
+  geom_hline(yintercept = -log2(0.05), linetype = "dashed", linewidth = 0.2,  color = "grey30") +
+  # annotate("text", x = .86, y = -log2(0.05), label = "Adj. p-value cutoff (0.05) \n",
+  #          fontface = 'italic', size = 4, color = "grey10") +
+  # geom_hline(yintercept = -log2(0.1), linetype = "dashed", linewidth = 0.2,  color = "grey50") +
+  # annotate("text", x = .86, y = -log2(0.1), label = "Adj. p-value cutoff (0.1) \n",
+  #          fontface = 'italic', size = 4, color = "grey30") +
+  theme_bw() + 
+  theme(legend.position = "bottom",
+        strip.text = element_text(size = 12, face = "bold", color = "grey10")
+        )
+
+
+volcano_adjpv
+```
+
 ### gt Table
+
+gt table for sig proteins only
 
 ```{r}
 df_3 |>
   dplyr::select(fraction, gene_name, `Protein.names`, Direction,
                 `EC log2 fold`, `EC p value`, Entry) |> #cols for table
+  dplyr::filter(`EC p value` <= 0.05) |>
   gt(
     groupname_col = dplyr::group_vars(df_3)
   ) |>
@@ -177,69 +264,73 @@ df_3 |>
    opt_stylize(style = 1, color = 'gray', add_row_striping = TRUE)
 ```
 
-## Bioinformatics
+------------------------------------------------------------------------
+
+# Bioinformatics
+
+## old nooby 1 by 1 method (commented out)
 
 ### Ranked List
 
-alreay partially prepped from above
+already partially prepped from above
 
 ```{r}
-# ranked combined list
-geneList_df <- df_3 %>%
-  mutate(ranking = sign(`EC log2 fold`)*(-log10(`EC p value`))) %>%
-  group_by(Entry) %>%
-  summarise(ranking = mean(ranking, na.rm = TRUE)) %>%
-  arrange(-ranking)
-
-# convert 2 a named vector to supply to fgsea()
-geneList <- tibble::deframe(geneList_df) # 955
-
-plot(geneList)
+# # ranked combined list
+# geneList_df <- df_3 %>%
+#   mutate(ranking = sign(`EC log2 fold`)*(-log10(`EC p value`))) %>%
+#   group_by(Entry) %>%
+#   summarise(ranking = mean(ranking, na.rm = TRUE)) %>%
+#   arrange(-ranking)
+# 
+# # convert 2 a named vector to supply to fgsea()
+# geneList <- tibble::deframe(geneList_df) # 955
+# 
+# plot(geneList)
 ```
 
 ```{r}
-# ranked cytosolic list
-geneList_df_c <- df_3 %>%
-  filter(fraction == 'cytosolic') %>%
-  mutate(ranking = sign(`EC log2 fold`)*(-log10(`EC p value`))) %>%
-  group_by(Entry) %>%
-  summarise(ranking = mean(ranking, na.rm = TRUE)) %>%
-  arrange(-ranking)
-
-# convert 2 a named vector to supply to fgsea()
-geneList_c <- tibble::deframe(geneList_df_c) # 689
-
-plot(geneList_c)
+# # ranked cytosolic list
+# geneList_df_c <- df_3 %>%
+#   filter(fraction == 'cytosolic') %>%
+#   mutate(ranking = sign(`EC log2 fold`)*(-log10(`EC p value`))) %>%
+#   group_by(Entry) %>%
+#   summarise(ranking = mean(ranking, na.rm = TRUE)) %>%
+#   arrange(-ranking)
+# 
+# # convert 2 a named vector to supply to fgsea()
+# geneList_c <- tibble::deframe(geneList_df_c) # 689
+# 
+# plot(geneList_c)
 ```
 
 ```{r}
-# ranked membrane list
-geneList_df_m <- df_3 %>%
-  filter(fraction == 'membrane') %>%
-  mutate(ranking = sign(`EC log2 fold`)*(-log10(`EC p value`))) %>%
-  group_by(Entry) %>%
-  summarise(ranking = mean(ranking, na.rm = TRUE)) %>%
-  arrange(-ranking)
-
-# convert 2 a named vector to supply to fgsea()
-geneList_m <- tibble::deframe(geneList_df_m) # 340
-
-plot(geneList_m)
+# # ranked membrane list
+# geneList_df_m <- df_3 %>%
+#   filter(fraction == 'membrane') %>%
+#   mutate(ranking = sign(`EC log2 fold`)*(-log10(`EC p value`))) %>%
+#   group_by(Entry) %>%
+#   summarise(ranking = mean(ranking, na.rm = TRUE)) %>%
+#   arrange(-ranking)
+# 
+# # convert 2 a named vector to supply to fgsea()
+# geneList_m <- tibble::deframe(geneList_df_m) # 340
+# 
+# plot(geneList_m)
 ```
 
 ```{r}
-# ranked nuclear list
-geneList_df_n <- df_3 %>%
-  filter(fraction == 'nuclear') %>%
-  mutate(ranking = sign(`EC log2 fold`)*(-log10(`EC p value`))) %>%
-  group_by(Entry) %>%
-  summarise(ranking = mean(ranking, na.rm = TRUE)) %>%
-  arrange(-ranking)
-
-# convert 2 a named vector to supply to fgsea()
-geneList_n <- tibble::deframe(geneList_df_n) # 477
-
-plot(geneList_n)
+# # ranked nuclear list
+# geneList_df_n <- df_3 %>%
+#   filter(fraction == 'nuclear') %>%
+#   mutate(ranking = sign(`EC log2 fold`)*(-log10(`EC p value`))) %>%
+#   group_by(Entry) %>%
+#   summarise(ranking = mean(ranking, na.rm = TRUE)) %>%
+#   arrange(-ranking)
+# 
+# # convert 2 a named vector to supply to fgsea()
+# geneList_n <- tibble::deframe(geneList_df_n) # 477
+# 
+# plot(geneList_n)
 ```
 
 ### KEGG
@@ -247,70 +338,70 @@ plot(geneList_n)
 #### Nuclear
 
 ```{r}
-# nuclear
-kegg_res_n <- gseKEGG(geneList = geneList_n,
-                    organism = 'rno',
-                    keyType = 'uniprot',
-                    by = 'fgsea',
-                    pvalueCutoff = 0.05,
-                    pAdjustMethod = 'BH', #BejaminiHoc Correciton
-                    )
-
-gse_kegg_tib_n <- as_tibble(kegg_res_n) # 21 sig
+# # nuclear
+# kegg_res_n <- gseKEGG(geneList = geneList_n,
+#                     organism = 'rno',
+#                     keyType = 'uniprot',
+#                     by = 'fgsea',
+#                     pvalueCutoff = 0.05,
+#                     pAdjustMethod = 'BH', #BejaminiHoc Correciton
+#                     )
+# 
+# gse_kegg_tib_n <- as_tibble(kegg_res_n) # 21 sig
 ```
 
 ```{r}
-enrichplot::dotplot(kegg_res_n,
-                    split = ".sign",  # split by + vs - enrirchment score
-                    showCategory = 30,
-                    title = "Nuclear - NAc - Lichti et al., 2014 (EE vs IC) - gseKEGG_r - adj.p<0.05") +
-  facet_grid(.~.sign) # split plot by seign)
+# enrichplot::dotplot(kegg_res_n,
+#                     split = ".sign",  # split by + vs - enrirchment score
+#                     showCategory = 30,
+#                     title = "Nuclear - NAc - Lichti et al., 2014 (EE vs IC) - gseKEGG_r - adj.p<0.05") +
+#   facet_grid(.~.sign) # split plot by seign)
 ```
 
 #### Cytosolic
 
 ```{r}
-# cytosolic
-kegg_res_c <- gseKEGG(geneList = geneList_c,
-                    organism = 'rno',
-                    keyType = 'uniprot',
-                    by = 'fgsea',
-                    pvalueCutoff = 0.05,
-                    pAdjustMethod = 'BH', #BejaminiHoc Correciton
-                    )
-
-gse_kegg_tib_c <- as_tibble(kegg_res_c) # 21 sig
+# # cytosolic
+# kegg_res_c <- gseKEGG(geneList = geneList_c,
+#                     organism = 'rno',
+#                     keyType = 'uniprot',
+#                     by = 'fgsea',
+#                     pvalueCutoff = 0.05,
+#                     pAdjustMethod = 'BH', #BejaminiHoc Correciton
+#                     )
+# 
+# gse_kegg_tib_c <- as_tibble(kegg_res_c) # 21 sig
 ```
 
 ```{r}
-enrichplot::dotplot(kegg_res_c,
-                    split = ".sign",  # split by + vs - enrirchment score
-                    showCategory = 30,
-                    title = "Cytosolic - NAc - Lichti et al., 2014 (EE vs IC) - gseKEGG_r - adj.p<0.05") +
-  facet_grid(.~.sign) # split plot by seign)
+# enrichplot::dotplot(kegg_res_c,
+#                     split = ".sign",  # split by + vs - enrirchment score
+#                     showCategory = 30,
+#                     title = "Cytosolic - NAc - Lichti et al., 2014 (EE vs IC) - gseKEGG_r - adj.p<0.05") +
+#   facet_grid(.~.sign) # split plot by seign)
 ```
 
 #### Membrane
 
 ```{r}
-# membrane
-kegg_res_m <- gseKEGG(geneList = geneList_m,
-                    organism = 'rno',
-                    keyType = 'uniprot',
-                    by = 'fgsea',
-                    pvalueCutoff = 0.05,
-                    pAdjustMethod = 'BH', #BejaminiHoc Correciton
-                    )
-
-gse_kegg_tib_m <- as_tibble(kegg_res_m) # 3 sig
+# # membrane
+# kegg_res_m <- gseKEGG(geneList = geneList_m,
+#                     organism = 'rno',
+#                     keyType = 'uniprot',
+#                     by = 'fgsea',
+#                     pvalueCutoff = 0.05,
+#                     pAdjustMethod = 'BH', #BejaminiHoc Correciton
+#                     )
+# 
+# gse_kegg_tib_m <- as_tibble(kegg_res_m) # 3 sig
 ```
 
 ```{r}
-enrichplot::dotplot(kegg_res_m,
-                    split = ".sign",  # split by + vs - enrirchment score
-                    showCategory = 30,
-                    title = "Membrane - NAc - Lichti et al., 2014 (EE vs IC) - gseKEGG_r - adj.p<0.05") +
-  facet_grid(.~.sign) # split plot by seign)
+# enrichplot::dotplot(kegg_res_m,
+#                     split = ".sign",  # split by + vs - enrirchment score
+#                     showCategory = 30,
+#                     title = "Membrane - NAc - Lichti et al., 2014 (EE vs IC) - gseKEGG_r - adj.p<0.05") +
+#   facet_grid(.~.sign) # split plot by seign)
 ```
 
 ```{r}
@@ -399,6 +490,7 @@ for (fr in fraction_names){ # SEQUENCE - for each item (fr) in fraction_names
   # 3.1 - regular dot blot
   dp <- enrichplot::dotplot(kegg_res_working,
                             showCategory = 30,
+                            font.size = 11,
                             title = paste0(stringr::str_glue(
                               '{fr} - NAc - Lichti, 2014 (EE vs IC) - gseKEGG_r'))) 
 
@@ -410,6 +502,7 @@ for (fr in fraction_names){ # SEQUENCE - for each item (fr) in fraction_names
   dp_sign <- enrichplot::dotplot(kegg_res_working,
                             split = '.sign',
                             showCategory = 30,
+                            font.size = 11,
                             title = paste0(stringr::str_glue(
                               '{fr} - NAc - Lichti, 2014 (EE vs IC) - gseKEGG_r split by sign'))) +
     facet_grid(.~.sign)
@@ -426,7 +519,7 @@ for (fr in fraction_names){ # SEQUENCE - for each item (fr) in fraction_names
 #Lichti_2014_gsea_results_2025_12_12_v1 <- gsea_results_list 
 
 # save(Lichti_2014_gsea_results_2025_12_12_v1, 
-#      file = "output/2025_12_12_Lichti_2014_gsea_results_rats_NAc_v1.rda")
+#      file = "output/2025_12_12_Lichti_2014_gsea_KEGG_results_rats_NAc_v1.rda")
 ```
 
 ```{r}
@@ -456,7 +549,7 @@ length(unique(gsea_results_list$geneList_df$cytosolic$Entry)) # 689 unique prote
 length(unique(gsea_results_list$geneList_df$cytosolic$ranking)) # 456 unique ranks
 ```
 
-```{r fig.height=18, fig.width=12}
+```{r fig.height=20, fig.width=12}
 # cow plot for combined + plotlist = to plot a list of plots 
 cowplot::plot_grid(plotlist = c(gsea_results_list$dotplots,
                                 gsea_results_list$dotplots_sign),
@@ -464,11 +557,18 @@ cowplot::plot_grid(plotlist = c(gsea_results_list$dotplots,
 # print(gsea_results_list$dotplots)
 ```
 
+```{r}
+# weird... highlights importance of plotting data!!!
+plot(df_3$`EC log2 fold`)
+```
+
 [2025_12_12 - Note to self maybe add some testing & progress of loop info - ref to epi cook book. Also try nested for loops with GO analysis e.g. for each of the 3 fractions (cytosolic, nuclear, membrane) run each of the 3 GO (CC, BP, MF)]{.smallcaps}
 
 ------------------------------------------------------------------------
 
-Make lit review table (similar to McNair one)
+# Literature Review Table
+
+### Make lit review table (similar to McNair one)
 
 ```{r}
 colnames(df_3) # check col names 
@@ -521,10 +621,7 @@ lit_re <- df_3 %>%
   )
 ```
 
-```{r}
-# weird... highlights importance of plotting data!!!
-plot(df_3$`EC log2 fold`)
-```
+#### Export
 
 ```{r}
 #write out | na values = blank 
@@ -534,6 +631,8 @@ plot(df_3$`EC log2 fold`)
 ```
 
 ------------------------------------------------------------------------
+
+## Check of table 1 from paper (selected sig proteins)
 
 2025_12_24 - while most of the reanalysis matches the results presented in the paper. some did not quite. I suspected this was due to using the mouse database (which i excluded from my analysis). The code below is checking that.
 
@@ -547,25 +646,34 @@ diff_check <- df_1 %>%
   filter(Accession %in% acc_2_check)
 ```
 
-```{r}
-
+```{r paged.print=TRUE}
+head(diff_check, 13)
+tail(diff_check, 13)
 ```
 
 ------------------------------------------------------------------------
 
-### Running GO term GSEA with nested for loops
+# Bioinformatics resumed 
 
--   <https://www.spsanderson.com/steveondata/posts/2025-03-10/>
+*2025_12_25/26 onwards*
+
+## Running GO term GSEA with nested for loops
+
+*Currently only works on SBS Jennifer (insufficient memory on laptop?)*
 
 -   <https://www.epirhandbook.com/en/new_pages/iteration.html#looping-plots>
-
 -   <https://yulab-smu.top/biomedical-knowledge-mining-book/021-go.html#go-gene-set-enrichment-analysis>
+-   See earlier bit of code (above for KEGG) (basic for loop) & (just subset as `[[fr]][[go]]` for nested)
 
--   See earlier bit of code (above for KEGG) (basic for loop)
+[*Previous Errors*]{.underline}
 
--   Error <https://github.com/YuLab-SMU/clusterProfiler/issues/329>
+-   ~~*Error in serialize(data, node\$con) :… … error writing to connection*~~
+    -   *Fixed (kinda?) - Fine on SBS Jennifer server, issues is just on laptop*
+-   ~~*Error in \`\$\<-.data.frame\`(\`\*tmp\*\`, ".sign", value = "activated") : replacement has 1 row, data has 0*~~
+    -   *Fixed with if else for dotplots to only run if not empty (error was due to some GO results being empty due to no significant findings)*
 
 ```{r}
+# not needed - works fine with uniprot entries
 # # make trimmed entrez_id (rm everything after semi colon)
 # df_4 <- df_3 %>%
 #   ungroup() %>%
@@ -573,29 +681,36 @@ diff_check <- df_1 %>%
 #     GeneID, pattern = ";.*", replacement = ""))
 ```
 
-#### Setup containers & prepare info for sequences
+### Setup containers & prepare info for sequences
 
 ```{r}
 # make vector of fractions (cytolsolic, membrane, & nuclear)
 fraction_names <- unique(df_3$fraction)
 
-# make vector of GO analyses | sort this out later. 
-# make do nested nested ?
-GO_names <- c('BP', 'CC', 'MF')
+# GO terms
+GO_names <- c('BP', 'CC', 'MF', 'ALL')
 
 # make container list to store results | empty for lists
 gsea_GO_results_lists <- vector(mode = "list") 
 ```
 
-#### Operation
+### Operation
 
-```{r}
+1.  **For loop** (for each `fr` fraction), compute a ranked genelist...
+
+2.  Then **nested for loop** (for each `go` GO term),
+
+    1.  **if**, `fr` `go` result is not empty (\> 0) then, make dot plot
+
+    2.  **else**, print message no result.
+
+```{r fig.height=11, fig.width=10}
+# works on SBS jennifer
 for (fr in fraction_names){ # SEQUENCE - for each item (fr) in fraction_names
   
   # OPERATIONS
   # PART 1
   # make a ranked gene list for this fraction 
-  
   geneList_working_df_go <- df_3 %>% # rats only mapped df from Lichti proteomics
     # filter by item | fraction is column in df_3, fr is i (current item in seq)
 
@@ -610,15 +725,11 @@ for (fr in fraction_names){ # SEQUENCE - for each item (fr) in fraction_names
     # lastly, arrange from largest positive to most negative
     arrange(-ranking)
   
-  
-  
- 
   # Part 1.2
   # next, deframe into a named vector needed to supply to fgsea()
   geneList_vec_working_go <- tibble::deframe(geneList_working_df_go)
   
-  # geneList_vec_working <- geneList_vec_working[!is.na(names(geneList_vec_working))]
-  
+geneList_vec_working <- geneList_vec_working_go[!is.na(names(geneList_vec_working_go))]
   
   # store in list 
   gsea_GO_results_lists$geneList_vec[[fr]] <- geneList_vec_working_go
@@ -627,7 +738,7 @@ for (fr in fraction_names){ # SEQUENCE - for each item (fr) in fraction_names
   # Plot ranked gene List
   gL_plot_go <- plot(geneList_vec_working_go, main = paste0(fr, '- Ranked gene list'))
   
-  print(gL_plot_go)
+  print(gL_plot_go) 
   
   gsea_GO_results_lists$geneList_plots[[fr]] <- gL_plot_go
   
@@ -638,42 +749,68 @@ for (fr in fraction_names){ # SEQUENCE - for each item (fr) in fraction_names
   for (go in GO_names){ 
     
     # operation
-    # run 
+    # run gseGO for each go term 
     GO_res_working <- clusterProfiler::gseGO(geneList = geneList_vec_working_go,
                                              OrgDb = org.Rn.eg.db,
                                              keyType = "UNIPROT",
-                                             ont = go,
+                                             ont = go, # 
                                              minGSSize = 10,
                                              maxGSSize = 500,
                                              pvalueCutoff = 0.05,
                                              pAdjustMethod = "BH"
                                              )
     
-    # save GO result original to list vec
-    gsea_GO_results_lists$GO_results[[fr]][[go]] <- GO_res_working
+  # save GO result original to list vec
+  gsea_GO_results_lists$GO_results[[fr]][[go]] <- GO_res_working
     
     
-    # # extra (not really needed but save anyway
-    # gsea_GO_results_lists$GO_results_tib[[fr]][[go]] <- tibble::as_tibble(GO_res_working)
+  # extra (not really needed but save anyway
+  gsea_GO_results_lists$GO_results_tib[[fr]][[go]] <- tibble::as_tibble(GO_res_working)
     
-# 
-#     # PART 3
-#     #Make dot plots | this one saves properly
-#     # Part 3.1 - regular dot plots
-#     dp_go <- enrichplot::dotplot(GO_res_working,
-#                               # showCategory = 30,
-#                               title = paste0(stringr::str_glue(
-#                                 '{fr} - {go} - NAc - Lichti 2014 EE vs IC - gseGO'
-#                               )))
-#     print(dp_go) # print dot plots
-#     gsea_GO_results_lists$dotplots[[fr]][[go]] <- dp_go # save to list
+
+  # PART 3 - if else for dot plot
+  if (nrow(GO_res_working@result) > 0 ) {
     
-  }
+    #Make dot plots | this one saves properly
+    # Part 3.1 - regular dot plots
+    dp_go <- enrichplot::dotplot(GO_res_working,
+                              showCategory = 30,
+                              font.size = 11,
+                              title = paste0(stringr::str_glue(
+                                '{fr} - {go} - NAc - Lichti 2014 EE vs IC - gseGO'
+                              )))
+    print(dp_go) # print dot plots
+    gsea_GO_results_lists$dotplots[[fr]][[go]] <- dp_go # save to list
+    
+  } else{print(paste0("No GO gsea result for dot plot in ", fr, "-", go, " :("))}
+  
+  } 
   
 }
 ```
 
 ```{r}
-# so 
-# gsea_GO_results_lists_temp <- gsea_GO_results_lists
+# # horrific name but at least clear...
+# Lichti_2014_gsea_GO_results_2025_12_26_v1 <- gsea_GO_results_lists
+# 
+# save(Lichti_2014_gsea_GO_results_2025_12_26_v1,
+#      file = "output/2025_12_26_Lichti_2014_gsea_GO_results_rats_NAc_v1.rda")
+```
+
+```{r paged.print=FALSE}
+# cow plot for combined + plotlist = to plot a list of plots 
+# cowplot::plot_grid(plotlist = c(gsea_GO_results_lists$dotplots),
+#                    ncol = 2)
+
+# cow plot not working 
+# Warning message:
+# In as_grob.default(plot) : Cannot convert object of class list into a grob.
+
+
+# # this works 
+# print(gsea_GO_results_lists$dotplots)
+```
+
+```{r}
+sessionInfo()
 ```
