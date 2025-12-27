@@ -9,9 +9,13 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-# Proteomics
+# Perez 2024 - multiomics EE x aging (hippocampus mice)
+
+Nice study! :)
 
 *from (Perez et al., 2024) A multiomic atlas of the aging hippocampus reveals molecular changes in response to environmental enrichment [nature communications] <https://doi.org/10.1038/s41467-024-49608-z>*
+
+# Proteomics
 
 -   Their provided dfs have the uniprot accession from mice. So mapped those to the mouse_ref (uniprot df), to get gene names which were then mapped to the rat gene gene names (where uniprot infor was pulled) to get rat proteins & other details.
 
@@ -380,7 +384,7 @@ dim(prot_df_map_rat_combined) # 6849 x 58 | still some duplicates?
 #                 "output/2025_12_27_Perez_2024_proteomics_map_rat_combined_v1.csv")
 ```
 
-Make proteomics lit review file
+### Proteomics Lit Review file
 
 ```{r}
 plot(prot_df_map_rat_combined$logFC)
@@ -501,6 +505,8 @@ prot_df_map_rat_sig <- prot_df_map_rat_combined  %>%
 ```
 
 ### Plots
+
+#### Volcano plot
 
 ```{r fig.height=18, fig.width=12}
 # color coding doesn't work!?!?
@@ -683,7 +689,7 @@ str(norm_SWATH)
 
 ------------------------------------------------------------------------
 
-# mRNA
+# Transcriptomics
 
 Just wrote out unique ensembls & searched in uniprot web (a lot faster & easier)
 
@@ -706,182 +712,19 @@ rna_df_EEold <- read_excel("input/Perez_2024_EE_age_transcriptomics_sds18_41467_
 ```
 
 ```{r}
-# 
-mRNA_df <- bind_rows(list(all = rna_df_EEall,
+RNA_df <- bind_rows(list(all = rna_df_EEall,
                           young = rna_df_EEyng,
                           old = rna_df_EEold),
                      .id = "transcriptomics_id") %>%
   rename(ENSEMBL = GENEID)
-  
-# prev code for mapping 
-# rename(ENS_GENEID = GENEID) %>%
-# make new col remove all letters but keeping 11 digit identifier (otherwise ENSMUSG)
-# mutate(ENS_GENEID_NUM = paste0(gsub("[[:alpha:]]", "", ENS_GENEID))) %>%
-# mutate(ENS_GENEID_T = paste0("ENSMUST", ENS_GENEID_NUM)) # make ENSMUST000094324
-```
-
-```{r}
-# mRNA_check_1 <- mRNA_df %>%
-#   filter(nchar(ENS_GENEID_NUM) > 12) # double check there isn't any > 11 digits
-```
-
-```{r}
-ensembl_to_search <- as_tibble(unique(mRNA_df$ENSEMBL))
-
-# write_csv(ensembl_to_search, "output/Perez_2024_mRNA_ensembl_to_search.csv")
-```
-
-```{r}
-ensembl_2_uniprot <- read_excel(
-  "input/Perez_2024_mRNA_idmapping_2025_12_27_ensembl_2_uniprot_15703_map_to_44296_res_4132_unmap.xlsx")
-
-ensembl_2_uniprot <- ensembl_2_uniprot %>%
-  mutate(existence_ranking = case_when(
-    `Protein existence` == "Evidence at protein level" ~ 5,
-    `Protein existence` == "Evidence at transcript level" ~ 4,
-    `Protein existence` == "Inferred from homology" ~ 3,
-    `Protein existence` == "Predicted" ~ 2, 
-    `Protein existence` == "Uncertain" ~ 1 
-    ), .after = `Protein existence`) %>%
-  mutate(across(where(is.character), ~ na_if(.x, "")))
-
-ensembl_2_uniprot <- ensembl_2_uniprot %>%
-  mutate(occupied = rowSums(!is.na(ensembl_2_uniprot)))
-```
-
-```{r}
-# map mRNA df to uniprot df 
-mRNA_df_map_mouse_1 <- left_join(mRNA_df, ensembl_2_uniprot,
-                                 by = join_by(ENSEMBL == From))
-```
-
-```{r}
-# checks before next step 
-dim(mRNA_df_map_mouse_1) # 145284 x 51
-sum(is.na(mRNA_df_map_mouse_1$Entry)) # 12396 
-
-# to check for grouping 
-length(unique(mRNA_df_map_mouse_1$transcriptomics_id)) # 3 
-length(unique(mRNA_df_map_mouse_1$ENSEMBL)) # 19835
-length(unique(mRNA_df_map_mouse_1$SYMBOL)) # 19642
-length(unique(mRNA_df_map_mouse_1$`Gene Names (primary)`)) # 15804
-length(unique(mRNA_df_map_mouse_1$Entry)) # unique ## 44114
-```
-
-```{r}
-mRNA_df_map_mouse_2 <- mRNA_df_map_mouse_1 %>% # 145284
-  group_by(transcriptomics_id, ENSEMBL) %>% 
-  filter(if(any(Reviewed == "reviewed", na.rm = TRUE)) {
-    Reviewed == "reviewed"
-  } else{TRUE}) %>% # 73755
-  slice_max(Annotation, n = 1) %>% #65559 
-  slice_max(existence_ranking, n =1) %>% # 64347
-  slice_max(occupied, n = 1, with_ties = FALSE) %>% # 60057 (no ties) | 59505
-  ungroup()
-```
-
-```{r}
-mRNA_df_map_mouse_2_na <- mRNA_df_map_mouse_2 %>%
-  filter(is.na(Entry)) %>% # 12396 unmapped
-  select(transcriptomics_id:SYMBOL)
-```
-
-```{r}
-mRNA_df_map_mouse_2_mapped <- mRNA_df_map_mouse_2 %>%
-  filter(!is.na(Entry)) 
-```
-
-Map remaining by primary gene symbol
-
-```{r}
-mRNA_df_map_mouse_3 <- left_join(mRNA_df_map_mouse_2_na, ensembl_2_uniprot, 
-                                 by = join_by(SYMBOL == `Gene Names (primary)`))
-```
-
-```{r}
-sum(is.na(mRNA_df_map_mouse_3$Entry)) 
-```
-
-```{r}
-mRNA_df_map_mouse_3 <- left_join(mRNA_df_map_mouse_2_na, ensembl_2_uniprot, 
-                                by = join_by(SYMBOL == `Gene Names (primary)`)) %>%
-  group_by(transcriptomics_id, ENSEMBL) %>% # 57321
-  filter(if(any(Reviewed == "reviewed", na.rm = TRUE)) {
-    Reviewed == "reviewed"
-  } else{TRUE}) %>% # 57264
-  slice_max(Annotation, n = 1) %>% #12900
-  slice_max(existence_ranking, n =1) %>% # 12396
-  slice_max(occupied, n = 1, with_ties = FALSE) %>% # 12396? | same with no ties?
-  ungroup()
-```
-
-```{r}
-mRNA_df_map_mouse_3_mapped <- mRNA_df_map_mouse_3 %>%
-  filter(!is.na(Entry)) 
-```
-
-```{r}
-# lots of leftover unmapped are tRNA, Rik, etc (non protein stuff?)
-mRNA_df_map_mouse_3_NA <- mRNA_df_map_mouse_3 %>%
-  filter(is.na(Entry)) 
-```
-
-```{r}
-prot_df_map_rat_combined <- bind_rows(list(
-  by_ref_primary_gene = prot_df_map_rat_2,
-  by_ref_synonym = prot_df_map_rat_3_filtered, 
-  by_other_primary_gene = prot_df_map_rat_4),
-  .id = "map_method_df") %>%
-  arrange(proteomics_id, desc(dir), gene.names.primary.m) 
-```
-
-```{r}
-RNA_df_map_mouse_combined <- bind_rows(list(
-  by_ensembl_2_uniprot = mRNA_df_map_mouse_2_mapped,
-  by_symbol_2_p_gene_name = mRNA_df_map_mouse_3),
-  .id = "mouse_map_method_df")
-
-```
-
-```{r}
-# barely any sig mRNA! 345 @ < 0.05 | or 190 < 0.05 
-RNA_df_map_mouse_combined_sig <- RNA_df_map_mouse_combined %>%
-  filter(padj <= 0.05) 
-```
-
-```{r}
-RNA_df_map_mouse_combined_sig |> 
-  # dplyr::ungroup() |>
-  # dplyr:: filter(Condition == "all") %>%
-  #dplyr::select(-(c(`Av. Ratio`, ))) |>
-  # dplyr::select(c(Condition, In_EE, Gene_name, Entry, Entry.Name,
-  #                 Protein.names, Fold_change, adj.P.Val)) |>
-  # dplyr::arrange(desc(In_EE), adj.P.Val, Fold_change) |>
-  dplyr::select(c(transcriptomics_id, SYMBOL, Entry, `Entry Name`,
-                  `Protein names`, log2FoldChange, padj)) |>
-  gt(
-    groupname_col = "transcriptomics_id",
-    rowname_col = "In_EE"
-  ) |>
-  fmt_number(decimals = 3) |>
-    tab_header(
-    title = "All - Perez 2024 - s - Hippocampus (Mice) (adj.p <=0.05 only)",
-    subtitle = "2025_12_17 - lit_review_proteomics_sig - (EE vs SH - by all)"
-    ) |>
-    tab_options(table.font.size=11.5,
-                stub.font.weight = "bold",
-                row_group.font.weight = "bold",
-                row_group.font.size = 12.5,
-                column_labels.font.size = 12.5,
-                column_labels.font.weight = "bold")  
 ```
 
 ------------------------------------------------------------------------
 
-test RNA direct gene symbol map
+## test RNA direct gene symbol map
 
 ```{r}
-RNA_df_map_rat_1 <- left_join(mRNA_df, rat_ref,
+RNA_df_map_rat_1 <- left_join(RNA_df, rat_ref,
                               by = join_by(SYMBOL == Gene.Names..primary.))
 ```
 
@@ -891,19 +734,10 @@ RNA_df_map_rat_1_mapped <- RNA_df_map_rat_1 %>%
 ```
 
 ```{r}
-RNA_df_map_rat_1_NA <- RNA_df_map_rat_1 %>%
+RNA_df_map_rat_2 <- RNA_df_map_rat_1 %>%
   filter(is.na(Entry)) %>%
-  select(transcriptomics_id:SYMBOL)
-```
-
-```{r}
-RNA_df_map_rat_2 <- left_join(RNA_df_map_rat_1_NA, rat_ref_split,
-                              by = join_by(SYMBOL == split_synonyms))
-```
-
-```{r}
-RNA_df_map_rat_2_NA <- RNA_df_map_rat_2 %>%
-  filter(is.na(Entry))
+  select(transcriptomics_id:SYMBOL) %>%
+  left_join(rat_ref_split, by = join_by(SYMBOL == split_synonyms))
 ```
 
 ```{r}
@@ -911,44 +745,248 @@ RNA_df_map_rat_combined <- bind_rows(list(
   by_rat_ref_primary_gene = RNA_df_map_rat_1_mapped,
   by_rat_ref_synonym = RNA_df_map_rat_2), 
   .id = "map_method_df") %>%
-    group_by(transcriptomics_id, ENSEMBL) %>% # 57321
+  group_by(map_method_df, transcriptomics_id, ENSEMBL) %>% 
   filter(if(any(Reviewed == "reviewed", na.rm = TRUE)) {
     Reviewed == "reviewed"
-  } else{TRUE}) %>% # 57264
-  slice_max(Annotation, n = 1) %>% #12900
-  slice_max(existence_ranking, n =1) %>% # 12396
-  slice_max(occupied, n = 1, with_ties = FALSE) %>% # 12396? | same with no ties?
+  } else{TRUE}) %>% 
+  slice_max(Annotation, n = 1) %>% 
+  slice_max(existence_ranking, n =1) %>% 
+  slice_max(occupied, n = 1, with_ties = FALSE) %>%
   ungroup()
 ```
 
 ```{r}
-RNA_df_map_rat_combined_sig <- RNA_df_map_rat_combined %>%
-  filter(padj <= 0.05)
+# # export
+# write_excel_csv(RNA_df_map_rat_combined,
+#                 "output/2025_12_27_Perez_2024_RNA_map_rat_combined_v1.csv")
+```
+
+### RNA Literature Review file
+
+```{r}
+# to check range of 
+plot(RNA_df_map_rat_combined$log2FoldChange)
+summary(RNA_df_map_rat_combined) # see range
+colnames(RNA_df_map_rat_combined)
 ```
 
 ```{r}
-RNA_df_map_rat_combined_sig |> 
-  # dplyr::ungroup() |>
-  # dplyr:: filter(Condition == "all") %>%
-  #dplyr::select(-(c(`Av. Ratio`, ))) |>
-  # dplyr::select(c(Condition, In_EE, Gene_name, Entry, Entry.Name,
-  #                 Protein.names, Fold_change, adj.P.Val)) |>
-  # dplyr::arrange(desc(In_EE), adj.P.Val, Fold_change) |>
-  dplyr::select(c(transcriptomics_id, SYMBOL, Entry, `Entry.Name`,
-                  `Protein.names`, log2FoldChange, padj)) |>
+# for lit review table 
+lit_review_transcriptomics <- RNA_df_map_rat_combined %>%
+  mutate(
+    Year = 2024,
+    Author = 'Perez',
+    Animal = 'Mice',
+    Condition = transcriptomics_id,
+    Region = 'Hippocampus',
+    Whole = 'Yes',
+    Exp_type = 'mRNA',
+    Method = 'TRANSCRIPTOMICS_RNAseq',
+    Used_name = SYMBOL,
+    Mod = " ",
+    Mod_type = " ",
+    Gene_name = SYMBOL, # genename used to map mouse 1° to rat gene
+    Comparison = 2,
+    In_EE = dir,
+    Fold_change = log2FoldChange, # prob the same as log2FC?
+    Arrows = case_when( # dplyr case when, instead of ifelse
+      log2FoldChange > 2.5 ~ '+++',
+      log2FoldChange > 1 ~ '++',
+      log2FoldChange> .05 ~ '+',
+      log2FoldChange > -.05 ~ '=',
+      log2FoldChange > -1 ~ '-',
+      log2FoldChange > -2.5 ~ '--',
+      log2FoldChange <= -2.5 ~ '---',
+      ),
+    Significant = ifelse(padj <= 0.05, 'yes', 'no'),
+    pvalue = padj,
+    N_tested = ' ',
+    Stats_adj = 'adjusted',
+    Note = ' ',
+    Full_name = Protein.names,
+    Uniprot_rat_accession = Entry,
+    Uniprot_entry_name = Entry.Name,
+    Uniprot_link = ifelse(!is.na(Entry),
+                   paste0('https://www.uniprot.org/uniprotkb/', Entry,'/entry'),
+                          ' '),
+    Wikipedia_link = ifelse(!is.na(Entry),
+                            paste0('https://en.wikipedia.org/wiki/',
+                                   `Gene.Names..primary.`), ' '),
+    
+    Curation_method = case_when(
+      Reviewed == "reviewed" & map_method_df == "by_rat_ref_primary_gene"
+        ~ "auto - ref & reviewed (primary gene name)",
+      
+      Reviewed == "unreviewed" & map_method_df == "by_rat_ref_primary_gene"
+        ~ "auto - ref & unreviewed (primary gene name)",
+      
+      Reviewed == "reviewed" & map_method_df == "by_rat_ref_synonym"
+        ~ "auto - ref & reviewed (synonym)",
+      
+      Reviewed == "unreviewed" & map_method_df == "by_rat_ref_synonym"
+        ~ "auto - ref proteome (synonym)",
+      
+      is.na(Entry.Name) ~ "manual - na"
+      ),
+    Class_group = ' ',
+    Other_link = ' ',
+    Other_comments = 'misc shows combined gene_ensembl info from their df',
+    misc = paste0(SYMBOL, '_', ENSEMBL)
+  ) %>%
+  arrange(Condition, desc(In_EE), pvalue, Fold_change)
+  
+```
+
+#### All for export
+
+```{r}
+# split by age (all, young, old) (in prep for sheet write out)
+split_RNA_df_map_rat <- split(lit_review_transcriptomics,
+                              lit_review_transcriptomics$transcriptomics_id)
+
+# add combined one back onto it 
+split_RNA_df_map_rat$combined <- lit_review_transcriptomics
+```
+
+```{r}
+# # write transcriptomics lit review out excel 
+# write_xlsx(split_RNA_df_map_rat,
+#            path = "output/2025_12_27_Perez_2024_transcriptomics_lit_review_all_v1.xlsx")
+```
+
+#### Significant only for export
+
+```{r}
+# filter significant only 
+# purrr meth (loaded with tidyverse?)
+split_RNA_df_map_rat_sig  <- map(split_RNA_df_map_rat, ~filter(.x, padj <= 0.05))
+```
+
+```{r}
+# #write out sig version
+# write_xlsx(split_RNA_df_map_rat,
+#            path = "output/2025_12_27_Perez_2024_transcriptomics_lit_review_sig_only_v1.xlsx")
+```
+
+### gt sig mRNA
+
+-   <https://gt.albert-rapp.de/styling>
+-   <https://www.danieldsjoberg.com/gt-and-gtsummary-presentation/#1>
+
+```{r}
+split_RNA_df_map_rat_sig$combined |> 
+  dplyr::select(c(Condition, In_EE, Gene_name, Entry, `Entry.Name`,
+                  `Protein.names`, Fold_change, pvalue, Reviewed )) |>
   gt(
-    groupname_col = "transcriptomics_id",
-    # rowname_col = "In_EE"
+    groupname_col = "Condition",
+    rowname_col = "In_EE"
   ) |>
   fmt_number(decimals = 3) |>
     tab_header(
-    title = "All - Perez 2024 - s - Hippocampus (Mice) (adj.p <=0.05 only)",
-    subtitle = "2025_12_27 - lit_review_RNA_sig - (EE vs SH - by all)"
+    title = "Perez 2024 - Transcriptomics - Hippocampus Mice - adjp <= 0.05 only",
+    subtitle = "2025_12_27 - lit_review_transcriptomics/split_RNA_df_map_rat_sig - (EE vs SH split by Age (all (96), young (60), old (36)))"
     ) |>
-    tab_options(table.font.size=11.5,
+    tab_options(heading.title.font.size = 16,
+                table.font.size=11.5,
                 stub.font.weight = "bold",
                 row_group.font.weight = "bold",
                 row_group.font.size = 12.5,
                 column_labels.font.size = 12.5,
-                column_labels.font.weight = "bold")
+                column_labels.font.weight = "bold") #|>
+  # opt_stylize(style = 6, color = 'pink') # cute but also ew looks like excel
+  # opt_stylize(style = 1, color = 'gray', add_row_striping = TRUE)
 ```
+
+### Plots
+
+```{r}
+plot(lit_review_transcriptomics$pvalue) # see distribution of pvalues
+plot(lit_review_transcriptomics$Fold_change) # see distribution of fold change
+```
+
+#### Volcano plot
+
+```{r fig.height=18, fig.width=12}
+volcano_RNA <- lit_review_transcriptomics %>%
+  filter(pvalue <= 0.2) %>% # filter otherwise 20000 dots per plot... 
+  ggplot(aes(x = Fold_change, y = -log2(pvalue),
+                         label = Gene_name)) +
+  geom_point(aes(color = case_when(
+    pvalue < 0.05 & Fold_change > 0.05 ~ "Upregulated (adj.p<0.05)",
+    pvalue < 0.05 & Fold_change < -0.05 ~ "Downregulated (adj.p<0.05)",
+    pvalue < 0.1 & Fold_change > 0.05 ~ "Upregulated (adj.p<0.1)",
+    pvalue < 0.1 & Fold_change < -0.05 ~ "Downregulated (adj.p<0.1)",
+                                   TRUE ~ "Not Significant")),
+            alpha = 1, size = 1.5, shape = 1) +
+  # xlim(-8,12) +
+  geom_vline(xintercept = 0, linetype = "dashed",
+             color = "grey40", linewidth = .5) +
+  scale_color_manual(values = c("firebrick3", 
+                                "royalblue4", 
+                                "lightpink1", 
+                                "lightblue3" ,
+                                 "grey80"),
+                     breaks = c("Upregulated (adj.p<0.05)", 
+                                "Downregulated (adj.p<0.05)", 
+                                "Upregulated (adj.p<0.1)",
+                                "Downregulated (adj.p<0.1)",
+                                "Not Significant"),
+                     labels = c("Upregulated mRNA (adj.p<0.05)", 
+                                "Downregulated mRNA (adj.p<0.05)", 
+                                "Upregulated mRNA (adj.p<0.1)", 
+                                "Downregulated mRNA (adj.p<0.1)", 
+                                "Not Significant")) +
+  
+  geom_text_repel() +
+  facet_wrap(~Condition, ncol = 1,
+             scales = "free_y") +
+  labs(
+    title = "Perez 2024 - Transriptomics - Hippocampus (Mice) - EE x Aging  (2025_12_27)",
+    subtitle = "",
+       x = "Log2 Signal",
+       y = "-Log2(adj.p-value)",
+       color = "mRNA Regulation") +
+  theme_bw() +
+  theme(legend.position = "bottom",
+        strip.text = element_text(size = 12))
+
+volcano_RNA
+```
+
+------------------------------------------------------------------------
+
+```{r}
+# intersect of observed 
+intersect(split_prot_df_map_rat$combined$Gene_name,
+          split_RNA_df_map_rat$combined$Gene_name)
+
+length(intersect(split_prot_df_map_rat$combined$Gene_name,
+          split_RNA_df_map_rat$combined$Gene_name)) #2101 (just proteins from)
+
+
+#intersect of significant observed 
+intersect(split_prot_df_map_rat_sig$combined$Gene_name,
+          split_RNA_df_map_rat_sig$combined$Gene_name)
+
+length(intersect(split_prot_df_map_rat_sig$combined$Gene_name,
+          split_RNA_df_map_rat_sig$combined$Gene_name)) #10
+
+
+```
+
+```{r}
+# # mega df (combining botth lit reviews)
+# mega_df <- bind_rows(list(lit_review_proteomics = lit_review_proteomics,
+#                     lit_review_transcriptomics = lit_review_transcriptomics), 
+#                     .id = "omics_assay")
+
+# list of common genes/proteins (SYMBOL) observed in both
+common_list <- intersect(split_prot_df_map_rat$combined$Gene_name,
+                        split_RNA_df_map_rat$combined$Gene_name)
+
+# make vector of conditions
+# conditions <- unique(mega_df$Condition)
+conditions <- unique(lit_review_proteomics$Condition)
+```
+
+TO DO: Maybe do a for loop to get the overlapping proteins/genes for each entry? look at their old code?
