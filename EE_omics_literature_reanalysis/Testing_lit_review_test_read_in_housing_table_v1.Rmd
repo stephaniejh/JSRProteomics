@@ -23,21 +23,21 @@ library(lubridate)
 # Read in data
 
 ```{r}
-housing_mice_df <- read_excel("input/test_2025_12_19_EE_omics_lit_review_mRNA_Proteins.xlsx",
-                              sheet = "mice_housing")
+rat_df <- read_excel("input/test_2025_12_27_EE_omics_lit_review_mRNA_Proteins.xlsx",
+                              sheet = "rat_housing")
 ```
 
 
 ```{r}
-str(housing_mice_df)
-summary(housing_mice_df)
-colnames(housing_mice_df)
+str(rat_df)
+summary(rat_df)
+colnames(rat_df)
 ```
 
 
 ```{r}
-housing_mice_calc <- housing_mice_df %>% 
-  group(animal_type year, author) %>%
+housing_rat_calc_1 <- housing_mice_df %>% 
+  group(animal_type, year, author, housing) %>%
   ()
 ```
 
