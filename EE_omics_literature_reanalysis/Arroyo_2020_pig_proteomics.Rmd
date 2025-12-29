@@ -465,7 +465,7 @@ keywords_df <- lit_review_proteomics %>%
 ```{r}
 keywords_counts <- keywords_df %>%
   group_by(In_EE) %>%
-  filter(hashtags != "Reference proteome") %>%  # ignore ref
+  # filter(hashtags != "Reference proteome") %>%  # ignore ref
   dplyr::count(hashtags, sort = TRUE) %>%
   left_join(key_annos, by = join_by(hashtags == Name)) %>%
   mutate(In_EE = as.factor(In_EE),
