@@ -1,12 +1,511 @@
 ---
 title: "Arroyo_2020_pig_proteomics"
+author: "Stephanie Huang"
+date: "`r Sys.Date()`"
 output: html_document
 ---
 
-```{r}
+# Arroyo et al., 2020 - Pigs iTRAQ proteomics in the hippocampus
+
+*from Arroyo et al., 2020 in 'Neurobiology of environmental enrichment in pigs: hanges in monoaminergic neurotransmitters in several brain areas and in the hippocampal proteome' (in Journal of Proteomics) [<https://doi.org/10.1016/j.jprot.2020.103943>]*
+
+*Also see Carreras, 2016 for more info [<http://dx.doi.org/10.1016/j.applanim.2016.09.006>].*
+
+**This is just the data from table 3 (56 significant proteins only - adjp.05) of the main paper.**
+
+[Note: they also provided the uniprot protein list from PD but would need to run full analysis (can do but not worth at the moment)]{.smallcaps}
+
+*Contents (Map, Lit review table, gt table, lollipop plot)*
+
+## Setup
+
+### Load Packages
+
+```{r include=FALSE}
 library(tidyverse)
+library(readxl) 
+# library(UniProt.ws) # used initially (not needed later) + conflicts with dplyr select
+library(gt) # gt tables 
+# library(RColorBrewer)
+library(MetBrewer)
+library(paletteer)
+```
+
+------------------------------------------------------------------------
+
+### Get Uniprot Pig Info (only run once - so commented out)
+
+##### Set up to pull
+
+```{r}
+# # pig
+# upPig <- UniProt.ws(taxId=9823)
+# species(upPig) # "Sus scrofa (Pig)"
+# 
+# # keytypes(upPig)
+# # columns(upPig)
+# 
+# all_cols <- columns(upPig) # 295 cols
+```
+
+#### Get Pig UniProt Reference Proteme via UniProt.ws
+
+```{r eval=FALSE, include=FALSE}
+# # Sus scrofa (Pig) - 9823 & UP000008227 - 2025_12_29 ( 46012 x 295) | 21 mins
+# ref_pigs <- queryUniProt(query = c("organism_id:9823", "proteome:UP000008227"), # fields
+#                          fields = all_cols, # which columns to pull
+#                          collapse = " AND ") # separator
+```
+
+##### Save outputs
+
+```{r}
+# # give more detailed name for rda save
+# pig_ref_proteome_2025_12_29 <- ref_pigs
+
+
+# # export/save
+# # csv
+# write_excel_csv(pig_ref_proteome_2025_12_29,
+#                 "output/pig_ref_proteome_2025_12_29_46012x295.csv")
+# # rda
+# save(pig_ref_proteome_2025_12_29,
+#      file = "output/pig_ref_proteome_2025_12_29_46012x295.rda")
+```
+
+------------------------------------------------------------------------
+
+### Read in sig proteins df from Arroyo (table 3)
+
+56 differential proteins from Arroyo (table 3) - EE vs BE.
+
+```{r}
+# this is the table 3 (significant proteins only) from the paper
+raw_sig_df <- read_excel('input/Arroyo_2020_iTRAQ_Hip_sig_proteins_tbl3_EEvsBE.xlsx')
 ```
 
 ```{r}
+#negative sign is not the negative sign!
+tail(raw_sig_df$log2FC) # − 
 
+raw_sig_df <- raw_sig_df %>%
+  mutate(log2FC = str_replace(log2FC, "−", "-")) %>% #old,new
+  mutate(log2FC = as.numeric(log2FC)) %>%
+  mutate(dir = ifelse(log2FC > 0, "Up", "Down"), .before = log2FC)
+```
+
+### Load uniprot pig rda (future use)
+
+```{r}
+# load in uniprot df
+load(file = "input/pig_ref_proteome_2025_12_29_46012x295.rda") # pig
+load(file = "input/rat_ref_proteome_2025_12_13_51872x295.rda") # rat
+```
+
+## Map IDs from Pigs to Uniprot Rat
+
+We have the uniprot IDs from the pig so map that by primary gene name (from the reference proteome to the rat primary gene name & then synonym if needed).
+
+### Setup Ref DBs
+
+```{r}
+# cols i want 
+# colnames(pig_ref_proteome_2025_12_29)
+my_cols <- c("Entry", "Entry.Name", "Protein.names", "Gene.Names..primary.",
+             "Gene.Names", "Gene.Names..synonym.",  "Annotation", "Reviewed",
+             "Protein.existence", "Protein.families", "Length", "Organism",
+             "Keywords", "Keyword.ID", "Function..CC.", "Miscellaneous..CC.", "Pathway",
+             "GeneID", "Ensembl",
+             "Gene.Ontology..GO.", "Gene.Ontology..cellular.component.",
+             "Gene.Ontology..molecular.function.", "Gene.Ontology..biological.process.",
+             "Gene.Ontology.IDs", "KEGG", "Reactome", "STRING",
+             "Entry.version", "Date.of.creation", "Date.of.last.modification",
+             "Date.of.last.sequence.modification"
+             )
+```
+
+```{r}
+# RAT REF PROTEOME | see Perez 2024 script for more detials 
+rat_ref <- rat_ref_proteome_2025_12_13 %>% 
+  dplyr::select(all_of(my_cols)) %>%
+  rename(gene_names_primary = Gene.Names..primary.,
+         gene_names_synonym = Gene.Names..synonym.) %>% 
+  mutate(existence_ranking = case_when( # ranking level of evidence
+    Protein.existence == "Evidence at protein level" ~ 5,
+    Protein.existence == "Evidence at transcript level" ~ 4,
+    Protein.existence == "Inferred from homology" ~ 3, 
+    Protein.existence == "Predicted" ~ 2, 
+    Protein.existence == "Uncertain" ~ 1
+    ), .after = Protein.existence) %>%
+  mutate(across(where(is.character), ~ na_if(.x, ""))) 
+
+rat_ref <- rat_ref %>%
+  mutate(occupied = rowSums(!is.na(rat_ref)))
+```
+
+```{r}
+# Prep rat_ref_split df 
+rat_ref_split <- rat_ref %>% #51872 to 55829
+  mutate(split_synonyms = str_split(gene_names_synonym, " ")) %>% #sep split by space
+  tidyr::unnest(split_synonyms)
+```
+
+```{r}
+# PIG REF PROTEOME |
+pig_ref <- pig_ref_proteome_2025_12_29 %>% 
+  dplyr::select(all_of(my_cols)) %>%
+  rename(gene_names_primary = Gene.Names..primary.,
+         gene_names_synonym = Gene.Names..synonym.) %>% 
+  mutate(existence_ranking = case_when( # ranking level of evidence
+    Protein.existence == "Evidence at protein level" ~ 5,
+    Protein.existence == "Evidence at transcript level" ~ 4,
+    Protein.existence == "Inferred from homology" ~ 3, 
+    Protein.existence == "Predicted" ~ 2, 
+    Protein.existence == "Uncertain" ~ 1
+    ), .after = Protein.existence) %>%
+  mutate(across(where(is.character), ~ na_if(.x, ""))) 
+
+pig_ref <- pig_ref %>%
+  mutate(occupied = rowSums(!is.na(pig_ref)))
+```
+
+### Map Arroyo pig df to uniprot pig df
+
+```{r}
+# 1 - MAPPED BY ACCESSION
+pig_map_df_1 <- left_join(raw_sig_df, pig_ref,
+                          by = join_by(`Protein accession` == Entry)) 
+
+sum(is.na(pig_map_df_1$Entry.Name)) # 20 unmapped
+
+pig_map_df_1_mapped <- pig_map_df_1 %>%
+  filter(!is.na(Entry.Name)) # 36 mapped
+```
+
+```{r}
+# length(unique(raw_sig_df$`Protein accession`)) #56
+# length(unique(raw_sig_df$`Gene name`)) #55
+
+# 2 - MAPPED BY PRIMARY GENE NAME
+pig_map_df_2 <- pig_map_df_1 %>%
+  # Mapping
+  filter(is.na(Entry.Name)) %>% # keeps 20 unmapped
+  dplyr::select(`Protein accession`:log2FC) %>% #peel back to entry.name
+  left_join(pig_ref, # from 20 - 67 entries (4 still unmapped)
+            by = join_by(`Gene name` == gene_names_primary)) %>%  #67
+  # Filtering 
+  group_by(`Protein accession`) %>% 
+  filter(if(any(Reviewed == "reviewed", na.rm = TRUE)) {
+    Reviewed == "reviewed"
+  } else{TRUE}) %>%  #53
+  slice_max(Annotation, n = 1) %>%  #32
+  slice_max(existence_ranking, n = 1) %>%  #28
+  slice_max(occupied, n = 1, with_ties = FALSE) %>% # 22 | or 20 (no ties) 
+  ungroup()
+
+# sum(is.na(pig_map_df_2$Entry.Name)) # 4 unmapped ()
+```
+
+```{r}
+# not sure if this is necessary?
+pig_map_df_comb <- bind_rows(list(by_ref_up_accession = pig_map_df_1_mapped,
+                                  by_ref_primary_gene = pig_map_df_2),
+                             .id = "pig_map_method_df")
+  
+```
+
+```{r}
+# write_excel_csv(pig_map_df_comb,
+#                 "output/2025_12_29_Arroyo_2020_sig_pro_map_to_pig_up.csv")
+```
+
+### Map Pig to Rat
+
+```{r}
+# MAP by primary gene name
+rat_map_df_1 <- raw_sig_df %>%
+  # MAP
+  mutate(`Gene name` = str_to_title(`Gene name`)) %>% # get rid of CAPS
+  left_join(rat_ref, by = join_by(`Gene name` == gene_names_primary),
+            relationship = "many-to-many") %>% #167 | 6 NAs
+  # FILTER 
+  group_by(`Protein accession`) %>% 
+  filter(if(any(Reviewed == "reviewed", na.rm = TRUE)) {
+    Reviewed == "reviewed"
+  } else{TRUE}) %>% # 61 
+  slice_max(Annotation, n = 1) %>% # 59
+  slice_max(existence_ranking, n = 1) %>% # 56 
+  ungroup()
+
+sum(is.na(rat_map_df_1$Entry)) # 6 NAs
+
+rat_map_df_1_mapped <- rat_map_df_1 %>%
+  filter(!is.na(Entry)) # 50 mapped
+```
+
+```{r}
+# MAP by synonym gene
+rat_map_df_2 <- rat_map_df_1 %>%
+  filter(is.na(Entry)) %>%
+  dplyr::select(`Protein accession`:log2FC) %>% # peel back
+  left_join(rat_ref_split, by = join_by(`Gene name` == split_synonyms)) %>% # 7 
+  
+  group_by(`Protein accession`) %>% 
+  filter(if(any(Reviewed == "reviewed", na.rm = TRUE)) {
+    Reviewed == "reviewed"
+  } else{TRUE}) %>% # 6 entries
+  ungroup() 
+
+# still has 4 NAs
+sum(is.na(rat_map_df_2$Entry)) # 4
+```
+
+```{r}
+rat_map_df_comb <- bind_rows(list(by_ref_primary_gene = rat_map_df_1_mapped,
+                                  by_ref_synonym = rat_map_df_2),
+                             .id = "map_method_df") # 56 total
+```
+
+```{r}
+# write_excel_csv(rat_map_df_comb, "output/2025_12_29_Arroyo_2020_sig_pro_map_via_rat_up_by_genes_v1.csv")
+```
+
+## Lit Review Table
+
+```{r}
+plot(rat_map_df_comb$log2FC) # not super extra most 0.5 or -0.5
+colnames(rat_map_df_comb)
+```
+
+```{r}
+# for lit review table 
+lit_review_proteomics <- rat_map_df_comb %>%
+  mutate(
+    space = " ",
+    Year = 2020,
+    Author = 'Arroyo',
+    Animal = 'Pigs',
+    Condition = ' ',
+    Region = 'Hippocampus',
+    Whole = 'Yes',
+    Exp_type = 'Protein',
+    Method = 'PROTEOMICS_LCMS_iTRAQ_OS',
+    Used_name = paste0(`Gene name`, ' - ', `Protein description`),
+    Mod = " ",
+    Mod_type = " ",
+    Gene_name = `Gene name`, 
+    Comparison = 2, # EE vs BE classed as 2 (EE vs SH?)
+    In_EE = dir,
+    Fold_change = log2FC, # prob the same as log2FC?
+    Arrows = case_when( # dplyr case when, instead of ifelse
+      log2FC > 2.5 ~ '+++',
+      log2FC > 1 ~ '++',
+      log2FC > .05 ~ '+',
+      log2FC > -.05 ~ '=',
+      log2FC > -1 ~ '-',
+      log2FC > -2.5 ~ '--',
+      log2FC <= -2.5 ~ '---',
+      ),
+    Significant = 'yes', # all significant 
+    pvalue = ' ',
+    N_tested = '20',
+    Stats_adj = 'adjusted',
+    Note = ' ',
+    Full_name = Protein.names,
+    Uniprot_rat_accession = Entry,
+    Uniprot_entry_name = Entry.Name,
+    Uniprot_link = ifelse(!is.na(Entry),
+                          paste0('https://www.uniprot.org/uniprotkb/', Entry,'/entry'),
+                          ' '),
+    Wikipedia_link = ifelse(!is.na(Entry),
+                            paste0('https://en.wikipedia.org/wiki/',
+                                   `gene_names_primary`), ' '),
+    
+    Curation_method = case_when(
+      Reviewed == "reviewed" & map_method_df == "by_ref_primary_gene"
+        ~ "auto - ref & reviewed (primary gene name)",
+      
+      Reviewed == "unreviewed" & map_method_df == "by_ref_primary_gene"
+        ~ "auto - ref & unreviewed (primary gene name)",
+      
+      Reviewed == "reviewed" & map_method_df == "by_ref_synonym"
+        ~ "auto - ref & reviewed (synonym)",
+      
+      Reviewed == "unreviewed" & map_method_df == "by_ref_synonym"
+        ~ "auto - ref proteome (synonym)",
+      
+      is.na(Entry.Name)
+        ~ "manual - na"
+      ),
+    Class_group = ' ',
+    Other_link = ' ',
+    Other_comments = 'misc is comb UPacc_gene_string_proteindesc info from their paper',
+    misc = paste0(`Protein accession`, '_', `Gene name`, '_',  `String node`,
+                  '__(', `Protein description`, ')')
+  ) %>%
+  arrange(desc(In_EE), Gene_name)
+```
+
+### Export
+
+```{r}
+# write_excel_csv(lit_review_proteomics, "output/2025_12_29_Arroyo_2020_pigs_proteomics_lit_review_sig_v1.csv")
+```
+
+### gt table
+
+```{r}
+lit_review_proteomics |> 
+  
+  dplyr::select(c(In_EE, Gene_name, Entry, Entry.Name, Full_name, 
+                  misc,
+                  log2FC, Reviewed, Keywords)) |>
+  ungroup() |>
+  
+  gt(
+    groupname_col = "In_EE",
+    # rowname_col = "Gene_name"
+  ) |>
+  
+  cols_label(
+    Gene_name = "Entry",
+    Entry.Name = "Name",
+    Full_name = "Protein Description",
+    misc = "Arroyo's Identifiers"
+  ) |>
+  
+  tab_header(
+    title = "Arroyo et al., 2020 (Pigs Hippocampus iTRAQ Proteomics - EE vs. BE)",
+    subtitle = "Enriched vs. Barren: 56 DEG, 46 Up & 10 Down (adjp <=0.05), piggenemapped2ratgene (20 EE pigs & 20 BE pigs)", 
+  ) |>
+  
+  tab_style( 
+    style = list(
+      # cell_fill(color = "#F9E3D6"),
+      cell_text(style = "italic")
+      ),
+    locations = cells_body(
+      columns = Gene_name,
+      # rows = currency < 100
+    )
+  ) |>
+  
+  tab_options(heading.title.font.size = 16.5,
+              table.font.size=11.5,
+              stub.font.weight = "bold",
+              # stub.font.size = 13,
+              row_group.font.weight = "bold",
+              row_group.font.size = 14,
+              column_labels.font.size = 12.5,
+              column_labels.font.weight = "bold") |>
+  
+  opt_stylize(style = 1, color = 'gray', add_row_striping = TRUE)
+```
+
+## Plots
+
+No point in volcano as there is no pvalue provided.
+
+Lollipop
+
+```{r fig.height=5, fig.width=11}
+# lollipop 
+lolliplot <- lit_review_proteomics %>%
+  ggplot(aes(x = reorder(Gene_name, log2FC), # orders by log fold
+                         y = log2FC,
+             color = dir)) +
+  geom_segment(aes(x = Gene_name,
+                   yend = log2FC, y = 0)) +
+  geom_point(alpha = 0.5, shape = 19, size = 4.5) +
+  scale_alpha(range = c(1,.1), guide = 'none') + # rev alpha so darker = more significant
+  # geom_text(aes(label = gene_name), color = "grey10", size = 2.5,
+  #           position = position_stack()) +
+  geom_hline(yintercept = 0, color = 'grey20', linewidth = 0.1) +
+  scale_color_manual(breaks = c("Up", "Down"),
+                     values = c("#dc322f", "#268bd2"),
+                     guide = 'none') + 
+  labs(title = 'Arroyo et al., 2020 - Pigs Hip iTRAQ Proteomics (EE vs BE)',
+       subtitle = '56 Significant Proteins (adj.p <=0.05) - 46 up & 10 down',
+       y = 'EC Log2FC',
+       x = 'Gene Name') +
+  #coord_flip() + #fliptheplot
+  #theme_void() +
+  theme_bw() +
+  theme(
+    #axis.title = element_blank(),
+    #axis.text.x = element_blank() 
+    axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5, # 90, hj1 t/R, vj.5 cent
+                               size = 10, face = 'italic'), 
+    axis.text.y = element_text(hjust = 1, color = "grey20", size = 10), # rota 90 & hjust=1 (top/right)
+        ) 
+
+lolliplot
+```
+
+------------------------------------------------------------------------
+
+## Part 2 quick keyword analysis 
+
+```{r}
+unique(lit_review_proteomics$Protein.families)
+```
+
+```{r}
+keywords_df <- lit_review_proteomics %>%
+  mutate(hashtags = str_split(Keywords, ";")) %>% # splits into list by sep ;
+  tidyr::unnest(hashtags)
+```
+
+```{r}
+keywords_counts <- keywords_df %>%
+  group_by(In_EE) %>%
+  filter(hashtags != "Reference proteome") %>%  # ignore if it says ref proteome | 44
+  dplyr::count(hashtags, sort = TRUE) %>%
+  slice_max(n, n = 9, with_ties = FALSE)
+  # filter(n > 2) # 3 or more 
+
+  # mutate(total = sum(n)) %>% # note is grouped!
+  # mutate(percent = round(n/total * 100, 1)) #%>%
+  # mutate(dummy = "1") # needed for input - so it can plot 1 bar
+  #rename(keyword_count = n) #%>% 
+  # filter(keyword_count > 2)
+```
+
+```{r}
+# plot(keywords_counts$percent)
+plot(keywords_counts$n)
+```
+
+```{r fig.height=5, fig.width=11}
+keyplot <- keywords_counts %>%
+  # ungroup() %>%
+  # filter(percent > 2) %>% # 11 keywords
+  # filter(n > 3) %>%
+  ggplot(aes(x = reorder(hashtags, n), y = n, fill = reorder(hashtags, n))) +
+  geom_col(color = "grey10", alpha = 0.7) +
+  facet_wrap(~In_EE, scales = "free", ncol = 2 ) +
+  labs(x = "Uniprot Keyword", y = "Count",
+       title = "Top 11 Keywords") +
+  scale_fill_brewer(palette = "Spectral", type = "div") +
+  # # scale_fill_distiller(palette = "Spectral") +
+  # scale_fill_paletteer("MetBrewer::Signac") +
+  coord_flip() +
+  theme_classic() +
+  theme(legend.position = "none")
+
+keyplot
+
+# fix this! 
+```
+
+```{r}
+library(RColorBrewer)
+par(mar=c(3,4,2,2))
+display.brewer.all()
+```
+
+------------------------------------------------------------------------
+
+```{r}
+sessionInfo()
 ```
