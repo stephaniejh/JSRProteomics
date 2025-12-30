@@ -2,8 +2,8 @@
 title: "2025_10_28_Shaw_2020_proteomics_data"
 author: "Stephanie Huang"
 date: "`r Sys.Date()`"
-# output: html_document
-output: github_document
+output: html_document
+# output: github_document # no pics though
 ---
 
 ```{r setup, include=FALSE}
@@ -368,7 +368,7 @@ mouse_2_rat_shaw <- mouse_shaw_df_1 %>%  #1390
   ungroup()
 ```
 
-### Make combined mapped df 
+### Make combined mapped df
 
 Ignore
 
@@ -386,7 +386,7 @@ combined_map_df <- bind_rows(list(rat_entry_2_rat_acc = rat_shaw_df_1,
   rename(Region_ = Region)
 ```
 
-### 210 entries from other rodents! 
+### 210 entries from other rodents!
 
 ```{r}
 # all other rodents! - so many different rodents!
@@ -504,7 +504,7 @@ lit_review_proteomics <- combined_map_df %>%
 #     "output/2025_12_29_Shaw_2020_mice_hip_fc_proteomics_lit_review_allratmouse_v1.csv")
 ```
 
-#### Significant Only 
+#### Significant Only
 
 ```{r}
 lit_review_proteomics_sig <- lit_review_proteomics %>%
@@ -581,7 +581,7 @@ lit_review_proteomics_sig |>
   # opt_stylize(style = 1, color = 'gray', add_row_striping = TRUE)
 ```
 
-## Plots 
+## Plots
 
 Quick Key word analysis \| based off the one from arroyo
 
