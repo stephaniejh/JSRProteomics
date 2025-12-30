@@ -2,12 +2,19 @@
 title: "2025_10_28_Shaw_2020_proteomics_data"
 author: "Stephanie Huang"
 date: "`r Sys.Date()`"
-output: html_document
+# output: html_document
+output: github_document
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
+
+NOTE:
+
+Exported file only includes Rats & mouse mapping (excluded the 210 other rodents)
+
+Also, the provided data set only seems to have A1-A3 (in the frontal) & B1-B3 (in hippo file). Genuinely super confused by their data... from the looks of it it seem like like they did \~5 technical replicates per sample.
 
 Links
 
@@ -15,17 +22,20 @@ Links
 
 Legit kinda weird! - Has a billion rodents, the mapping of groups & samples is confusing
 
-# Part 1 - Setup & General Checks 
+# Part 1 - Setup & General Checks
 
 Part 1 contains the setup & general checks. This data is really weird so here I make various plots & tables to examine the data.
 
 ## Setup
 
-```{r include=FALSE}
+```{r message=FALSE, warning=FALSE}
 library(tidyverse) # ggplot, dplyr, etc
-library(ggrepel) #  for geom_text_repel()
+library(ggrepel) #  for geom_text_repel() on volcanos
 library(gt) # gt() tables
-library(pheatmap)
+library(pheatmap) # heatmaps
+library(ggh4x) # facet_nested
+library(readxl)
+library(rmarkdown) # already loaded or no?? -> for github markdown test
 ```
 
 ### Load in data
@@ -43,6 +53,7 @@ frontal_file <- frontal_file[-1:-3,] # negative index (rm rows 1-3) |data starts
 ```{r}
 head(frontal_file)
 str(frontal_file)
+
 ```
 
 ```{r}
@@ -72,7 +83,25 @@ fr_others <- frontal_file %>%
 (doing it sep as the col headers are slightly different)
 
 ```{r}
-hip_head_id <- c("")
+# frontal headers
+frontal_headers <- data.frame(
+  col_ids = c('AS_01_1_in_10',	'AS_01_1_in_10_5ul',	'AS_1_in_10_03',
+                 'AS_1_in_10_25',	'AS_1_in_10_27',	'AS_1_in_10_29',
+                 'AS_1_in_10_05',	'AS_1_in_10_07',	'AS_1_in_10_09',
+                 'AS_1_in_10_11',	'AS_1_in_10_13',	'AS_1_in_10_15',
+                 'AS_1_in_10_17',	'AS_1_in_10_19',	'AS_1_in_10_21',
+                 'AS_1_in_10_23'),
+  col_headers = c(rep('1A', 6), rep('2A', 5), rep('3A', 5))
+  )
+
+# frontal headers
+hip_headers <- data.frame(
+  col_ids = c('AS_1_in_10_02',	'AS_1_in_10_04',	'AS_1_in_10_26',
+              'AS_1_in_10_28',	'AS_1_in_10_30',	'AS_1_in_10_06',
+              'AS_1_in_10_08',	'AS_1_in_10_10',	'AS_1_in_10_12',
+              'AS_1_in_10_14',	'AS_1_in_10_16',	'AS_1_in_10_18',
+              'AS_1_in_10_20',	'AS_1_in_10_22',	'AS_1_in_10_24'),
+  col_headers = c(rep('1B', 5), rep('2B', 5), rep('3B', 5)))
 ```
 
 ```{r}
@@ -153,7 +182,7 @@ volcano_pv
 
 ------------------------------------------------------------------------
 
-### Heatmap check (done on separate raw/original df provided by shaw) 
+### Heatmap check (done on separate raw/original df provided by shaw)
 
 ```{r fig.height=13, fig.width=11}
 # Making a maxtrix - dplyr/tidyverse style
@@ -182,7 +211,7 @@ h_heatmap <- pheatmap(h_matrix, main = "Hippocampus - p.05")
 
 ------------------------------------------------------------------------
 
-### gt table (of sig) 
+### gt table (of sig)
 
 ```{r}
 combined |>
@@ -208,8 +237,417 @@ combined |>
 # Part 2 - mapping & other stuff
 
 ```{r}
+# load in uniprot df
+load(file = "input/mouse_ref_proteome_2025_12_13_54864x295.rda")
+load(file = "input/rat_ref_proteome_2025_12_13_51872x295.rda")
+```
+
+```{r}
+# cols I want from uniprot
+
+#colnames(mouse_ref_proteome_2025_12_13)
+
+my_cols <- c("Entry", "Entry.Name", "Protein.names", "Gene.Names..primary.",
+             "Gene.Names", "Gene.Names..synonym.",  "Annotation", "Reviewed",
+             "Protein.existence", "Protein.families", "Length", "Organism",
+             "Keywords", "Keyword.ID", "Function..CC.", "Miscellaneous..CC.", "Pathway",
+             "GeneID", "Ensembl",
+             "Gene.Ontology..GO.", "Gene.Ontology..cellular.component.",
+             "Gene.Ontology..molecular.function.", "Gene.Ontology..biological.process.",
+             "Gene.Ontology.IDs", "KEGG", "Reactome", "STRING",
+             "Entry.version", "Date.of.creation", "Date.of.last.modification",
+             "Date.of.last.sequence.modification"
+             )
+```
+
+```{r}
+# MOUSE REF PROTEOME
+mouse_ref <- mouse_ref_proteome_2025_12_13 %>% 
+  dplyr::select(all_of(my_cols)) %>%
+  rename(gene_names_primary = Gene.Names..primary.,
+         gene_names_synonym = Gene.Names..synonym.) %>% 
+  mutate(existence_ranking = case_when( # ranking level of evidence
+    Protein.existence == "Evidence at protein level" ~ 5,
+    Protein.existence == "Evidence at transcript level" ~ 4,
+    Protein.existence == "Inferred from homology" ~ 3, 
+    Protein.existence == "Predicted" ~ 2, 
+    Protein.existence == "Uncertain" ~ 1
+    ), .after = Protein.existence) %>%
+  mutate(across(where(is.character), ~ na_if(.x, ""))) 
+
+
+# need to run in separate line as mouse ref is input (otheriwise object not found )
+mouse_ref <- mouse_ref %>% 
+  mutate(occupied = rowSums(!is.na(mouse_ref)))
+
+# 2025_12_15 - NOTE DID NOT GET MOUSE OTHER PROTEOME FROM UNIPROT BECAUSE IT SAYS CONTAIMINATED!
+```
+
+```{r}
+# RAT REF PROTEOME
+rat_ref <- rat_ref_proteome_2025_12_13 %>% 
+  dplyr::select(all_of(my_cols)) %>%
+  rename(gene_names_primary = Gene.Names..primary.,
+         gene_names_synonym = Gene.Names..synonym.) %>% 
+  mutate(existence_ranking = case_when( # ranking level of evidence
+    Protein.existence == "Evidence at protein level" ~ 5,
+    Protein.existence == "Evidence at transcript level" ~ 4,
+    Protein.existence == "Inferred from homology" ~ 3, 
+    Protein.existence == "Predicted" ~ 2, 
+    Protein.existence == "Uncertain" ~ 1
+    ), .after = Protein.existence) %>%
+  mutate(across(where(is.character), ~ na_if(.x, ""))) 
+
+rat_ref <- rat_ref %>%
+  mutate(occupied = rowSums(!is.na(rat_ref)))
 
 ```
+
+```{r}
+combined_2 <- combined %>%
+  # Prep
+  mutate(row_global = row_number(), .before = Region) %>% # global row no.
+  group_by(Region) %>% 
+  mutate(row_region = row_number(), .after = Region) %>% # row no. by region
+  
+  # String split (some IDs are KPCA_MOUSE;KPCA_RAT)
+  mutate(split_acc = str_split(Accession, ";"), .after = Accession) %>%
+  tidyr::unnest(split_acc) %>%  # goes from 1954 to 2360
+  ungroup()
+```
+
+```{r}
+rat_shaw_df_1 <- combined_2 %>%
+  filter(str_detect(split_acc, "_RAT")) %>% # 692 proteins
+  left_join(rat_ref, by = join_by(split_acc == Entry.Name)) %>%
+  group_by(row_global) %>%
+  filter(if(any(Reviewed == "reviewed", na.rm = TRUE)) {
+    Reviewed == "reviewed"
+  } else{TRUE}) %>% #692 
+  slice_max(Annotation, n =1) %>%  #690
+  slice_max(existence_ranking, n = 1) %>%  #690
+  slice_max(occupied, n = 1, with_ties = FALSE) %>%  #688 | 686 no ties
+  ungroup()
+
+sum(is.na(rat_shaw_df_1$Entry)) # 12 unmapped (seem like non ref ones? or removed ones?)
+length(unique(rat_shaw_df_1$Entry)) #341
+length(unique(rat_shaw_df_1$row_global)) #686
+
+# rat_shaw_df_1 %>%
+#   count(Entry) %>%
+#   arrange(desc(n))
+```
+
+```{r}
+mouse_shaw_df_1 <- combined_2 %>%
+  filter(str_detect(split_acc, "_MOUSE")) %>% #1390
+  left_join(mouse_ref, by = join_by(split_acc == Entry.Name)) %>%
+  rename(Entry.m = Entry, # rename so no doubleups when joining to rat
+         Protein.names.m = Protein.names,
+         gene_names_primary.m = gene_names_primary,
+         Gene.Names.m = Gene.Names,
+         gene_names_synonym.m = gene_names_synonym)
+
+sum(is.na(mouse_shaw_df_1$Entry.m)) # 26 unmapped
+length(unique(mouse_shaw_df_1$Entry.m)) #683
+length(unique(mouse_shaw_df_1$row_global)) #1350
+```
+
+```{r}
+mouse_2_rat_shaw <- mouse_shaw_df_1 %>%  #1390 
+  select(row_global:gene_names_synonym.m) %>% # peelback
+  left_join(rat_ref, by = join_by(gene_names_primary.m == gene_names_primary),
+            relationship = "many-to-many") %>%  #34448
+  group_by(row_global) %>%
+  filter(if(any(Reviewed == "reviewed", na.rm = TRUE)) {
+    Reviewed == "reviewed"
+  } else{TRUE}) %>%  #5188 
+  slice_max(Annotation, n=1) %>%  #1828
+  slice_max(existence_ranking, n = 1) %>%  #1720
+  slice_max(occupied, n=1, with_ties = FALSE ) %>%  #1402 | no ties 1350 
+  ungroup()
+```
+
+### Make combined mapped df 
+
+Ignore
+
+```{r}
+combined_map_df <- bind_rows(list(rat_entry_2_rat_acc = rat_shaw_df_1,
+                                  mouse_entry_2_rat_gene = mouse_2_rat_shaw),
+                             .id = "map_method_df") %>% #2036
+  group_by(row_global) %>%
+  filter(if(any(map_method_df == "rat_entry_2_rat_acc", na.rm = TRUE)) {
+    map_method_df == "rat_entry_2_rat_acc"
+  } else{TRUE}) %>% # 1792 
+  ungroup() %>%
+  mutate(dir = ifelse(`Max fold change` > 0, "Down", "Up"),
+         .after = `Max fold change`) %>% # note opposite btw! since alll were up in NEG
+  rename(Region_ = Region)
+```
+
+### 210 entries from other rodents! 
+
+```{r}
+# all other rodents! - so many different rodents!
+# CRIGR_ chinese hamster..., CAVPO_ guinea pig...,
+other_unmapped_species <- combined_2 %>%
+  filter(!str_detect(Accession, "_RAT|_MOUSE")) %>% # 210 rows with n
+  arrange(`Anova (p)`)
+
+head(other_unmapped_species) # only ODP2_MESAU - part of pyruvate dehydrogenase complex
+```
+
+------------------------------------------------------------------------
+
+## Lit Review Table
+
+-   <https://hbctraining.github.io/Intro-to-R/lessons/basic_plots_in_r.html>
+-   <https://rstudio-pubs-static.s3.amazonaws.com/7953_4e3efd5b9415444ca065b1167862c349.html>
+
+```{r}
+colnames(combined_map_df)
+
+plot(combined_map_df$`Anova (p)`) # not super extra most 0.5 or -0.5
+plot(combined_map_df$`q Value`)
+plot(combined_map_df$Power)
+plot(combined_map_df$`Max fold change`)
+plot(combined_map_df$`Max fold change`, ylim=c(0,7)) # zoomed in
+```
+
+```{r}
+# # no colors???
+# # plot(`Anova (p)` ~ `Max fold change`, data = combined_map_df,
+# #      # # main = "", xlab = "", ylab = "",
+# #      col = c("pink","orange")[combined_map_df$Region], pch=16, cex=2.0)
+# 
+# plot(combined_map_df$`Anova (p)`, combined_map_df$`Max fold change`,
+#      col = combined_map_df$Region) 
+```
+
+```{r}
+# for lit review table 
+lit_review_proteomics <- combined_map_df %>%
+  mutate(
+    space = " ",
+    Year = 2020,
+    Author = 'Shaw',
+    Animal = 'Mice',
+    Condition = ' ',
+    Region = Region_ , 
+    Whole = 'Yes',
+    Exp_type = 'Protein',
+    Method = 'PROTEOMICS_LCMS_LFQ_DDA_OS',
+    Used_name = paste0(Accession, ' - (', Description,')'),
+    Mod = " ",
+    Mod_type = " ",
+    Gene_name = ifelse(map_method_df == "rat_entry_2_rat_acc",
+                       gene_names_primary, # if rat 2 rat 
+                       gene_names_primary.m), # if mouse 2 rat (other wise gives NA)
+    Comparison = 4, # POS VS NEG
+    In_EE = dir,
+    Fold_change = paste0("-", round(`Max fold change`, 2)), # prob same as log2FC?
+    Arrows = case_when( # dplyr case when, instead of ifelse
+      `Max fold change` > 2.5 ~ '+++',
+      `Max fold change` > 1 ~ '++',
+      `Max fold change` > .05 ~ '+',
+      `Max fold change` > -.05 ~ '=',
+      `Max fold change` > -1 ~ '-',
+      `Max fold change` > -2.5 ~ '--',
+      `Max fold change` <= -2.5 ~ '---',
+      ),
+    Significant = ifelse(`Anova (p)` <= 0.05, 'yes', 'no'),
+    pvalue = `Anova (p)`, # not they have q val (FDR which was used) & etc, 
+    N_tested = '5',
+    Stats_adj = 'unadjusted',
+    Note = '',
+    Full_name = Protein.names,
+    Uniprot_rat_accession = Entry,
+    # Uniprot_entry_name = Entry.Name,
+    Uniprot_entry_name = ifelse(map_method_df == "rat_entry_2_rat_acc",
+                       split_acc, # if rat 2 rat (other NA) since was used for joining
+                       Entry.Name), # else Entry.Name (normally here)
+    Uniprot_link = ifelse(!is.na(Entry),
+                          paste0('https://www.uniprot.org/uniprotkb/', Entry,'/entry'),
+                          ' '),
+    Wikipedia_link = ifelse(!is.na(Entry),
+                            paste0('https://en.wikipedia.org/wiki/',
+                                   `gene_names_primary`), ' '),
+    
+    Curation_method = case_when(
+      Reviewed == "reviewed" & map_method_df == "rat_entry_2_rat_acc"
+        ~ "auto - ref & reviewed (rat_entry_2_rat_acc)",
+      
+      Reviewed == "unreviewed" & map_method_df == "rat_entry_2_rat_acc"
+        ~ "auto - ref & unreviewed (rat_entry_2_rat_acc)",
+      
+      Reviewed == "reviewed" & map_method_df == "mouse_entry_2_rat_gene"
+        ~ "auto - ref & reviewed (mouse_entry_2_rat_gene_primary)",
+      
+      Reviewed == "unreviewed" & map_method_df == "mouse_entry_2_rat_gene"
+        ~ "auto - ref proteome (mouse_entry_2_rat_gene_primary)",
+      
+      is.na(Entry.Name)
+        ~ "manual - na"
+      ),
+    Class_group = ' ',
+    Other_link = ' ',
+    Other_comments = 'misc is combined EntryNameAcc_Description from the provided df',
+    misc = paste0(Accession, '_', Description)
+  ) %>%
+  arrange(Region, desc(In_EE), Gene_name)
+```
+
+```{r}
+# # write out | #1792
+# write_excel_csv(lit_review_proteomics,
+#     "output/2025_12_29_Shaw_2020_mice_hip_fc_proteomics_lit_review_allratmouse_v1.csv")
+```
+
+#### Significant Only 
+
+```{r}
+lit_review_proteomics_sig <- lit_review_proteomics %>%
+  filter(`Anova (p)` <= 0.05) # 49
+```
+
+```{r}
+# #write out
+# write_excel_csv(lit_review_proteomics_sig,
+#     "output/2025_12_29_Shaw_2020_mice_hip_fc_proteomics_lit_review_sig_ramo_v1.csv")
+```
+
+## gt table lit mapped
+
+```{r}
+lit_review_proteomics_sig |> 
+  
+  dplyr::select(c(Region, In_EE, Gene_name, Entry, Uniprot_entry_name, Full_name, 
+                  Accession, Description,
+                  Fold_change, `Anova (p)`, Reviewed, Protein.families)) |>
+  
+  gt(
+    groupname_col = "Region",
+    rowname_col = "In_EE"
+  ) |>
+  
+  cols_label(
+    Gene_name = "Entry",
+    Uniprot_entry_name = "Name",
+    Full_name = "Protein Description",
+    # misc = "Arroyo's Identifiers"
+    Accession = "Shaw Acc",
+    Description = "Shaw Desc",
+  ) |>
+  
+  fmt_number(decimals = 2) |>
+  
+  tab_header(
+    title = "Shaw et al., 2020 (Mice Hippocampus & Frontal Pole/Lobe - POS(EE) vs. NEG)",
+    subtitle = "44 DEG (Front), 5 DEG (Hip) - all down in POS(EE) p<=.05, data is a bit odd/confusing (removed excess rodents) + some missing data? look at note at the start of the knitted", 
+  ) |>
+  
+  tab_style( 
+    style = list(
+      # cell_fill(color = "#F9E3D6"),
+      cell_text(style = "italic")
+      ),
+    locations = cells_body(
+      columns = Gene_name,
+      # rows = currency < 100
+    )
+  ) |>
+  
+  tab_style( 
+    style = list(
+      # cell_fill(color = "#F9E3D6"),
+      cell_text(size = 8)
+      ),
+    locations = cells_body(
+      columns = c(Accession, Description, Reviewed)
+      # rows = currency < 100
+    )
+  ) |>
+  
+  tab_options(heading.title.font.size = 16.5,
+              table.font.size=11.5,
+              # stub.font.weight = "bold",
+              # stub.font.size = 13,
+              row_group.font.weight = "bold",
+              row_group.font.size = 14,
+              column_labels.font.size = 12.5,
+              column_labels.font.weight = "bold") #|>
+  
+  # opt_stylize(style = 1, color = 'gray', add_row_striping = TRUE)
+```
+
+## Plots 
+
+Quick Key word analysis \| based off the one from arroyo
+
+```{r}
+key_annos <- read_excel("input/keywords_all_2025_12_09_uniprot.xlsx")
+```
+
+```{r}
+keywords_df <- lit_review_proteomics_sig %>%
+  mutate(hashtags = str_split(Keywords, ";")) %>% # splits into list by sep ;
+  tidyr::unnest(hashtags)
+```
+
+```{r}
+keywords_counts <- keywords_df %>%
+  group_by(Region, In_EE) %>%
+  filter(hashtags != "Reference proteome") %>%  # ignore ref
+  dplyr::count(hashtags, sort = TRUE) %>%
+  left_join(key_annos, by = join_by(hashtags == Name)) %>%
+  mutate(In_EE = as.factor(In_EE),
+         Category = as.factor(Category)) #%>%
+```
+
+```{r}
+summary(keywords_counts)
+plot(keywords_counts$n)
+```
+
+```{r fig.height=6, fig.width=12}
+keyplot <- keywords_counts %>%
+  # ungroup() %>%
+  # filter(percent > 2) %>% # 11 keywords
+  filter(n > 2) %>%
+  ggplot(aes(x = hashtags,
+             # x = reorder(Category, n),
+             y = n,
+             # fill = reorder(hashtags, n))
+             alpha = hashtags, 
+             fill = Category)) +
+  geom_col(color = "grey10", alpha = 0.9) +
+  # facet_wrap(~In_EE, scales = "free_y", space = "free_y") +
+  facet_nested(~Region+Category, 
+             scales = 'free_x',
+             space = 'free',
+             # switch = "both"
+             ) +
+  labs(x = "Uniprot Keyword", y = "Count",
+       title = "Shaw 2020 - Keywords in Significant Proteins",
+       subtitle = "3 or more") +
+  scale_fill_brewer(palette = "Spectral") +
+  # # scale_fill_distiller(palette = "Spectral") +
+  # scale_fill_paletteer("MetBrewer::Signac") +
+  # coord_flip() +
+  # theme_classic() +
+  theme_bw() +
+  theme(
+    legend.position = "bottom",
+     axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5, # 90, hj1 t/R, vj.5 cent
+                               size = 10, face = 'italic'), 
+    axis.text.y = element_text(hjust = 1, color = "grey20", size = 10), # rota 90 & hjust=1 (top/right)
+    )
+
+keyplot
+```
+
+------------------------------------------------------------------------
 
 ```{r}
 sessionInfo()
