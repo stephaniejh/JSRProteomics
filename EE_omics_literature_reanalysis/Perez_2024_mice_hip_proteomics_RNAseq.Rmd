@@ -33,6 +33,7 @@ library(readxl)
 library(writexl)
 library(ggrepel) #  for geom_text_repel()
 library(gt)
+library(ggh4x) # facet_nested
 ```
 
 ### Read in proteomics sheets
@@ -990,3 +991,299 @@ conditions <- unique(lit_review_proteomics$Condition)
 ```
 
 TO DO: Maybe do a for loop to get the overlapping proteins/genes for each entry? look at their old code?
+
+------------------------------------------------------------------------
+
+## Quick keyword analysis 2025_12_31
+
+Quick Key word analysis \| based off the one from arroyo
+
+```{r}
+key_annos <- read_excel("input/keywords_all_2025_12_09_uniprot.xlsx")
+```
+
+### Proteomics
+
+```{r}
+keywords_df_prot <- lit_review_proteomics_sig %>%
+  ungroup() %>%
+  mutate(hashtags = str_split(Keywords, ";")) %>% # splits into list by sep ;
+  tidyr::unnest(hashtags)
+```
+
+```{r}
+keywords_counts_prot <- keywords_df_prot %>%
+  group_by(proteomics_id, In_EE) %>%
+  filter(hashtags != "Reference proteome") %>%  # ignore ref
+  dplyr::count(hashtags, sort = TRUE) %>%
+  mutate(total = sum(n)) %>% # note is grouped!
+  mutate(percent = round(n/total * 100, 1)) %>%
+  mutate(dummy = "1") %>%  # needed for input - so it can plot 1 bar
+  left_join(key_annos, by = join_by(hashtags == Name)) %>%
+  mutate(In_EE = as.factor(In_EE),
+         Category = as.factor(Category)) 
+
+```
+
+```{r}
+summary(keywords_counts_prot) # percent median .1 & mean.399
+plot(keywords_counts_prot$n)
+```
+
+```{r fig.height=6, fig.width=12}
+keyplot_prot_1 <- keywords_counts_prot %>%
+  filter(percent > 1) %>% # 11 keywords
+  # filter(n > 5) %>%
+  ggplot(aes(x = n,
+             y = dummy,
+             fill = Category)) +
+  geom_col(position = "fill", color = "grey10", alpha = 0.8) +
+    facet_nested(proteomics_id~In_EE, 
+             scales = 'free_x',
+             space = 'free',
+             # switch = "both"
+             ) +
+  labs(x = "Uniprot Keyword", y = "Count",
+       title = "Perez 2024 - Keywords in Significant Proteins",
+       subtitle = "") +
+  scale_fill_brewer(palette = "Spectral") +
+  theme_bw() +
+  theme(
+    legend.position = "bottom",
+     axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5, # 90, hj1 t/R, vj.5 cent
+                               size = 10, face = 'italic'), 
+    axis.text.y = element_text(hjust = 1, color = "grey20", size = 10), # rota 90 & hjust=1 (top/right)
+    )
+
+keyplot_prot_1
+```
+
+```{r fig.height=8, fig.width=11}
+keyplot_prot_2 <- keywords_counts_prot %>%
+  
+  # ungroup() %>%
+  filter(!Category %in% c("Technical term",
+                          "Coding sequence diversity")) %>%
+  filter(percent > 1) %>% # 11 keywords
+  # filter(n > 5) %>%
+  
+  ggplot(aes(x = hashtags,
+             # x = reorder(Category, n),
+             y = percent,
+             # fill = reorder(hashtags, n))
+             # alpha = hashtags, 
+             color = In_EE,
+             fill = Category)) +
+  
+  geom_col(position = position_dodge(
+    preserve = 'single', width = .7), # so col sam wid
+    width = .7, alpha = 0.5) +
+  
+  facet_nested(proteomics_id~Category, 
+             scales = 'free_x',
+             space = 'free') +
+  
+  labs(x = "Uniprot Keyword", y = "Count",
+       title = "Perez 2024 - Keywords in Significant Proteins",
+       subtitle = "") +
+  
+  scale_fill_brewer(palette = "Spectral") +
+  scale_color_manual(values = c("royalblue4", "firebrick3")) +
+  
+  theme_bw() +
+  theme(
+    legend.position = "bottom",
+     axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5, # 90, hj1 t/R, vj.5 cent
+                               size = 10, face = 'italic'), 
+    axis.text.y = element_text(hjust = 1, color = "grey20", size = 10), # rota 90 & hjust=1 (top/right)
+    panel.spacing = unit(0, "cm"),  # Removes space between panel 
+    )
+
+
+keyplot_prot_2
+```
+
+### Trancriptomics
+
+```{r}
+keywords_df_RNA <- lit_review_transcriptomics %>%
+  ungroup() %>%
+  filter(padj <= 0.1) %>%
+  mutate(hashtags = str_split(Keywords, ";")) %>% # splits into list by sep ;
+  tidyr::unnest(hashtags)
+```
+
+```{r}
+keywords_counts_RNA <- keywords_df_RNA %>%
+  group_by(transcriptomics_id, In_EE) %>%
+  filter(hashtags != "Reference proteome") %>%  # ignore ref
+  dplyr::count(hashtags, sort = TRUE) %>%
+  mutate(total = sum(n)) %>% # note is grouped!
+  mutate(percent = round(n/total * 100, 1)) %>%
+  mutate(dummy = "1") %>%  # needed for input - so it can plot 1 bar
+  left_join(key_annos, by = join_by(hashtags == Name)) %>%
+  mutate(In_EE = as.factor(In_EE),
+         Category = as.factor(Category)) 
+```
+
+```{r}
+summary(keywords_counts_RNA) # percent median .4 + mean 0.86 
+plot(keywords_counts_RNA$n)
+```
+
+```{r fig.height=5, fig.width=11}
+keyplot_RNA_1 <- keywords_counts_RNA %>% 
+  filter(percent > 1) %>% # 11 keywords
+  # filter(n > 5) %>%
+  ggplot(aes(x = n,
+             y = dummy,
+             fill = Category)) +
+  geom_col(position = "fill", color = "grey10", alpha = 0.8) +
+    facet_nested(transcriptomics_id~In_EE, 
+             scales = 'free_x',
+             space = 'free',
+             # switch = "both"
+             ) +
+  labs(x = "Uniprot Keyword", y = "Count",
+       title = "Perez 2024 - Keywords in Significant RNA",
+       subtitle = "") +
+  scale_fill_brewer(palette = "Spectral") +
+  theme_bw() +
+  theme(
+    legend.position = "bottom",
+     axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5, # 90, hj1 t/R, vj.5 cent
+                               size = 10, face = 'italic'), 
+    axis.text.y = element_text(hjust = 1, color = "grey20", size = 10), # rota 90 & hjust=1 (top/right)
+    )
+
+keyplot_RNA_1
+```
+
+```{r fig.height=8, fig.width=11}
+keyplot_RNA_2 <- keywords_counts_RNA %>%
+  
+  # ungroup() %>%
+  filter(!Category %in% c("Technical term",
+                          "Coding sequence diversity")) %>%
+  filter(percent > .7) %>% 
+  # filter(n > 5) %>%
+  
+  ggplot(aes(x = hashtags,
+             # x = reorder(Category, n),
+             y = percent,
+             # fill = reorder(hashtags, n))
+             # alpha = hashtags, 
+             color = In_EE,
+             fill = Category)) +
+  
+  geom_col(position = position_dodge(
+    preserve = 'single', width = .7), # so col sam wid
+    width = .7, alpha = 0.5) +
+  
+  facet_nested(transcriptomics_id~Category, 
+             scales = 'free_x',
+             space = 'free') +
+  
+  labs(x = "Uniprot Keyword", y = "Count",
+       title = "Perez 2024 - Keywords in Significant Proteins",
+       subtitle = "") +
+  
+  scale_fill_brewer(palette = "Spectral") +
+  scale_color_manual(values = c("royalblue4", "firebrick3")) +
+  
+  theme_bw() +
+  theme(
+    legend.position = "bottom",
+     axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5, # 90, hj1 t/R, vj.5 cent
+                               size = 10, face = 'italic'), 
+    axis.text.y = element_text(hjust = 1, color = "grey20", size = 10), # rota 90 & hjust=1 (top/right)
+    panel.spacing = unit(0, "cm"),  # Removes space between panel 
+    )
+
+
+keyplot_RNA_2
+```
+
+### Finding neuro related words + others of interest
+
+```{r}
+neuro_words <- c("brain", "synaptic", "synapse", "neuro", "synap", "axon",
+                 "dendritic", "dendrite", "neural", "nerve", "nervous",
+                 "glutamate", "spinal", "cortical", "cortex", "cereb",
+                 "action potential", "membrane potential", "electrochemical",
+                 "serotonin", "dopamine", "noradrenalin", "ionotropic", "chloride",
+                 "sodium", "potassium", "NMDA", "AMPA",
+                 "cytoskeleton", "cell projection", "GTP", "Mitochondrion", 
+                 "respiratory chain", "oxidative phosphorylation",
+                 "Neurotransmitter", "Ribosomal protein", 
+                 "signal transduction", "signaling pathway")
+
+neuro_pattern <- paste(neuro_words, collapse = "|") # |OR
+```
+
+```{r}
+key_annos_neuro <- key_annos %>%
+  filter(str_detect(Definition, neuro_pattern) | str_detect(Name, neuro_pattern))
+```
+
+```{r fig.height=8, fig.width=11}
+keyplot_prot_3 <- keywords_counts_prot %>%
+  filter(!hashtags == "Cytoplasm") %>% 
+  filter(str_detect(Definition, neuro_pattern) | str_detect(hashtags, neuro_pattern)) %>%
+  ggplot(aes(x = hashtags,
+             y = percent,
+             color = In_EE,
+             fill = Category)) +
+  geom_col(position = position_dodge(
+    preserve = 'single', width = .7), # so col sam wid
+    width = .7, alpha = 0.5) +
+  facet_nested(proteomics_id~Category, 
+             scales = 'free_x',
+             space = 'free') +
+  labs(x = "Uniprot Keyword", y = "Count",
+       title = "Perez 2024 - Neuro-related Keywords in Significant Proteins",
+       subtitle = "") +
+  scale_fill_brewer(palette = "Spectral") +
+  scale_color_manual(values = c("royalblue4", "firebrick3")) +
+  theme_bw() +
+  theme(
+    legend.position = "bottom",
+     axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5, # 90, hj1 t/R, vj.5 cent
+                               size = 10, face = 'italic'), 
+    axis.text.y = element_text(hjust = 1, color = "grey20", size = 10), # rota 90 & hjust=1 (top/right)
+    panel.spacing = unit(0, "cm"),  # Removes space between panel 
+    )
+
+keyplot_prot_3
+```
+
+```{r fig.height=8, fig.width=11}
+keyplot_RNA_3 <- keywords_counts_RNA %>%
+   filter(!hashtags == "Cytoplasm") %>% 
+  filter(str_detect(Definition, neuro_pattern) | str_detect(hashtags, neuro_pattern)) %>%
+  ggplot(aes(x = hashtags,
+             y = percent,
+             color = In_EE,
+             fill = Category)) +
+  geom_col(position = position_dodge(
+    preserve = 'single', width = .7), # so col sam wid
+    width = .7, alpha = 0.5) +
+  facet_nested(transcriptomics_id~Category, 
+             scales = 'free_x',
+             space = 'free') +
+  labs(x = "Uniprot Keyword", y = "Count",
+       title = "Perez 2024 - Neruo-related Keywords in Significant Proteins",
+       subtitle = "") +
+  scale_fill_brewer(palette = "Spectral") +
+  scale_color_manual(values = c("royalblue4", "firebrick3")) +
+  theme_bw() +
+  theme(
+    legend.position = "bottom",
+     axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5, # 90, hj1 t/R, vj.5 cent
+                               size = 10, face = 'italic'), 
+    axis.text.y = element_text(hjust = 1, color = "grey20", size = 10), # rota 90 & hjust=1 (top/right)
+    panel.spacing = unit(0, "cm"),  # Removes space between panel 
+    )
+
+keyplot_RNA_3
+```
