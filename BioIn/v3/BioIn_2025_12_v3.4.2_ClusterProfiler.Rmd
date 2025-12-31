@@ -1,0 +1,305 @@
+---
+title: "BioIn_2025_12_v3.4.2_ClusterProfiler"
+author: "Stephanie Huang"
+date: '`r Sys.Date()`'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# ClusterProfiler BioIn - 1pspg v3.2.2 EE x Age t1
+
+*for MSstatsTMT 1pspg v3.2.2 EE x Age t1 -(defaults) with B1 129N removed (TMT channel with too much loaded)*
+
+## Set up
+
+### Packages
+
+```{r}
+# # Install if needed 
+# if (!require("BiocManager", quietly = TRUE))
+#     install.packages("BiocManager")
+# 
+# BiocManager::install("clusterProfiler")
+# BiocManager::install("msigdbr")
+# BiocManager::install("org.Rn.eg.db")
+# BiocManager::install("enrichplot")
+# BiocManager::install("pathview")
+```
+
+```{r}
+# Load Packages 
+library(tidyverse) # for dplyr, ggplot, stringr, readr etc 
+library(clusterProfiler) #GSEA includes gsea, enrichplot etc.
+library(org.Rn.eg.db) # Rat genome anno pack- incl. AnnotationDbi
+library(msigdbr) # MSigDB gene sets
+library(enrichplot) # for dotplot()
+library(ggridges) # for ridgeplot()
+library(pathview) # pathview() - Kegg pathway visualisation
+```
+
+### Import data
+
+Load the mapped comparisons output generated from
+
+```{r}
+# mapped_comp_v3.2.2_EExAge_t1
+load("input/protein_lists/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_comp.rda")
+
+df <- mapped_comp_v3.2.2_EExAge_t1
+```
+
+lil checks
+
+```{r}
+# lil checks
+head(df) # peak
+str(df) # structure | 7746 x 9
+colnames(df) # column names
+
+# lil checks (bit messy)
+unique(df$issue) # if = na in issue column then good. if not exclude
+check_1 <- df %>% filter(str_detect(log2FC, "Inf")) # 5 inf 
+check_2 <- df %>% filter(str_detect(Protein, "Cont")) # 0 (since already removed)
+unique(df$Label) 
+length(unique(df$Label)) #8
+```
+
+### **Clean up df & rename**
+
+```{r}
+protein_comp <- df %>%
+  filter(is.na(issue)) %>% # keeps rows with issue == na (so comparisons that are ok)
+  filter(!str_detect(log2FC, "Inf")) # remove infinity/missing fold change values
+
+# check 
+head(protein_comp) 
+colnames(protein_comp)
+
+```
+
+## **KEGG GSEA via gseKEGG with for loops**
+
+based of for loop made for the Lichti 2014 reanalysis
+
+### Setup containers & prepare info for sequences 
+
+```{r}
+# check 
+unique(df$Label) 
+# don't want "HxA_EE_YNG_vs_SH_OLD" "HxA_EE_OLD_vs_SH_YNG", so just do manually 
+
+# VECTOR for labels (contrasts from MSstatsTMT analysis)
+label_names <- c("H_EE_vs_SH", "A_YNG_vs_OLD",
+                 "HxA_EE_YNG_vs_EE_OLD", "HxA_SH_YNG_vs_SH_OLD",
+                 "HxA_EE_YNG_vs_SH_YNG", "HxA_EE_OLD_vs_SH_OLD")
+
+# CONTAINER - EMPTY VECTOR
+gsea_KEGG_results_list <- vector(mode = "list")
+```
+
+### Operation
+
+```{r}
+for (lb in label_names) {
+  
+  # PART 1
+  geneList_working_df <- protein_comp %>%
+    filter(Label == lb) %>% 
+    mutate(ranking = sign(log2FC)*(-log10(pvalue))) %>%
+    group_by(Protein) %>%
+    summarise(ranking = mean(ranking, na.rm = TRUE)) %>%
+    arrange(-ranking)
+  
+  # next deframe into a named vector needed to supply 2 fgsea()
+  geneList_vec_working <- tibble::deframe(geneList_working_df)
+  
+  # store in list 
+  gsea_KEGG_results_list$geneList_vec[[lb]] <- geneList_vec_working
+  
+
+  # PART 2 - KEGG GSEA
+  # run KEGG gsea with clusterProfiler
+  kegg_res_working <- clusterProfiler::gseKEGG(geneList = geneList_vec_working, # ALL DEFAULTS
+                              organism = 'rno',
+                              keyType = 'uniprot', # using UNIPROT directly
+                              by = 'fgsea',
+                              pvalueCutoff = 0.05, 
+                              pAdjustMethod = 'BH', #BejaminiHoc Correciton
+                              minGSSize = 10, 
+                              maxGSSize = 500,
+                              eps = 1e-10
+                              )
+  
+  # save kegg result original to list vec
+  gsea_KEGG_results_list$kegg_results[[lb]] <- kegg_res_working
+  
+  # not needed here so compute & save directly? or can do anyway? idk?
+  gsea_KEGG_results_list$kegg_results_tib[[lb]] <- tibble::as_tibble(kegg_res_working) 
+  
+  
+  # PART 3 - PLOTS
+  # Make dotplots | this one plots & saves properly!
+  # 3.1 - regular dot blot
+  dp <- enrichplot::dotplot(kegg_res_working,
+                            showCategory = 30,
+                            font.size = 11,
+                            title = paste0(stringr::str_glue(
+                              'Housing x Age - {lb} - 1pspg MSstatsTMT (v3.2.2) 2025_12_31 - gseKEGG_r'))) 
+
+  
+  print(dp)   # print dot plots 
+  gsea_KEGG_results_list$dotplots[[lb]] <- dp # save to list 
+  
+  # 3.2 - dot plot split by sign
+  dp_sign <- enrichplot::dotplot(kegg_res_working,
+                            split = '.sign',
+                            showCategory = 30,
+                            font.size = 11,
+                            title = paste0(stringr::str_glue(
+                              'Housing x Age - {lb} - 1pspg MSstatsTMT (v3.2.2) 2025_12_31 - gseKEGG_r - by sign'))) +
+    facet_grid(.~.sign)
+  
+  print(dp_sign) # print dot plots 
+  gsea_KEGG_results_list$dotplots_sign[[lb]] <- dp_sign # save to list
+  
+}
+```
+
+```{r}
+# horrific name but at least clear...
+KEGG_gsea_EExAge_cp_v3.4.2_msstats_v3.2.2_t1 <- gsea_KEGG_results_list
+
+# save(KEGG_gsea_EExAge_cp_v3.4.2_msstats_v3.2.2_t1,
+#      file = "output/2025_12_31_KEGG_gsea_EExAge_cp_v3.4.2_msstats_v3.2.2_t1.rda")
+```
+
+------------------------------------------------------------------------
+
+## GO GSEA via gseGO with nested for loop
+
+based of for loop made for the Lichti 2014 reanalysis
+
+### **Setup containers & prepare info for sequences**
+
+```{r}
+# # ALREADY DONE ABOVE 
+# # VECTOR for labels (contrasts from MSstatsTMT analysis)
+# label_names <- c("H_EE_vs_SH", "A_YNG_vs_OLD",
+#                  "HxA_EE_YNG_vs_EE_OLD", "HxA_SH_YNG_vs_SH_OLD",
+#                  "HxA_EE_YNG_vs_SH_YNG", "HxA_EE_OLD_vs_SH_OLD")
+
+GO_names <- c('BP', 'CC', 'MF', 'ALL') # my GO NAMES 
+
+# CONTAINER - EMPTY VECTOR
+gsea_GO_results_lists <- vector(mode = "list")
+```
+
+### **Operation**
+
+```{r}
+for (lb in label_names){ 
+  
+ # PART 1
+  geneList_working_df_go <- protein_comp %>%
+    filter(Label == lb) %>% 
+    mutate(ranking = sign(log2FC)*(-log10(pvalue))) %>%
+    group_by(Protein) %>%
+    summarise(ranking = mean(ranking, na.rm = TRUE)) %>%
+    arrange(-ranking)
+  
+ 
+  # Part 1.2
+  # next, deframe into a named vector needed to supply to fgsea()
+  geneList_vec_working_go <- tibble::deframe(geneList_working_df_go)
+  
+  geneList_vec_working_go <- geneList_vec_working_go[!is.na(names(geneList_vec_working_go))]
+  
+  # store in list 
+  gsea_GO_results_lists$geneList_vec[[lb]] <- geneList_vec_working_go
+  
+  # Part 1.3 | plots fine but does not save?
+  # Plot ranked gene List
+  gL_plot_go <- plot(geneList_vec_working_go, main = paste0(lb, '- Ranked gene list'))
+  
+  print(gL_plot_go)
+  
+  gsea_GO_results_lists$geneList_plots[[lb]] <- gL_plot_go
+  
+  
+  
+  # PART 2 
+  # nested for loop
+  # so now for each label, go through all 3 go terms (BP, CC, MF)
+  for (go in GO_names){ 
+    
+    # operation
+    # run 
+    GO_res_working <- clusterProfiler::gseGO(geneList = geneList_vec_working_go,
+                                             OrgDb = org.Rn.eg.db, 
+                                             keyType = "UNIPROT",
+                                             ont = go,
+                                             exponent = 1, # default settings for all 
+                                              minGSSize = 10,
+                                              maxGSSize = 500,
+                                              eps = 1e-10,
+                                              pvalueCutoff = 0.05,
+                                              pAdjustMethod = "BH",
+                                              by = "fgsea"
+                                             )
+    
+  # save GO result original to list vec
+  gsea_GO_results_lists$GO_results[[lb]][[go]] <- GO_res_working
+    
+    
+  # extra (not really needed but save anyway
+  gsea_GO_results_lists$GO_results_tib[[lb]][[go]] <- tibble::as_tibble(GO_res_working)
+    
+
+  # PART 3 - if else for dot plot to deal with any nas
+  if (nrow(GO_res_working@result) > 0 ) {
+    
+    #Make dot plots | this one saves properly
+    # Part 3.1 - regular dot plots 
+    dp_go <- enrichplot::dotplot(GO_res_working,
+                              showCategory = 30,
+                              font.size = 11,
+                              title = paste0(stringr::str_glue(
+                                'Housing x Age - {lb} - {go} - 1pspg MSstatsTMT (v3.2.2) 2025_12_31 - gseGO_r'
+                              )))
+    print(dp_go) # print dot plots
+    gsea_GO_results_lists$dotplots[[lb]][[go]] <- dp_go # save to list
+    
+    #Make sign dot plot 
+    # Part 3.2 - regular dot plots 
+    dp_go_sign <- enrichplot::dotplot(GO_res_working,
+                              showCategory = 30,
+                              font.size = 11,
+                              split = '.sign',
+                              title = paste0(stringr::str_glue(
+                              'Housing x Age - {lb} - {go} - 1pspg MSstatsTMT (v3.2.2) 2025_12_31 - gseGO_r - by sign'
+                              )))
+    print(dp_go_sign) # print dot plots
+    gsea_GO_results_lists$dotplots_sign[[lb]][[go]] <- dp_go_sign # save to list
+    
+  } else{print(paste0("No GO gsea result for dot plot in ", lb, "-", go, " :("))}
+
+  
+  
+  } 
+  
+  
+}
+```
+
+```{r}
+# horrific name but at least clear...
+GO_gsea_EExAge_cp_v3.4.2_msstats_v3.2.2_t1 <- gsea_GO_results_lists
+
+save(GO_gsea_EExAge_cp_v3.4.2_msstats_v3.2.2_t1,
+     file = "output/2025_12_31_GO_gsea_EExAge_cp_v3.4.2_msstats_v3.2.2_t1.rda")
+```
+
+------------------------------------------------------------------------
