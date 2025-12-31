@@ -1,0 +1,307 @@
+---
+title: "MSstatsTMT_2025_12_v3.2.2_1pspg_EExAge"
+author: "Stephanie Huang"
+date: "2025-12-31"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r message=FALSE, warning=FALSE}
+# Set working directory - *Session \> Set Working Directory \> To Source File Location*
+# setwd("~/RProjects/JSRProteomics/MSstatsTMT/v3")
+
+# Load packages 
+library(MSstatsTMT) # for conversion, protein summarization & group comparisons.
+library(MSstats) # some dependencies from above? / other functions
+library(readr) # data import & export e.g. read_tsv() or write_csv()
+library(dplyr) # wrangling data e.g. %>% & bind_rows()
+library(stringr) # for str_detect()
+library(ggplot2) # not really used? but for plots 
+```
+
+# Import & Setup Data
+
+## Import
+
+### Import PSMs
+
+Import the .txt PSMs from each .pdresult file.
+
+```{r message=FALSE, warning=FALSE}
+mydir = 'input/2025_08_Steph_TMTpro_PSMs_MSstatsTMT_EEvsSH_for_PhD/txt_exports'
+
+myfiles_PSMs = list.files(path = mydir,
+                          pattern = ".*PSM.*\\.txt$",
+                          full.names = TRUE)
+#batch read
+df_list_PSMs <- setNames(lapply(myfiles_PSMs, read_tsv),
+                         myfiles_PSMs)
+
+# bind to 1
+raw.pd <- bind_rows(df_list_PSMs,
+                    .id = 'pdresults_file_id') 
+```
+
+lil check
+
+```{r}
+colnames(raw.pd) 
+str(raw.pd) 
+dim(raw.pd) # for 96 files v3 1pspg - 959281 x 55
+head(raw.pd)
+tail(raw.pd)
+```
+
+### Import Annotation File
+
+The annotation file was created using the R script titled \`EE_SH\_\_F_M_TMTpro_annotation_v3\` in the v2 folder. The generated csv files have been put under input \> anno here & is titled - "TMT_EE_annotation_v3_HA_2025_12.csv.csv" \| It removes B1 129N outlier (TMT channel overloaded) plus makes a combined Housing & age condition. See previous test on the same day "MSstatsTMT_2025_12_v3.2.1_sp.Rmd" doing main effect analyses.
+
+#### Import Annotation
+
+```{r}
+# t1 - Housing - EE vs SH 
+annotation <- read_csv(
+  "input/anno/TMT_EE_annotation_v3_HA_2025_12.csv")
+
+dim(annotation) #prints dimensions of csv (1536 rows & 21 columns)
+head(annotation) #prints first few rows of data (preview)
+```
+
+## Set up dataframe for MSstatsTMT Analysis
+
+[Note: Use Master Protein Accession (since too many uncertainties == thrown out (also will be using GSEA (which has 1 ID anyway). Also remove observations that contain contaminants in the Master protein Column]{.smallcaps}
+
+Random PSM df checks
+
+```{r}
+# total no. of unique protein names. does not account for ; ?
+length(unique(raw.pd$"Protein Accessions")) # 1pspg 10622
+
+# total no. of unique protein names (master). does not account for ; ?
+length(unique(raw.pd$"Master Protein Accessions")) # 1pspg 9490
+
+# total no. of unique peptide sequences 
+length(unique(raw.pd$"Annotated Sequence")) # 84110
+
+# unique Spectrum.File, which is TMT run.
+length(unique(raw.pd$"Spectrum File")) # 96
+```
+
+```{r}
+# no. of observations with contaminants TRUE vs FALSE
+# sp - F = 779667	& T = 4843
+# 1pspg 954706 & 4575
+raw.pd %>%
+  count(Contaminant) 
+
+contam_check <- raw.pd %>%
+  filter(Contaminant == TRUE) 
+# seems pick master protein & then filter out those that contain Cont_ in the master protein
+
+# raw.pd with no cont_ in master protein accession column
+raw.pd.nmc <- raw.pd %>%
+  filter(!str_detect(`Master Protein Accessions`, "Cont_")) # 959281 to 955952
+```
+
+### PDtoMSstatsTMTFormat()
+
+Using all defaults. Done in \~5min on Jenn
+
+<https://vitek-lab.github.io/MSstatsTMT/reference/PDtoMSstatsTMTFormat.html>
+
+```{r}
+# all defaults, except using master protein accession (with no contam) instead 
+input.pd <- PDtoMSstatsTMTFormat(input = raw.pd.nmc, 
+                                 annotation = annotation,
+                                 which.proteinid = "Master Protein Accessions",
+                                 useNumProteinsColumn = TRUE, 
+                                 useUniquePeptide = TRUE,
+                                 rmPSM_withfewMea_withinRun = TRUE,
+                                 rmProtein_with1Feature = FALSE,
+                                 summaryforMultipleRows = sum,
+                                 use_log_file = TRUE,
+                                 append = FALSE)
+```
+
+```{r}
+# # save as rda if desired.
+# save(input.pd, file = 'output/MSstatsTMT/2025_12_31_1pspg_input_pd_v3.2.2_t1_EExAge.rda')
+```
+
+## proteinSummarization()
+
+Summarises the PSMs into protein groups with abundance values.
+
+[Takes only 13 min on Jen]{.smallcaps}
+
+```{r}
+# all defaults
+quant.msstats <- proteinSummarization(input.pd,
+                                      method="msstats",
+                                      global_norm=TRUE,
+                                      reference_norm=TRUE,
+                                      remove_norm_channel = TRUE,
+                                      remove_empty_channel = TRUE,
+                                      MBimpute = TRUE, #only 4 MSstats method?
+                                      maxQuantileforCensored = NULL,
+                                      use_log_file = TRUE,
+                                      append = FALSE) 
+```
+
+### Save output
+
+```{r}
+# # #SAVE!!! rda
+# save(quant.msstats,
+#      file = 'output/MSstatsTMT/psum/2025_12_31_1pspg_Protein_Summarization_v3.2.2_t1_EExAge.rda')
+# 
+# # export csv
+# write_csv(quant.msstats$FeatureLevelData,
+#           file='output/MSstatsTMT/psum/2025_12_31_1pspg_ProteinAbnd_featurelvl_v3.2.2_t1_EExAge.csv')
+# 
+# write_csv(quant.msstats$ProteinLevelData,
+#           file='output/MSstatsTMT/psum/2025_12_31_1pspg_ProteinAbnd_proteinlvl_v3.2.2_t1_EExAge.csv')
+```
+
+## groupComparisonTMT
+
+Import Contrast Matrix
+
+```{r}
+# Housing x Age
+contrast_matrix <- read.csv("input/anno/2025_09_04_HA_matrix.csv", 
+                            header = TRUE) # header must be true
+
+# contrast_matrix <- read.csv("input/anno/2025_12_31_anno_v3_HA_matrix.csv", 
+#                             header = TRUE) # same one lol | didn't need to remake... 
+```
+
+Setup as a matrix df (for t2)
+
+```{r}
+#based off of sam's
+row.names(contrast_matrix) <- contrast_matrix[,1]
+contrast_matrix <- contrast_matrix[,-1]
+contrast_matrix <- as.matrix(contrast_matrix)
+```
+
+### t1 - Housing x Age - by contrasts (all defaults) \| Model fitting for 8049 proteins.
+
+[Note takes only 5 min on Jen]{.smallcaps}
+
+```{r}
+# all defaults
+test.contrasts.msstats <- groupComparisonTMT(data = quant.msstats, 
+                             contrast.matrix = contrast_matrix, # t1
+                             moderated = FALSE, # default F t1
+                             adj.method = "BH", # multiple compa adj
+                             save_fitted_models = TRUE) #otherwise not saved
+```
+
+save comparisons output
+
+```{r}
+# save(test.contrasts.msstats,
+#      file = 'output/MSstatsTMT/comp/2025_12_31_1pspg_test_contrasts_msstats_v3.2.2_t1_EExAge.rda')
+# 
+# write_excel_csv(test.contrasts.msstats$ComparisonResult,
+#     file='output/MSstatsTMT/comp/2025_12_31_1pspg_test_contrasts_msstats_v3.2.2_t1_EExAge.csv')
+```
+
+Volcano Plots
+
+```{r}
+groupComparisonPlots(data = test.contrasts.msstats$ComparisonResult,
+                    type="VolcanoPlot")
+```
+
+------------------------------------------------------------------------
+
+### t2 - Housing x Age - by contrasts (all defaults, except moderated = TRUE) \| Model fitting for 8049 proteins.
+
+Even less significant proteins (compared to swissprot), it seems moderated may drop more due to multiple testing??? Not sure, is that why its written as FALSE by default in the MSstatsTMT function?
+
+[Note takes only 5 min on Jen]{.smallcaps}
+
+```{r}
+# all defaults
+test.contrasts.msstats.t2 <- groupComparisonTMT(data = quant.msstats, 
+                             contrast.matrix = contrast_matrix, # t1
+                             moderated = TRUE, # default F |t2 TRUE
+                             adj.method = "BH", # multiple compa adj
+                             save_fitted_models = TRUE) #otherwise not saved
+```
+
+save comparisons output
+
+```{r}
+# save(test.contrasts.msstats.t2,
+#      file = 'output/MSstatsTMT/comp/2025_12_31_1pspg_test_contrasts_msstats_v3.2.2_t2_EExAge_modT.rda')
+# 
+# write_excel_csv(test.contrasts.msstats.t2$ComparisonResult,
+#     file='output/MSstatsTMT/comp/2025_12_31_1pspg_test_contrasts_msstats_v3.2.2_t2_EExAge_modT.csv')
+```
+
+Volcano Plots
+
+```{r}
+groupComparisonPlots(data = test.contrasts.msstats.t2$ComparisonResult,
+                    type="VolcanoPlot")
+```
+
+### Export raw msstatsTMT outputs in combined rda
+
+```{r}
+v3.2.2_t1_EExAge_def <- list(psum = quant.msstats$ProteinLevelData,
+                             comp_res = test.contrasts.msstats$ComparisonResult)
+
+v3.2.2_t2_EExAge_modT <- list(psum = quant.msstats$ProteinLevelData, # same redundant?
+                             comp_res = test.contrasts.msstats.t2$ComparisonResult)
+
+# # Save as a combined .rda
+# save(v3.2.2_t1_EExAge_def,
+#      v3.2.2_t2_EExAge_modT,
+#      file = "output/2025_12_31_MSstatsTMT_v3.2.2_1pspg_EExAge_t1_t2.rda")
+```
+
+## Make annotated version & export
+
+NOTE: This is the fasta csv used to search in PD2.4 (2025_08 v3 1pspg) \| 22403). tRhe fasta was made into a df using the pnnl tutorial. Also side note, uniprot has just changed the reference proteome in 2025_10, & deleted some entries (21800), subject to change again next year...
+
+```{r}
+# this is the fasta csv used to search in PD (2025_08 v3 1pspg) | 22403
+v3_1pspg_PD <- read_csv("input/db/UP000002494_10116_Rat_Ref_Proteome_22403_1pspg_2025_04_UPfastadf.csv")
+```
+
+```{r}
+mapped_psum <- left_join(quant.msstats$ProteinLevelData, v3_1pspg_PD, 
+                         by = join_by(Protein == unique_id))
+
+# write_excel_csv(mapped_psum,
+#                 "output/MSstatsTMT/psum/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_psum.csv")
+# 
+# mapped_psum_v3.2.2_EExAge <- mapped_psum
+# 
+# save(mapped_psum_v3.2.2_EExAge,
+#          file = "output/MSstatsTMT/psum/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_psum.rda")
+```
+
+```{r}
+mapped_comp <- left_join(test.contrasts.msstats$ComparisonResult, v3_1pspg_PD, 
+                         by = join_by(Protein == unique_id))
+
+# write_excel_csv(mapped_comp,
+#                 "output/MSstatsTMT/comp/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_comp.csv")
+# 
+# mapped_comp_v3.2.2_EExAge_t1 <- mapped_comp
+# 
+# save(mapped_comp_v3.2.2_EExAge_t1,
+#          file = "output/MSstatsTMT/comp/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_comp.rda")
+```
+
+```{r}
+sessionInfo()
+```
