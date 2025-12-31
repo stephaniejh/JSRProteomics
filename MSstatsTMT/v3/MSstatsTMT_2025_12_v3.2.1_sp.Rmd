@@ -1,0 +1,819 @@
+---
+title: "MSstatsTMT_2025_12_v3.2.1_sp"
+author: "stephaniejh"
+date: "2025_12_31"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Vignette Title}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+# MSstatsTMT_2025_12_v3.2.1_sp main effects analysis (after removing outlier TMT 129N B1)
+
+December 31st 2025
+
+Background - The PCAs & abundance plots from the QC analysis showed that sample from TMT 129N B1 (the same with higher loading) was more divergent that others despite normalisation in MSstatsTMT. Because of this, I decided to remove it from the annotation file & rerun the MSstatsTMT analysis. This is the 1st rerun of that - mainly looking at the main effects.
+
+Findings - about the same honestly. Batch effects is heavily driven by year it seems. Although this probably confirms they normalisation done prior with MSstatsTMT was pretty good to begin with/fairly stable.
+
+Details
+
+-   Super basic run of MSstatsTMT. Just to check the effect of removing 129N B1 [outlier with too much loading]{.underline} (honestly, about the same) using the SwissProt database (canonical only \~8215).
+-   Defaults, with Master Protein Accession (removed contaminants in MPA col)
+    -   Model fitting for 4562 proteins
+
+Tests
+
+-   Housing - EE vs SH
+
+    -   [***t1***]{.underline} - v3.2.1_t1 - is Condition EE vs SH only - all defaults pairwise SwissProt, uses master protein accession with columns containing contaminant removed. ➝ results in 10 sig proteins (adj \<=0.05)
+    -   [***t2***]{.underline} - v3.2.1_t1 - is the same as above, except moderated = TRUE ➝ results in 9 sig proteins (adj \<=0.05)
+        -   About the same as above?
+
+-   Cohort - 3a vs 3b vs 4 (defaults, like t1)
+
+    -   [t3]{.underline} - 3.1.2_t3_cohort
+    -   Similar to previous - 3a vs 4 & 4 vs 3b l,ots of significant
+
+-   Behaviour - exp vs help (defaults, like t1)
+
+    -   [t4]{.underline} - 3.1.2_t4_behaviour
+    -   Like before, no significant differences (volcano flatline)
+
+-   Sex - M vs F (defaults, like t1)
+
+    -   [t5]{.underline} - 3.1.2_t5_sex
+    -   Most significant differences -\> driven by batch effect of year.
+
+-   Litter - lots e.g. S329 vs s423
+
+    -   [t6]{.underline} - 3.1.2_t6_litter
+    -   Similar to previous (most patterns driven by cohort/age)
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>")
+
+# Set working directory - *Session \> Set Working Directory \> To Source File Location*
+# setwd("~/RProjects/JSRProteomics/MSstatsTMT/v3")
+
+# Load packages 
+library(MSstatsTMT) # for conversion, protein summarization & group comparisons.
+library(MSstats) # some dependencies from above? / other functions
+library(readr) # data import & export e.g. read_tsv() or write_csv()
+library(dplyr) # wrangling data e.g. %>% & bind_rows()
+library(stringr) # for str_detect()
+library(ggplot2) # not really used? but for plots 
+```
+
+# Import & Setup Data
+
+## Import
+
+### Import PSMs
+
+Import the .txt PSMs from each .pdresult file.
+
+```{r message=FALSE, warning=FALSE}
+# set up mydir - input location relative to script
+mydir = 'input/2025_09_sp_Steph_TMTpro_PSMs_MSstatsTMT_EEvsSH_for_PhD/txt_exports/'
+
+# list out files that contain "PSM" & end with .txt 
+myfiles_PSMs = list.files(path = mydir,
+                          pattern = ".*PSM.*\\.txt$",
+                          full.names = TRUE)
+
+# batch read in
+df_list_PSMs <- setNames(lapply(myfiles_PSMs, read_tsv),
+                         myfiles_PSMs)
+```
+
+#### Make Mega PSMs df called raw.pd
+
+```{r}
+# bind into master file/df called raw.pd 
+raw.pd <- bind_rows(df_list_PSMs,
+                    .id = 'pdresults_file_id') # .id = file name as col
+```
+
+lil check
+
+```{r}
+colnames(raw.pd)
+str(raw.pd)
+head(raw.pd)
+tail(raw.pd)
+```
+
+#### Export megafile
+
+```{r}
+# write_tsv(raw.pd, "output/PSMs/combined_PSMs_2025_09_04_sp.txt")
+# write_csv(raw.pd, "output/PSMs/combined_PSMs_2025_09_04_sp.csv")
+```
+
+### Import Annotation File
+
+The annotation file was created using the R script titled \`EE_SH\_\_F_M_TMTpro_annotation_v3\` in the v2 folder. The generated csv files have been put under input \> anno here & is titled - "Steph_TMT_all_EE&SH_F&M_final_annotation_file_v3_2025_12_31.csv"
+
+#### Import Annotation
+
+```{r}
+# t1 - Housing - EE vs SH 
+annotation <- read_csv(
+  "input/anno/Steph_TMT_all_EE&SH_F&M_final_annotation_file_v3_2025_12_31.csv")
+
+dim(annotation) #prints dimensions of csv (1536 rows & 21 columns)
+head(annotation) #prints first few rows of data (preview)
+```
+
+## Set up dataframe for MSstatsTMT Analysis
+
+Note
+
+1.  ~~MSstatsTMT uses protein accession as the default rather than the master protein accession. Apparently, you can use either; not explicitly stated why, but I suspect that protein accession is more appropriate, as you are summarising the proteins from the PSMs here from multiple fractions? Whereas PD is treating it as a single run rather than a fraction?~~
+2.  Use Master Protein Accession (since too many uncertainties == thrown out (also will be using GSEA (which has 1 ID anyway)
+
+Random PSM df checks
+
+```{r}
+# total no. of unique protein names. does not account for ; ?
+length(unique(raw.pd$"Protein Accessions")) # sp 5586
+
+# total no. of unique protein names (master). does not account for ; ?
+length(unique(raw.pd$"Master Protein Accessions")) # sp 5395
+
+# total no. of unique peptide sequences 
+length(unique(raw.pd$"Annotated Sequence")) # sp 58194
+
+# unique Spectrum.File, which is TMT run.
+length(unique(raw.pd$"Spectrum File")) # 96
+```
+
+```{r}
+# no. of observations with contaminants TRUE vs FALSE
+# sp - F = 779667	& T = 4843
+raw.pd %>%
+  count(Contaminant) 
+
+contam_check <- raw.pd %>%
+  filter(Contaminant == TRUE) 
+# seems pick master protein & then filter out those that contain Cont_ in the master protein
+
+# raw.pd with no cont_ in master protein accession column
+raw.pd.nmc <- raw.pd %>%
+  filter(!str_detect(`Master Protein Accessions`, "Cont_")) # 781209
+```
+
+### PDtoMSstatsTMTFormat()
+
+Using all defaults. Done in \~3min on Jennifer (prev 10 min on laptop!)
+
+<https://vitek-lab.github.io/MSstatsTMT/reference/PDtoMSstatsTMTFormat.html>
+
+```{r}
+# all defaults, except using master protein accession (with no contam) instead 
+input.pd <- PDtoMSstatsTMTFormat(input = raw.pd.nmc, 
+                                 annotation = annotation,
+                                 which.proteinid = "Master.Protein Accessions",
+                                 useNumProteinsColumn = TRUE, 
+                                 useUniquePeptide = TRUE,
+                                 rmPSM_withfewMea_withinRun = TRUE,
+                                 rmProtein_with1Feature = FALSE,
+                                 summaryforMultipleRows = sum,
+                                 use_log_file = TRUE,
+                                 append = FALSE)
+```
+
+```{r}
+# # save as rda if desired.
+# save(input.pd, file = 'output/MSstatsTMT/2025_12_31_sp_input_pd_v3.2.1_t1_housing.rda')
+```
+
+## proteinSummarization()
+
+Summarises the PSMs into protein groups with abundance values.
+
+[Takes only 9 min on Jen]{.smallcaps}
+
+```{r}
+# all defaults
+quant.msstats <- proteinSummarization(input.pd,
+                                      method="msstats",
+                                      global_norm=TRUE,
+                                      reference_norm=TRUE,
+                                      remove_norm_channel = TRUE,
+                                      remove_empty_channel = TRUE,
+                                      MBimpute = TRUE, #only 4 MSstats method?
+                                      maxQuantileforCensored = NULL,
+                                      use_log_file = TRUE,
+                                      append = FALSE) 
+```
+
+### Save output
+
+Save .rda file
+
+```{r}
+# #SAVE!!! rda
+# save(quant.msstats,
+#      file = 'output/MSstatsTMT/psum/2025_12_31_sp_Protein_Summarization_v3.2.1_t1_housing.rda')
+```
+
+Save csv files
+
+```{r}
+# write_csv(quant.msstats$FeatureLevelData,
+#           file='output/MSstatsTMT/psum/2025_12_31_sp_ProteinAbnd_featurelvl_v3.2.1_t1_housing.csv')
+# 
+# write_csv(quant.msstats$ProteinLevelData,
+#           file='output/MSstatsTMT/psum/2025_12_31_sp_ProteinAbnd_proteinlvl_v3.2.1_t1_housing.csv')
+```
+
+```{r}
+# # profile plot 
+# protein_list <- c('P17425',	'Q925G0',	'P05369',	'P06536',	'P06687',
+#                   'P0C6B8',	'P21708',	'P49911',	'Q5I0D5',	'Q8CFC9',
+#                   'P85845',	'Q91XV6',	'P97610',	'P04094',	'P04276',
+#                   'Q9EPJ0', # housing 
+#                   'P03994',	'Q3KRE8',	'Q62952',	'P37397',	'Q9Z327',
+#                   'P33671',	'Q9JHU0',	'Q62813',	'P0C0A1',	'O35314', #  10 cohort
+#                   'A0A096MJN4',	'A0A096MJY4',	'A0A096MJZ0', # 10 behaviour
+#                   'A0A096MK47',	'A0A0G2JTR4', 'A0A0G2JTZ2',	'A0A0G2JUG7',
+#                   'A0A0G2JV04',	'A0A0G2JXN2',	'A0A0G2JXT6',
+#                   'P02625',	'Q62763',	'Q64428',	'P13264',	'P31646', # 10 sex
+#                   'Q9Z2Q1',	'P24473',	'P0C0S7',	'P60825',	'P17475')
+
+# # DOES NOT DISPLAY?
+# dataProcessPlotsTMT(data=quant.msstats, # why does this not plot properly???
+#                    type='ProfilePlot',
+#                    which.Protein = 'P17425')
+
+plot(quant.msstats$ProteinLevelData)
+
+
+```
+
+## groupComparisonTMT
+
+Import Contrast Matrix
+
+```{r}
+# contrast_matrix <- read.csv("input/anno/2025_09_04_HA_matrix.csv", 
+#                             header = TRUE)
+```
+
+Setup as a matrix df (for t2)
+
+```{r}
+# #from sams
+# row.names(contrast_matrix) <- contrast_matrix[,1]
+# contrast_matrix <- contrast_matrix[,-1]
+# contrast_matrix <- as.matrix(contrast_matrix)
+```
+
+### t1 - groupComparisonTMT \| all defaults
+
+t1 - run as pairwise (housing EE vs SH) - all defaults \| model fiting for 4562 proteins
+
+[Note takes only 3 min on Jen]{.smallcaps}
+
+```{r}
+# all defaults
+test.pairwise.msstats <- groupComparisonTMT(data = quant.msstats, 
+                             # contrast.matrix = contrast_matrix, # t2
+                             contrast.matrix = "pairwise", # t1
+                             moderated = FALSE, # default F
+                             adj.method = "BH", # multiple compa adj
+                             save_fitted_models = TRUE) #otherwise not saved
+```
+
+save comparisons output
+
+```{r}
+# save(test.pairwise.msstats,
+#      file = 'output/MSstatsTMT/comp/2025_12_31_sp_test_pairwise_msstats_v3.1.2_t1_housing.rda')
+# 
+# #write_csv gives weird ' apostrophe by value but write.csv doesn't?
+# write.csv(test.pairwise.msstats$ComparisonResult,
+#     file='output/MSstatsTMT/comp/2025_12_31_sp_test_pairwise_msstats_v3.1.2_t1_housing.csv')
+```
+
+Volcano Plots
+
+```{r}
+# oops saves over if address specified??? not sure?
+groupComparisonPlots(data = test.pairwise.msstats$ComparisonResult,
+                    type="VolcanoPlot")
+```
+
+------------------------------------------------------------------------
+
+### t2 - group comparisons \| testing moderated = TRUE
+
+```{r}
+# all defaults, except moderated = TRUE
+test.pairwise.msstats.2 <- groupComparisonTMT(data = quant.msstats, 
+                             # contrast.matrix = contrast_matrix, # t2
+                             contrast.matrix = "pairwise", # t1
+                             moderated = TRUE, # default F
+                             adj.method = "BH", # multiple compa adj
+                             save_fitted_models = TRUE) #otherwise not saved
+```
+
+Save comparisons output
+
+```{r}
+# save(test.pairwise.msstats.2,
+#      file = 'output/MSstatsTMT/comp/2025_12_31_sp_test_pairwise_msstats_v3.1.2_t2_housing.rda')
+# 
+# #write_csv gives weird ' apostrophe by value but write.csv doesn't?
+# write.csv(test.pairwise.msstats.2$ComparisonResult,
+#     file='output/MSstatsTMT/comp/2025_12_31_sp_test_pairwise_msstats_v3.1.2_t2_housing.csv')
+```
+
+Volcano Plots
+
+```{r}
+# oops saves over if address specified??? not sure?
+groupComparisonPlots(data = test.pairwise.msstats.2$ComparisonResult,
+                    type="VolcanoPlot")
+```
+
+------------------------------------------------------------------------
+
+## t3 - Cohort
+
+```{r}
+annotation_cohort <- annotation %>% 
+  rename(Unused = Condition) %>%
+  rename(Condition = Cohort)
+
+# annotation_litter <- annotation %>% 
+#   rename(Unused = Condition) %>%
+#   rename(Condition = Litter)
+  
+
+  # annotation_sex <- annotation %>% 
+  # rename(Unused = Condition) %>%
+  # rename(Condition = Sex)
+
+```
+
+### PD to MSstats format
+
+```{r}
+# all defaults, except using master protein accession (with no contam) instead 
+input.pd.t3 <- PDtoMSstatsTMTFormat(input = raw.pd.nmc, 
+                                 annotation = annotation_cohort, # cohort
+                                 which.proteinid = "Master.Protein Accessions",
+                                 useNumProteinsColumn = TRUE, 
+                                 useUniquePeptide = TRUE,
+                                 rmPSM_withfewMea_withinRun = TRUE,
+                                 rmProtein_with1Feature = FALSE,
+                                 summaryforMultipleRows = sum,
+                                 use_log_file = TRUE,
+                                 append = FALSE)
+```
+
+### protein sum
+
+```{r}
+# all defaults
+quant.msstats.t3 <- proteinSummarization(input.pd.t3, # cohort
+                                      method="msstats",
+                                      global_norm=TRUE,
+                                      reference_norm=TRUE,
+                                      remove_norm_channel = TRUE,
+                                      remove_empty_channel = TRUE,
+                                      MBimpute = TRUE, #only 4 MSstats method?
+                                      maxQuantileforCensored = NULL,
+                                      use_log_file = TRUE,
+                                      append = FALSE) 
+```
+
+#### Save psum output
+
+Save .rda file
+
+```{r}
+# #SAVE!!! rda
+# save(quant.msstats.t3,
+#      file = 'output/MSstatsTMT/psum/2025_12_31_sp_Protein_Summarization_v3.2.1_t3_cohort.rda')
+```
+
+Save csv files
+
+```{r}
+# write_csv(quant.msstats.t3$FeatureLevelData,
+#           file='output/MSstatsTMT/psum/2025_12_31_sp_ProteinAbnd_featurelvl_v3.2.1_t3_cohort.csv')
+# 
+# write_csv(quant.msstats.t3$ProteinLevelData,
+#           file='output/MSstatsTMT/psum/2025_12_31_sp_ProteinAbnd_proteinlvl_v3.2.1_t1_co.csv')
+```
+
+### groupComparisonTMT \| all defaults
+
+[Note takes only 3 min on Jen]{.smallcaps}
+
+```{r}
+# all defaults
+test.pairwise.msstats.t3 <- groupComparisonTMT(data = quant.msstats.t3, 
+                             contrast.matrix = "pairwise", 
+                             moderated = FALSE, # default F
+                             adj.method = "BH", # multiple compa adj
+                             save_fitted_models = TRUE) #otherwise not saved
+```
+
+save comparisons output
+
+```{r}
+# save(test.pairwise.msstats.t3,
+#      file = 'output/MSstatsTMT/comp/2025_12_31_sp_test_pairwise_msstats_v3.1.2_t3_cohort.rda')
+# 
+# #write_csv gives weird ' apostrophe by value but write.csv doesn't?
+# write.csv(test.pairwise.msstats.t3$ComparisonResult,
+#     file='output/MSstatsTMT/comp/2025_12_31_sp_test_pairwise_msstats_v3.1.2_t3_cohort.csv')
+```
+
+Volcano Plots
+
+```{r}
+# oops saves over if address specified??? not sure?
+groupComparisonPlots(data = test.pairwise.msstats.t3$ComparisonResult,
+                    type="VolcanoPlot")
+```
+
+------------------------------------------------------------------------
+
+## t4 - Behaviour
+
+```{r}
+annotation_behaviour <- annotation %>%
+  rename(Unused = Condition) %>%
+  rename(Condition = exp_helper)
+```
+
+### PD to MSstats
+
+```{r}
+# all defaults, except using master protein accession (with no contam) instead 
+input.pd.t4 <- PDtoMSstatsTMTFormat(input = raw.pd.nmc, 
+                                 annotation = annotation_behaviour, # behaviour
+                                 which.proteinid = "Master.Protein Accessions",
+                                 useNumProteinsColumn = TRUE, 
+                                 useUniquePeptide = TRUE,
+                                 rmPSM_withfewMea_withinRun = TRUE,
+                                 rmProtein_with1Feature = FALSE,
+                                 summaryforMultipleRows = sum,
+                                 use_log_file = TRUE,
+                                 append = FALSE)
+```
+
+### protein sum
+
+```{r}
+# all defaults
+quant.msstats.t4 <- proteinSummarization(input.pd.t4, # behaviour exp vs help
+                                      method="msstats",
+                                      global_norm=TRUE,
+                                      reference_norm=TRUE,
+                                      remove_norm_channel = TRUE,
+                                      remove_empty_channel = TRUE,
+                                      MBimpute = TRUE, #only 4 MSstats method?
+                                      maxQuantileforCensored = NULL,
+                                      use_log_file = TRUE,
+                                      append = FALSE) 
+```
+
+```{r}
+# #SAVE!!! rda
+# save(quant.msstats.t4,
+#     file = 'output/MSstatsTMT/psum/2025_12_31_sp_Protein_Summarization_v3.2.1_t4_behaviour.rda')
+# 
+# # Save CSV 
+# write_csv(quant.msstats.t4$FeatureLevelData,
+#            file='output/MSstatsTMT/psum/2025_12_31_sp_ProteinAbnd_featurelvl_v3.2.1_t4_behaviour.csv')
+# 
+# write_csv(quant.msstats.t4$ProteinLevelData,
+#            file='output/MSstatsTMT/psum/2025_12_31_sp_ProteinAbnd_proteinlvl_v3.2.1_t4_behaviour.csv')
+```
+
+### group comparisons
+
+```{r}
+# all defaults
+test.pairwise.msstats.t4 <- groupComparisonTMT(data = quant.msstats.t4, 
+                             contrast.matrix = "pairwise", 
+                             moderated = FALSE, # default F
+                             adj.method = "BH", # multiple compa adj
+                             save_fitted_models = TRUE) #otherwise not saved
+```
+
+```{r}
+# save(test.pairwise.msstats.t4,
+#      file = 'output/MSstatsTMT/comp/2025_12_31_sp_test_pairwise_msstats_v3.1.2_t4_behaviour.rda')
+# 
+# #write_csv gives weird ' apostrophe by value but write.csv doesn't?
+# write.csv(test.pairwise.msstats.t4$ComparisonResult,
+#     file='output/MSstatsTMT/comp/2025_12_31_sp_test_pairwise_msstats_v3.1.2_t4_behaviour.csv')
+```
+
+```{r}
+groupComparisonPlots(data = test.pairwise.msstats.t4$ComparisonResult,
+                    type="VolcanoPlot")
+```
+
+## t5 - Sex
+
+```{r}
+annotation_sex <- annotation %>%
+  rename(Unused = Condition) %>%
+  rename(Condition = Sex)
+```
+
+### PD to MSstats
+
+```{r}
+# all defaults, except using master protein accession (with no contam) instead 
+input.pd.t5 <- PDtoMSstatsTMTFormat(input = raw.pd.nmc, 
+                                 annotation = annotation_sex, # sex
+                                 which.proteinid = "Master.Protein Accessions",
+                                 useNumProteinsColumn = TRUE, 
+                                 useUniquePeptide = TRUE,
+                                 rmPSM_withfewMea_withinRun = TRUE,
+                                 rmProtein_with1Feature = FALSE,
+                                 summaryforMultipleRows = sum,
+                                 use_log_file = TRUE,
+                                 append = FALSE)
+```
+
+### protein sum
+
+```{r}
+# all defaults
+quant.msstats.t5 <- proteinSummarization(input.pd.t5, # sex
+                                      method="msstats",
+                                      global_norm=TRUE,
+                                      reference_norm=TRUE,
+                                      remove_norm_channel = TRUE,
+                                      remove_empty_channel = TRUE,
+                                      MBimpute = TRUE, #only 4 MSstats method?
+                                      maxQuantileforCensored = NULL,
+                                      use_log_file = TRUE,
+                                      append = FALSE) 
+```
+
+```{r}
+# #SAVE!!! rda
+# save(quant.msstats.t5,
+#     file = 'output/MSstatsTMT/psum/2025_12_31_sp_Protein_Summarization_v3.2.1_t5_sex.rda')
+# 
+# # Save CSV
+# write_csv(quant.msstats.t5$FeatureLevelData,
+#            file='output/MSstatsTMT/psum/2025_12_31_sp_ProteinAbnd_featurelvl_v3.2.1_t5_sex.csv')
+# 
+# write_csv(quant.msstats.t5$ProteinLevelData,
+#            file='output/MSstatsTMT/psum/2025_12_31_sp_ProteinAbnd_proteinlvl_v3.2.1_t5_sex.csv')
+```
+
+### group comparisons
+
+```{r}
+# all defaults
+test.pairwise.msstats.t5 <- groupComparisonTMT(data = quant.msstats.t5, 
+                             contrast.matrix = "pairwise", 
+                             moderated = FALSE, # default F
+                             adj.method = "BH", # multiple compa adj
+                             save_fitted_models = TRUE) #otherwise not saved
+```
+
+```{r}
+# save(test.pairwise.msstats.t5,
+#      file = 'output/MSstatsTMT/comp/2025_12_31_sp_test_pairwise_msstats_v3.1.2_t5_sex.rda')
+# 
+# #write_csv gives weird ' apostrophe by value but write.csv doesn't?
+# write.csv(test.pairwise.msstats.t5$ComparisonResult,
+#     file='output/MSstatsTMT/comp/2025_12_31_sp_test_pairwise_msstats_v3.1.2_t5_sex.csv')
+```
+
+```{r}
+groupComparisonPlots(data = test.pairwise.msstats.t5$ComparisonResult,
+                    type="VolcanoPlot")
+```
+
+## t6 - Litter
+
+```{r}
+annotation_litter <- annotation %>%
+  rename(Unused = Condition) %>%
+  rename(Condition = Litter)
+```
+
+### PD to MSstats
+
+```{r}
+# all defaults, except using master protein accession (with no contam) instead 
+input.pd.t6 <- PDtoMSstatsTMTFormat(input = raw.pd.nmc, 
+                                 annotation = annotation_litter, # litter
+                                 which.proteinid = "Master.Protein Accessions",
+                                 useNumProteinsColumn = TRUE, 
+                                 useUniquePeptide = TRUE,
+                                 rmPSM_withfewMea_withinRun = TRUE,
+                                 rmProtein_with1Feature = FALSE,
+                                 summaryforMultipleRows = sum,
+                                 use_log_file = TRUE,
+                                 append = FALSE)
+```
+
+### protein sum
+
+```{r}
+# all defaults
+quant.msstats.t6 <- proteinSummarization(input.pd.t6, # litter
+                                      method="msstats",
+                                      global_norm=TRUE,
+                                      reference_norm=TRUE,
+                                      remove_norm_channel = TRUE,
+                                      remove_empty_channel = TRUE,
+                                      MBimpute = TRUE, #only 4 MSstats method?
+                                      maxQuantileforCensored = NULL,
+                                      use_log_file = TRUE,
+                                      append = FALSE) 
+```
+
+```{r}
+# #SAVE!!! rda
+# save(quant.msstats.t6,
+#     file = 'output/MSstatsTMT/psum/2025_12_31_sp_Protein_Summarization_v3.2.1_t6_litter.rda')
+# 
+# # Save CSV
+# write_csv(quant.msstats.t6$FeatureLevelData,
+#            file='output/MSstatsTMT/psum/2025_12_31_sp_ProteinAbnd_featurelvl_v3.2.1_t6_litter.csv')
+# 
+# write_csv(quant.msstats.t6$ProteinLevelData,
+#            file='output/MSstatsTMT/psum/2025_12_31_sp_ProteinAbnd_proteinlvl_v3.2.1_t6_litter.csv')
+```
+
+### group comparisons
+
+```{r}
+# all defaults
+test.pairwise.msstats.t6 <- groupComparisonTMT(data = quant.msstats.t6, 
+                             contrast.matrix = "pairwise", 
+                             moderated = FALSE, # default F
+                             adj.method = "BH", # multiple compa adj
+                             save_fitted_models = TRUE) #otherwise not saved
+```
+
+```{r}
+# save(test.pairwise.msstats.t6,
+#      file = 'output/MSstatsTMT/comp/2025_12_31_sp_test_pairwise_msstats_v3.1.2_t6_litter.rda')
+# 
+# #write_csv gives weird ' apostrophe by value but write.csv doesn't?
+# write.csv(test.pairwise.msstats.t6$ComparisonResult,
+#     file='output/MSstatsTMT/comp/2025_12_31_sp_test_pairwise_msstats_v3.1.2_t6_litter.csv')
+```
+
+```{r}
+groupComparisonPlots(data = test.pairwise.msstats.t6$ComparisonResult,
+                    type="VolcanoPlot")
+```
+
+------------------------------------------------------------------------
+
+## Saving stuff
+
+Combined all the main effects swissprot analyses
+
+```{r}
+v3.2.1_sp_main_ef_MSsTMT_psum_pld <- bind_rows(
+  list(
+    t1_housing = quant.msstats$ProteinLevelData, 
+    t3_cohort = quant.msstats.t3$ProteinLevelData, 
+    t4_behaviour = quant.msstats.t4$ProteinLevelData, 
+    t5_sex = quant.msstats.t5$ProteinLevelData, 
+    t6_litter = quant.msstats.t6$ProteinLevelData 
+  ), .id = "test_group"
+)
+```
+
+```{r}
+# # export psum
+# write_excel_csv(v3.2.1_sp_main_ef_MSsTMT_psum_pld, 
+#                 "output/2025_12_31_MSstatsTMT_v3.2.1_sp_main_ef_psum_pld.csv")
+```
+
+```{r}
+v3.2.1_sp_main_ef_MSsTMT_comp_results <- bind_rows(
+  list(
+    t1_housing = test.pairwise.msstats$ComparisonResult,
+    t1_housing_modT = test.pairwise.msstats.2$ComparisonResult,
+    t3_cohort = test.pairwise.msstats.t3$ComparisonResult,
+    t4_behaviour = test.pairwise.msstats.t4$ComparisonResult,
+    t5_sex = test.pairwise.msstats.t5$ComparisonResult,
+    t6_litter = test.pairwise.msstats.t6$ComparisonResult
+  ), .id = "test_group"
+)
+```
+
+```{r}
+# # export csv
+# write_excel_csv(v3.2.1_sp_main_ef_MSsTMT_comp_results,
+#                 "output/2025_12_31_MSstatsTMT_v3.2.1_sp_main_ef_comp_res.csv")
+```
+
+```{r}
+# # Save as a combined .rda 
+# save(v3.2.1_sp_main_ef_MSsTMT_psum_pld,
+#      v3.2.1_sp_main_ef_MSsTMT_comp_results,
+#      file = "output/2025_12_31_MSsTMT_v3.2.1_sp_main_ef_psumcomp_t1_t6.rda")
+```
+
+------------------------------------------------------------------------
+
+```{r}
+# #load rat proteome
+# load("input/db/rat_ref_proteome_2025_12_13_51872x295.rda")
+```
+
+```{r}
+# lil_rat <- rat_ref_proteome_2025_12_13 %>%
+#   select(c(Entry, Entry.Name, Gene.Names..primary., Gene.Names, Protein.names, GeneID,
+#            Reviewed, Annotation, Keywords, Protein.families))
+```
+
+```{r}
+# volcano_df <- left_join(v3.2.1_sp_main_ef_MSsTMT_comp_results, lil_rat,
+#                         by = join_by(Protein == Entry))
+```
+
+```{r}
+
+```
+
+------------------------------------------------------------------------
+
+# ^t7\ -\ Testing\ annotation\ file^
+
+NVM don't worry about it
+
+```{r}
+
+```
+
+```{r}
+anno_2 <- read_csv("input/anno/Steph_TMT_all_EE&SH_F&M_final_anno_file_v3_2025_12_31_rm_B1_129N.csv")
+
+dim(anno_2)
+```
+
+```{r}
+# all defaults, except using master protein accession (with no contam) instead 
+input.pd.t7 <- PDtoMSstatsTMTFormat(input = raw.pd.nmc, 
+                                 annotation = anno_2,
+                                 which.proteinid = "Master.Protein Accessions",
+                                 useNumProteinsColumn = TRUE, 
+                                 useUniquePeptide = TRUE,
+                                 rmPSM_withfewMea_withinRun = TRUE,
+                                 rmProtein_with1Feature = FALSE,
+                                 summaryforMultipleRows = sum,
+                                 use_log_file = TRUE,
+                                 append = FALSE)
+```
+
+## ^ERROR\ -\ see\ note\ below\ -\ proteinSummarization()^
+
+^Summarises\ the\ PSMs\ into\ protein\ groups\ with\ abundance\ values.^
+
+^[Takes\ only\ 9\ min\ on\ Jen]{.smallcaps}^
+
+```{r}
+# # all defaults
+# quant.msstats.t7 <- proteinSummarization(input.pd.t7,
+#                                       method="msstats",
+#                                       global_norm=TRUE,
+#                                       reference_norm=TRUE,
+#                                       remove_norm_channel = TRUE,
+#                                       remove_empty_channel = TRUE,
+#                                       MBimpute = TRUE, #only 4 MSstats method?
+#                                       maxQuantileforCensored = NULL,
+#                                       use_log_file = TRUE,
+#                                       append = FALSE) 
+```
+
+### NOTE!!! 
+
+removing as above (t1-t7) is correct (so just have condition & bioreplicate empty)
+
+Otherwise if anno is 1512 rows (removing 129N B1 altogether) it gives a weird error.
+
+```         
+> quant.msstats.t7 <- proteinSummarization(input.pd.t7, +                                       method="msstats", +                                       global_norm=TRUE, +                                       reference_norm=TRUE, +                                       remove_norm_channel = TRUE, +                                       remove_empty_channel = TRUE, +                                       MBimpute = TRUE, #only 4 MSstats method? +                                       maxQuantileforCensored = NULL, +                                       use_log_file = TRUE, +                                       append = FALSE)  INFO  [2025-12-31 17:34:11] ** MSstatsTMT - proteinSummarization function INFO  [2025-12-31 17:34:16] Summarizing for Run : B1_2 ( 1  of  13 ) Processed 44018 groups out of 44018. 100% done. Time elapsed: 13s. ETA: 0s.   |================================================================================================================================| 100% INFO  [2025-12-31 17:35:20] Summarizing for Run : B1_3 ( 2  of  13 ) Processed 40460 groups out of 40460. 100% done. Time elapsed: 12s. ETA: 0s.   |================================================================================================================================| 100% INFO  [2025-12-31 17:36:21] Summarizing for Run : B3_2 ( 3  of  13 )   |================================================================================================================================| 100% INFO  [2025-12-31 17:36:58] Summarizing for Run : NA_NA ( 4  of  13 )   |================================================================================================================================| 100% 
+```
+
+Error in merge.data.table(input[, colnames(input) != "newABUNDANCE", with = FALSE], : The following columns listed in \`by\` are missing from y: [FEATURE, RUN, cen]
+
+In addition: Warning messages: 1: In min(newABUNDANCE, na.rm = TRUE) : no non-missing arguments to min; returning Inf 2: In merge.data.table(input[, colnames(input) != "newABUNDANCE", with = FALSE], : Input data.table 'y' has no columns.
