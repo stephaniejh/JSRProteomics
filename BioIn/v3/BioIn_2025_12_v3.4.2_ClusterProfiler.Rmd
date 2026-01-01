@@ -13,6 +13,14 @@ knitr::opts_chunk$set(echo = TRUE)
 
 *for MSstatsTMT 1pspg v3.2.2 EE x Age t1 -(defaults) with B1 129N removed (TMT channel with too much loaded)*
 
+This script is for running the GSEA - uses for loops.
+
+Outputs
+
+1.  2025_12_31
+
+2.  
+
 ## Set up
 
 ### Packages
@@ -84,7 +92,7 @@ colnames(protein_comp)
 
 based of for loop made for the Lichti 2014 reanalysis
 
-### Setup containers & prepare info for sequences 
+### Setup containers & prepare info for sequences
 
 ```{r}
 # check 
@@ -302,4 +310,274 @@ save(GO_gsea_EExAge_cp_v3.4.2_msstats_v3.2.2_t1,
      file = "output/2025_12_31_GO_gsea_EExAge_cp_v3.4.2_msstats_v3.2.2_t1.rda")
 ```
 
+*Temp Note - Finished running on Jen 31 Dec 2025*
+
 ------------------------------------------------------------------------
+
+## Testing conversion of bitr
+
+From FASTA - uniprot uniprot acc
+
+<https://yulab-smu.top/biomedical-knowledge-mining-book/utilities.html#sec-id-convert>
+
+```{r}
+protein_comp_uni_prot <- unique(protein_comp$Protein) # 8048 
+protein_comp_uni_gene <- unique(protein_comp$gene) # 8014
+```
+
+```{r}
+# using bitr()
+# Uniprot 2 EntrezID | 0.0898 x 80
+bitr_up_2_entrez <- bitr(protein_comp_uni_prot,
+                         fromType = "UNIPROT", 
+                         toType = "ENTREZID",
+                         OrgDb = "org.Rn.eg.db") 
+# 'select()' returned 1:many mapping between keys and columns
+# Warning message:In bitr(protein_comp_uni_prot, fromType = "UNIPROT", toType = "ENTREZID",: 8.98% of input gene IDs are fail to map...
+
+
+# Gene name 2 EntrezID | .0339 x 8104 = 272 ish
+bitr_gn_2_entrez <- bitr(protein_comp_uni_gene,
+                         fromType = "SYMBOL",
+                         toType = "ENTREZID",
+                         OrgDb = "org.Rn.eg.db") #3.39% failed to map... better
+# 'select()' returned 1:1 mapping between keys and columns
+#Warning message: In bitr(protein_comp_uni_gene, fromType = "SYMBOL", toType = "ENTREZID",:  3.39% of input gene IDs are fail to map...
+
+
+# Seems gn 2 entrez is the superior option. 
+length(unique(bitr_gn_2_entrez$SYMBOL)) # 7742
+length(unique(bitr_gn_2_entrez$ENTREZID)) # 7742
+
+length(unique(bitr_up_2_entrez$UNIPROT)) # 7325
+length(unique(bitr_up_2_entrez$ENTREZID)) # 7392
+```
+
+```{r}
+# intersect()
+# 
+setdiff(protein_comp$gene, bitr_gn_2_entrez$SYMBOL) # must be in order 
+# most are "ENSRNOG00000066004" etc, then AABR07007121.1 & LOC108352348, ~ 200 
+# less than a 100 are the lower case gene name looking ones like histone H3-3b or mitochon "Mt-nd4l"
+# are hard to map, & also some rat specific ones like Akr1c9 so
+# TLDR - not bad ! gene name is the way 2 go! 
+```
+
+## Msigdbr Hallmarks
+
+see the **BioIn_2025_09_v3.3.1_fgsea_BSS_tut.Rmd** script for more details
+
+-   <https://yulab-smu.top/biomedical-knowledge-mining-book/027-universal-enrichment.html#msigdb-analysis>
+
+```{r}
+# # msigdbr helper functions
+# msigdbr_species() # 20 species
+# msigdbr_collections() # 33730584 bytes?
+# unique(msigdbr_df$db_version) # check ver
+# citation("msigdbr") # how to cite
+```
+
+```{r}
+#using msigdbr with clusterprofiler
+msigdbr_species() #get supported species 
+
+# msigdbr rat gene sets 
+msig_rat_df <- msigdbr(species = "Rattus norvegicus")
+
+head(m_df, 3) |> as.data.frame() # see
+```
+
+```{r}
+# look around 
+unique(msig_rat_df$gs_collection)
+unique(msig_rat_df$gs_subcollection)
+unique(msig_rat_df$gs_collection_name)
+
+```
+
+```{r}
+protein_comp_entrez <- left_join(protein_comp, bitr_gn_2_entrez,
+                                 by = join_by(gene == SYMBOL)) %>%
+  filter(!is.na(ENTREZID)) # remove non mapped - 64384 to 61952 
+```
+
+Just do a single for loop for now.
+
+```{r}
+hallmarks <- msig_rat_df %>% 
+  filter(gs_collection == "H") %>%
+  dplyr::select(gs_name, ncbi_gene)
+```
+
+```{r}
+length(intersect(bitr_gn_2_entrez$SYMBOL, hallmarks$gene_symbol)) # 2226
+length(intersect(bitr_gn_2_entrez$ENTREZID, hallmarks$ncbi_gene)) # 2237 !
+# so use ncbi_gene (ENTREZID)
+```
+
+```{r}
+# # VECTOR for labels (contrasts from MSstatsTMT analysis)
+# label_names  -> already made above 
+
+# Container - Emty Vector
+gsea_msig_hallmarks_results_list <- vector(mode = "list")
+```
+
+```{r}
+for (lb in label_names) {
+  # operation 
+  # PART 1 - calc ranked gene list
+  geneList_working_df <- protein_comp_entrez %>%   # calc ranked gene list
+    filter(Label == lb) %>%
+    mutate(ranking = sign(log2FC)*(-log10(pvalue))) %>%
+    group_by(ENTREZID) %>%
+    summarise(ranking = mean(ranking, na.rm = TRUE)) %>%
+    arrange(-ranking)
+  
+  geneList_vec_working <- tibble::deframe(geneList_working_df) # deframe in 2 vec
+  
+  gsea_msig_hallmarks_results_list$geneList_vec[[lb]] <- geneList_vec_working
+  
+  
+  # PART 2 - run gsea
+  msig_H_res_working <- clusterProfiler::GSEA(geneList = geneList_vec_working,
+                                              TERM2GENE = hallmarks,
+                                              exponent = 1,
+                                              minGSSize = 10,
+                                              maxGSSize = 500,
+                                              eps = 1e-10,
+                                              pvalueCutoff = 0.05,
+                                              pAdjustMethod = "BH",
+                                              by = "fgsea") # defaults 
+  
+  #save gsea results 
+  gsea_msig_hallmarks_results_list$gsea_results[[lb]] <- msig_H_res_working
+  gsea_msig_hallmarks_results_list$gsea_results_tib[[lb]] <- tibble::as_tibble(msig_H_res_working)
+  
+
+  
+  # PART 3 - if else for dot plot to deal with any nas
+  if (nrow(msig_H_res_working@result) > 0 ) {
+    
+  # PART 3 - PLOTS 
+  # regular dot plots 
+  dp <- enrichplot::dotplot(msig_H_res_working,
+                            showCategory = 30,
+                            font.size = 11,
+                            title = paste0(stringr::str_glue(
+                              'Housing x Age - {lb} - msigdbr Hallmark Collection - via cp_gsea dotplot - 1pspg MSstatsTMT (v3.2.2) 2026_01_01'))) 
+  
+  print(dp) 
+  gsea_msig_hallmarks_results_list$dotplots[[lb]] <- dp
+  
+  # sign dot plots 
+  # 3.2 - dot plot split by sign
+  dp_sign <- enrichplot::dotplot(msig_H_res_working,
+                            split = '.sign',
+                            showCategory = 30,
+                            font.size = 11,
+                            title = paste0(stringr::str_glue(
+                              'Housing x Age - {lb} - msigdbr Hallmark Collection - via cp_gsea dotplot by sign  - 1pspg MSstatsTMT (v3.2.2) 2026_01_01'))) +
+    facet_grid(.~.sign)
+  
+  print(dp_sign) # print dot plots 
+  gsea_msig_hallmarks_results_list$dotplots_sign[[lb]] <- dp_sign # save to list
+  
+  } else{print(paste0("No GO gsea result for dot plot in ", lb,  " :("))}
+  
+}
+```
+
+```{r}
+# horrific name but at least clear...
+gsea_msig_Hmrk_EExAge_cp3.4.2_mss3.2.2_t1  <- gsea_msig_hallmarks_results_list
+
+# save(gsea_msig_Hmrk_EExAge_cp3.4.2_mss3.2.2_t1,
+#      file = "output/2026_01_01_gsea_msig_Hallmark_EExAge_cpv3.4.2_mssv3.2.2_t1.rda")
+```
+
+------------------------------------------------------------------------
+
+KEGG Try with ENTREZ ID instead
+
+<https://learn.gencore.bio.nyu.edu/rna-seq-analysis/gene-set-enrichment-analysis/>
+
+```{r}
+# # CONTAINER - EMPTY VECTOR
+gsea_KEGG_results_list <- vector(mode = "list")
+```
+
+```{r}
+for (lb in label_names) {
+  
+  # PART 1
+  geneList_working_df <- protein_comp_entrez %>% # use ENTREZ!!!
+    filter(Label == lb) %>% 
+    mutate(ranking = sign(log2FC)*(-log10(pvalue))) %>%
+    group_by(ENTREZID) %>% # use ENTREZID
+    summarise(ranking = mean(ranking, na.rm = TRUE)) %>%
+    arrange(-ranking)
+  
+  # next deframe into a named vector needed to supply 2 fgsea()
+  geneList_vec_working <- tibble::deframe(geneList_working_df)
+  
+  # store in list 
+  gsea_KEGG_results_list$geneList_vec[[lb]] <- geneList_vec_working
+  
+
+  # PART 2 - KEGG GSEA
+  # run KEGG gsea with clusterProfiler
+  kegg_res_working <- clusterProfiler::gseKEGG(
+                              geneList = geneList_vec_working, 
+                              organism = 'rno',
+                              keyType = 'ncbi-geneid', # ncbi ENTREZ 
+                              by = 'fgsea',
+                              pvalueCutoff = 0.05, 
+                              pAdjustMethod = 'BH', #BejaminiHoc Correciton
+                              minGSSize = 10, 
+                              maxGSSize = 500,
+                              eps = 1e-10
+                              ) # ALL DEFAULTS
+  
+  # save kegg result original to list vec
+  gsea_KEGG_results_list$kegg_results[[lb]] <- kegg_res_working
+  
+  # not needed here so compute & save directly? or can do anyway? idk?
+  gsea_KEGG_results_list$kegg_results_tib[[lb]] <- tibble::as_tibble(kegg_res_working) 
+  
+  
+  # PART 3 - PLOTS
+  # Make dotplots | this one plots & saves properly!
+  # 3.1 - regular dot blot
+  dp <- enrichplot::dotplot(kegg_res_working,
+                            showCategory = 30,
+                            font.size = 11,
+                            title = paste0(stringr::str_glue(
+                              'Housing x Age - {lb} - 1pspg MSstatsTMT (v3.2.2) 2026_01_01 - gseKEGG_r'))) 
+
+  
+  print(dp)   # print dot plots 
+  gsea_KEGG_results_list$dotplots[[lb]] <- dp # save to list 
+  
+  # 3.2 - dot plot split by sign
+  dp_sign <- enrichplot::dotplot(kegg_res_working,
+                            split = '.sign',
+                            showCategory = 30,
+                            font.size = 11,
+                            title = paste0(stringr::str_glue(
+                              'Housing x Age - {lb} - 1pspg MSstatsTMT (v3.2.2) 2026_01_01 - gseKEGG_r - by sign'))) +
+    facet_grid(.~.sign)
+  
+  print(dp_sign) # print dot plots 
+  gsea_KEGG_results_list$dotplots_sign[[lb]] <- dp_sign # save to list
+  
+}
+```
+
+```{r}
+# horrific name but at least clear... | redo with ENTREZID ncbi instead of up
+KEGG_gsea_EExAge_cpv3.4.2t2_mssv3.2.2t1 <- gsea_KEGG_results_list
+
+save(KEGG_gsea_EExAge_cpv3.4.2t2_mssv3.2.2t1,
+     file = "output/2026_01_01_KEGG_gsea_EExAge_cpv3.4.2t2_mssv3.2.2t1.rda")
+```
