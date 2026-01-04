@@ -326,6 +326,36 @@ pathview(gene.data=KEGG_gsea_EExAge_cpv3.4.2t2_mssv3.2.2t1$geneList_vec$H_EE_vs_
                 species = 'rno')
 ```
 
+NS but check
+
+```{r}
+# LTP EE vs SH (all) | rno04720
+pathview(gene.data=KEGG_gsea_EExAge_cpv3.4.2t2_mssv3.2.2t1$geneList_vec$H_EE_vs_SH,
+                pathway.id="rno04720",
+                species = 'rno')
+```
+
+```{r}
+# LTP EE vs SH (yng) | rno04720
+pathview(gene.data=KEGG_gsea_EExAge_cpv3.4.2t2_mssv3.2.2t1$geneList_vec$HxA_EE_YNG_vs_SH_YNG,
+                pathway.id="rno04720",
+                species = 'rno')
+```
+
+```{r}
+# LTP EE vs SH (old) | rno04720
+pathview(gene.data=KEGG_gsea_EExAge_cpv3.4.2t2_mssv3.2.2t1$geneList_vec$HxA_EE_OLD_vs_SH_OLD,
+                pathway.id="rno04720",
+                species = 'rno')
+```
+
+```{r}
+# Neurotrophin EE vs SH (all) | rno04722
+pathview(gene.data=KEGG_gsea_EExAge_cpv3.4.2t2_mssv3.2.2t1$geneList_vec$H_EE_vs_SH,
+                pathway.id="rno04722",
+                species = 'rno')
+```
+
 ### Aging - Young vs Old 
 
 ```{r}
@@ -380,4 +410,22 @@ pathview(gene.data=KEGG_gsea_EExAge_cpv3.4.2t2_mssv3.2.2t1$geneList_vec$A_YNG_vs
 pathview(gene.data=KEGG_gsea_EExAge_cpv3.4.2t2_mssv3.2.2t1$geneList_vec$A_YNG_vs_OLD,
                 pathway.id="rno04666",
                 species = 'rno')
+```
+
+------------------------------------------------------------------------
+
+EE Young vs SH Young
+
+```{r}
+# print EE Yng vs SH yng sig KEGG gsea res tibble 
+print(KEGG_gsea_EExAge_cpv3.4.2t2_mssv3.2.2t1$kegg_results_tib$HxA_EE_YNG_vs_SH_YNG)
+```
+
+```{r}
+# print EE Yng vs SH yng sig KEGG gsea res tibble 
+print(KEGG_gsea_EExAge_cpv3.4.2t2_mssv3.2.2t1$kegg_results_tib$HxA_EE_OLD_vs_SH_OLD)
+```
+
+```{r}
+
 ```
