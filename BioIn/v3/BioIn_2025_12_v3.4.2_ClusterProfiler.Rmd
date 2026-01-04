@@ -35,6 +35,7 @@ Outputs
 # BiocManager::install("org.Rn.eg.db")
 # BiocManager::install("enrichplot")
 # BiocManager::install("pathview")
+#BiocManager::install("ReactomePA")
 ```
 
 ```{r}
@@ -46,6 +47,7 @@ library(msigdbr) # MSigDB gene sets
 library(enrichplot) # for dotplot()
 library(ggridges) # for ridgeplot()
 library(pathview) # pathview() - Kegg pathway visualisation
+library(ReactomePA)
 ```
 
 ### Import data
@@ -303,11 +305,11 @@ for (lb in label_names){
 ```
 
 ```{r}
-# horrific name but at least clear...
-GO_gsea_EExAge_cp_v3.4.2_msstats_v3.2.2_t1 <- gsea_GO_results_lists
-
-save(GO_gsea_EExAge_cp_v3.4.2_msstats_v3.2.2_t1,
-     file = "output/2025_12_31_GO_gsea_EExAge_cp_v3.4.2_msstats_v3.2.2_t1.rda")
+# # horrific name but at least clear...
+# GO_gsea_EExAge_cp_v3.4.2_msstats_v3.2.2_t1 <- gsea_GO_results_lists
+# 
+# save(GO_gsea_EExAge_cp_v3.4.2_msstats_v3.2.2_t1,
+#      file = "output/2025_12_31_GO_gsea_EExAge_cp_v3.4.2_msstats_v3.2.2_t1.rda")
 ```
 
 *Temp Note - Finished running on Jen 31 Dec 2025*
@@ -384,7 +386,7 @@ msigdbr_species() #get supported species
 # msigdbr rat gene sets 
 msig_rat_df <- msigdbr(species = "Rattus norvegicus")
 
-head(m_df, 3) |> as.data.frame() # see
+# head(m_df, 3) |> as.data.frame() # see
 ```
 
 ```{r}
@@ -396,6 +398,7 @@ unique(msig_rat_df$gs_collection_name)
 ```
 
 ```{r}
+#  USE THIS METHOD! 
 protein_comp_entrez <- left_join(protein_comp, bitr_gn_2_entrez,
                                  by = join_by(gene == SYMBOL)) %>%
   filter(!is.na(ENTREZID)) # remove non mapped - 64384 to 61952 
@@ -498,7 +501,7 @@ gsea_msig_Hmrk_EExAge_cp3.4.2_mss3.2.2_t1  <- gsea_msig_hallmarks_results_list
 
 ------------------------------------------------------------------------
 
-KEGG Try with ENTREZ ID instead
+## KEGG Try with ENTREZ ID instead (2026_01_01)
 
 <https://learn.gencore.bio.nyu.edu/rna-seq-analysis/gene-set-enrichment-analysis/>
 
@@ -578,6 +581,167 @@ for (lb in label_names) {
 # horrific name but at least clear... | redo with ENTREZID ncbi instead of up
 KEGG_gsea_EExAge_cpv3.4.2t2_mssv3.2.2t1 <- gsea_KEGG_results_list
 
-save(KEGG_gsea_EExAge_cpv3.4.2t2_mssv3.2.2t1,
-     file = "output/2026_01_01_KEGG_gsea_EExAge_cpv3.4.2t2_mssv3.2.2t1.rda")
+# save(KEGG_gsea_EExAge_cpv3.4.2t2_mssv3.2.2t1,
+#      file = "output/2026_01_01_KEGG_gsea_EExAge_cpv3.4.2t2_mssv3.2.2t1.rda")
+```
+
+------------------------------------------------------------------------
+
+## Misigdb Cell Type C8
+
+```{r}
+head(msig_rat_df)
+
+# look around 
+unique(msig_rat_df$gs_collection)
+unique(msig_rat_df$gs_subcollection)
+unique(msig_rat_df$gs_collection_name)
+```
+
+```{r}
+C8_celltypes <- msig_rat_df %>% 
+  filter(gs_collection == "C8") %>%
+  dplyr::select(gs_name, ncbi_gene)
+```
+
+```{r}
+# # VECTOR for labels (contrasts from MSstatsTMT analysis)
+# label_names  -> already made above 
+
+# Container - Emty Vector
+gsea_msig_C8_ct_results_list <- vector(mode = "list")
+```
+
+```{r}
+#GSEA msigdb cell types 
+for (lb in label_names) {
+  # operation 
+  # PART 1 - calc ranked gene list
+  geneList_working_df <- protein_comp_entrez %>%   # calc ranked gene list
+    filter(Label == lb) %>%
+    mutate(ranking = sign(log2FC)*(-log10(pvalue))) %>%
+    group_by(ENTREZID) %>%
+    summarise(ranking = mean(ranking, na.rm = TRUE)) %>%
+    arrange(-ranking)
+  
+  geneList_vec_working <- tibble::deframe(geneList_working_df) # deframe in 2 vec
+  
+  gsea_msig_C8_ct_results_list$geneList_vec[[lb]] <- geneList_vec_working
+  
+  
+  # PART 2 - run gsea
+  msig_C8_res_working <- clusterProfiler::GSEA(geneList = geneList_vec_working,
+                                              TERM2GENE = C8_celltypes,
+                                              exponent = 1,
+                                              minGSSize = 10,
+                                              maxGSSize = 500,
+                                              eps = 1e-10,
+                                              pvalueCutoff = 0.05,
+                                              pAdjustMethod = "BH",
+                                              by = "fgsea") # defaults 
+  
+  #save gsea results 
+  gsea_msig_C8_ct_results_list$gsea_results[[lb]] <- msig_C8_res_working
+  gsea_msig_C8_ct_results_list$gsea_results_tib[[lb]] <- tibble::as_tibble(msig_C8_res_working)
+  
+
+  
+  # PART 3 - if else for dot plot to deal with any nas
+  if (nrow(msig_C8_res_working@result) > 0 ) {
+    
+  # PART 3 - PLOTS 
+  # regular dot plots 
+  dp <- enrichplot::dotplot(msig_C8_res_working,
+                            showCategory = 30,
+                            font.size = 11,
+                            title = paste0(stringr::str_glue(
+                              'Housing x Age - {lb} - msigdbr C8 Cell types 2026_01_04 - via cp_gsea dotplot - 1pspg MSstatsTMT (v3.2.2)'))) 
+  
+  print(dp) 
+  gsea_msig_C8_ct_results_list$dotplots[[lb]] <- dp
+  
+  # sign dot plots 
+  # 3.2 - dot plot split by sign
+  dp_sign <- enrichplot::dotplot(msig_C8_res_working,
+                            split = '.sign',
+                            showCategory = 30,
+                            font.size = 11,
+                            title = paste0(stringr::str_glue(
+                              'Housing x Age - {lb} - msigdbr C8 Cell types 2026_01_04 - via cp_gsea dotplot by sign  - 1pspg MSstatsTMT (v3.2.2)'))) +
+    facet_grid(.~.sign)
+  
+  print(dp_sign) # print dot plots 
+  gsea_msig_C8_ct_results_list$dotplots_sign[[lb]] <- dp_sign # save to list
+  
+  } else{print(paste0("No gsea result for dot plot in ", lb,  " :("))}
+  
+}
+```
+
+```{r}
+# horrific name but at least clear...
+gsea_msig_C8_ct_EExAge_cp3.4.2_mss3.2.2_t1  <- gsea_msig_C8_ct_results_list
+
+# save(gsea_msig_C8_ct_EExAge_cp3.4.2_mss3.2.2_t1,
+#      file = "output/2026_01_04_gsea_msig_C8_ct_EExAge_cpv3.4.2_mssv3.2.2_t1.rda")
+```
+
+## ReactomePA via ClusterProfiler
+
+-   <https://yulab-smu.top/biomedical-knowledge-mining-book/024-reactome.html>
+-   <https://guangchuangyu.github.io/software/ReactomePA/>
+
+```{r}
+# test for housing EE vs SH only 
+EEvsSH_genelist <- protein_comp_entrez %>%
+  filter(Label == "H_EE_vs_SH") %>% 
+  mutate(ranking = sign(log2FC)*(-log10(pvalue))) %>%
+  group_by(ENTREZID) %>%
+  summarise(ranking = mean(ranking, na.rm = TRUE)) %>%
+  arrange(-ranking)
+
+EEvsSH_genelist_vec <- tibble::deframe(EEvsSH_genelist)
+
+```
+
+```{r}
+# write_excel_csv(EEvsSH_genelist,
+#                 "output/2026_01_04_EEvsSH_ranked_entrez_genelist.csv")
+```
+
+```{r}
+# run ReactomePA gsea 
+Reactome_EEvsSH <- gsePathway(EEvsSH_genelist_vec, 
+                              organism = 'rat', 
+                              pvalueCutoff = 0.2, #0.2 default?
+                              pAdjustMethod = "BH", 
+                              verbose = FALSE)
+
+```
+
+```{r}
+Reactome_EEvsSH_tibble <- tibble::as_tibble(Reactome_EEvsSH)
+```
+
+```{r}
+# plot pathway
+viewPathway("E2F mediated regulation of DNA replication", 
+            readable = TRUE, 
+            foldChange = geneList)
+```
+
+```{r}
+x <- enrichPathway(gene=EEvsSH_genelist_vec,
+                   organism = "rat",
+                   pvalueCutoff = 0.1,
+                   readable=TRUE)
+head(x)
+
+# --> No gene can be mapped....
+# --> Expected input gene ID: 310363,81920,117243,25502,361635,57300
+# --> return NULL...
+```
+
+```{r}
+
 ```
