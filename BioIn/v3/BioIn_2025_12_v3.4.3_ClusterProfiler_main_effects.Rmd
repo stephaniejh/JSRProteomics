@@ -1,0 +1,298 @@
+---
+title: "BioIn_2025_12_v3.4.2_ClusterProfiler"
+author: "Stephanie Huang"
+date: '`r Sys.Date()`'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# ClusterProfiler BioIn - sp main effects
+
+*for MSstatsTMT sp v3.2.1 main effects - (defaults) with B1 129N removed (TMT channel with too much loaded)*
+
+This script is for running the GSEA - uses for loops.
+
+Outputs
+
+1.  
+
+2.  
+
+## Set up
+
+### Packages
+
+```{r}
+# # Install if needed 
+# if (!require("BiocManager", quietly = TRUE))
+#     install.packages("BiocManager")
+# 
+# BiocManager::install("clusterProfiler")
+# BiocManager::install("msigdbr")
+# BiocManager::install("org.Rn.eg.db")
+# BiocManager::install("enrichplot")
+# BiocManager::install("pathview")
+#BiocManager::install("ReactomePA")
+```
+
+```{r}
+# Load Packages 
+library(tidyverse) # for dplyr, ggplot, stringr, readr etc 
+library(clusterProfiler) #GSEA includes gsea, enrichplot etc.
+library(org.Rn.eg.db) # Rat genome anno pack- incl. AnnotationDbi
+library(msigdbr) # MSigDB gene sets
+library(enrichplot) # for dotplot()
+library(ggridges) # for ridgeplot()
+library(pathview) # pathview() - Kegg pathway visualisation
+library(ReactomePA)
+```
+
+### Import data
+
+Load the mapped comparisons output generated from
+
+```{r}
+# mapped_comp_v3.2.2_EExAge_t1
+load("input/protein_lists/2025_12_31_sp_test_pairwise_msstats_v3.1.2_t4_behaviour.rda")
+
+fasta <- read_csv("input/db/UP000002494_10116_Rat_Ref_Proteome_22403_1pspg_2025_04_UPfastadf.csv")
+```
+
+```{r}
+# map with uniprof 
+df_b <- left_join(test.pairwise.msstats.t4$ComparisonResult, fasta,
+                  by = join_by(Protein == unique_id))
+```
+
+lil checks
+
+```{r}
+# lil checks
+head(df_b) # peak
+str(df_b) # structure | 4562 x 18
+colnames(df_b) # column names
+
+# lil checks (bit messy)
+unique(df_b$issue) # if = na in issue column then good. if not exclude
+check_1 <- df_b %>% filter(str_detect(log2FC, "Inf")) # 0
+check_2 <- df_b %>% filter(str_detect(Protein, "Cont")) # 0 (since already removed)
+unique(df_b$Label) 
+length(unique(df_b$Label)) #1 - just "HLP vs EXP"
+```
+
+### **Clean up df & rename**
+
+```{r}
+protein_comp <- df_b %>%
+  filter(is.na(issue)) %>% # keeps rows with issue == na (so comparisons that are ok)
+  filter(!str_detect(log2FC, "Inf")) # remove infinity/missing fold change values
+
+# check 
+head(protein_comp) 
+colnames(protein_comp)
+
+protein_comp_uni_gene <- unique(protein_comp$gene) # 4528
+protein_comp_uni_prot <- unique(protein_comp$Protein) # #4262
+```
+
+```{r}
+
+bitr_gn_2_entrez <- bitr(protein_comp_uni_gene,
+                         fromType = "SYMBOL",
+                         toType = "ENTREZID",
+                         OrgDb = "org.Rn.eg.db") #1.88% failed 2 map -> better
+
+bitr_up_2_entrez <- bitr(protein_comp_uni_prot,
+                         fromType = "UNIPROT", 
+                         toType = "ENTREZID",
+                         OrgDb = "org.Rn.eg.db") # 3.88% failed 2 map
+
+```
+
+```{r}
+#  USE THIS METHOD! 
+protein_comp_entrez <- left_join(protein_comp, bitr_gn_2_entrez,
+                                 by = join_by(gene == SYMBOL)) %>%
+  filter(!is.na(ENTREZID)) # remove non mapped - 4562 to 4443
+```
+
+```{r}
+geneList <- protein_comp_entrez %>% # use ENTREZ!!!
+    mutate(ranking = sign(log2FC)*(-log10(pvalue))) %>%
+    group_by(ENTREZID) %>% # use ENTREZID
+    summarise(ranking = mean(ranking, na.rm = TRUE)) %>%
+    arrange(-ranking)
+
+geneList_vec <- tibble::deframe(geneList)
+```
+
+```{r}
+# KEGG for BEH - HLP vs EXP
+kegg_res <- clusterProfiler::gseKEGG(
+                              geneList = geneList_vec, 
+                              organism = 'rno',
+                              keyType = 'ncbi-geneid', # ncbi ENTREZ 
+                              by = 'fgsea',
+                              pvalueCutoff = 0.05, 
+                              pAdjustMethod = 'BH', #BejaminiHoc Correciton
+                              minGSSize = 10, 
+                              maxGSSize = 500,
+                              eps = 1e-10
+                               ) # ALL DEFAULTS
+
+kegg_res_tib <- tibble::as_tibble(kegg_res)
+
+```
+
+
+```{r}
+# Beh - HELP vs EE
+enrichplot::dotplot(kegg_res,
+                    split = '.sign',
+                    showCategory = 30,
+                    font.size = 11,
+                    title = 'Behaviour HLP vs EXP (2026_01_07) - sp MSstatsTMT (v3.2.2) - gseKEGG_r'
+                    ) +
+  facet_grid(.~.sign)
+```
+
+```{r}
+# Covid 19
+pathview(gene.data=geneList_vec,
+                pathway.id="rno05171",
+                species = 'rno')
+```
+
+```{r}
+# oxidative phosphorylation
+pathview(gene.data=geneList_vec,
+                pathway.id="rno00190",
+                species = 'rno')
+```
+
+```{r}
+# neuroactive ligand
+pathview(gene.data=geneList_vec,
+                pathway.id="rno04082",
+                species = 'rno')
+```
+
+```{r}
+# integrin signalling
+pathview(gene.data=geneList_vec,
+                pathway.id="rno04518",
+                species = 'rno')
+```
+
+```{r}
+# integrin signalling
+pathview(gene.data=geneList_vec,
+                pathway.id="rno04518",
+                species = 'rno')
+```
+
+
+Done nooby method just to check for now. Run as for loop on Jennifer later.
+
+
+------------------------------------------------------------------------
+
+## **DO LATER - KEGG GSEA via gseKEGG with for loops**
+
+based of for loop made for the Lichti 2014 reanalysis
+
+### Setup containers & prepare info for sequences
+
+```{r}
+# # check
+# unique(df_b$Label)
+# # don't want "HxA_EE_YNG_vs_SH_OLD" "HxA_EE_OLD_vs_SH_YNG", so just do manually
+# 
+# # VECTOR for labels (contrasts from MSstatsTMT analysis)
+# label_names <- c("")
+# 
+# # CONTAINER - EMPTY VECTOR
+# gsea_KEGG_results_list <- vector(mode = "list")
+```
+
+### Operation
+
+```{r}
+# for (lb in label_names) {
+# 
+#   # PART 1
+#   geneList_working_df <- protein_comp_entrez %>% # use ENTREZ!!!
+#     filter(Label == lb) %>%
+#     mutate(ranking = sign(log2FC)*(-log10(pvalue))) %>%
+#     group_by(ENTREZID) %>% # use ENTREZID
+#     summarise(ranking = mean(ranking, na.rm = TRUE)) %>%
+#     arrange(-ranking)
+# 
+#   # next deframe into a named vector needed to supply 2 fgsea()
+#   geneList_vec_working <- tibble::deframe(geneList_working_df)
+# 
+#   # store in list
+#   gsea_KEGG_results_list$geneList_vec[[lb]] <- geneList_vec_working
+# 
+# 
+#   # PART 2 - KEGG GSEA
+#   # run KEGG gsea with clusterProfiler
+#   kegg_res_working <- clusterProfiler::gseKEGG(
+#                               geneList = geneList_vec_working,
+#                               organism = 'rno',
+#                               keyType = 'ncbi-geneid', # ncbi ENTREZ
+#                               by = 'fgsea',
+#                               pvalueCutoff = 0.05,
+#                               pAdjustMethod = 'BH', #BejaminiHoc Correciton
+#                               minGSSize = 10,
+#                               maxGSSize = 500,
+#                               eps = 1e-10
+#                               ) # ALL DEFAULTS
+# 
+#   # save kegg result original to list vec
+#   gsea_KEGG_results_list$kegg_results[[lb]] <- kegg_res_working
+# 
+#   # not needed here so compute & save directly? or can do anyway? idk?
+#   gsea_KEGG_results_list$kegg_results_tib[[lb]] <- tibble::as_tibble(kegg_res_working)
+# 
+# 
+#   # PART 3 - PLOTS
+#   # Make dotplots | this one plots & saves properly!
+#   # 3.1 - regular dot blot
+#   dp <- enrichplot::dotplot(kegg_res_working,
+#                             showCategory = 30,
+#                             font.size = 11,
+#                             title = paste0(stringr::str_glue(
+#                               'Housing x Age - {lb} - 1pspg MSstatsTMT (v3.2.2) 2026_01_01 - gseKEGG_r')))
+# 
+# 
+#   print(dp)   # print dot plots
+#   gsea_KEGG_results_list$dotplots[[lb]] <- dp # save to list
+# 
+#   # 3.2 - dot plot split by sign
+#   dp_sign <- enrichplot::dotplot(kegg_res_working,
+#                             split = '.sign',
+#                             showCategory = 30,
+#                             font.size = 11,
+#                             title = paste0(stringr::str_glue(
+#                               'Housing x Age - {lb} - 1pspg MSstatsTMT (v3.2.2) 2026_01_01 - gseKEGG_r - by sign'))) +
+#     facet_grid(.~.sign)
+# 
+#   print(dp_sign) # print dot plots
+#   gsea_KEGG_results_list$dotplots_sign[[lb]] <- dp_sign # save to list
+# 
+# }
+```
+
+```{r}
+
+# horrific name but at least clear...
+KEGG_gsea_EExAge_cp_v3.4.2_msstats_v3.2.2_t1 <- gsea_KEGG_results_list
+
+# save(KEGG_gsea_EExAge_cp_v3.4.2_msstats_v3.2.2_t1,
+#      file = "output/2025_12_31_KEGG_gsea_EExAge_cp_v3.4.2_msstats_v3.2.2_t1.rda")
+```
+
