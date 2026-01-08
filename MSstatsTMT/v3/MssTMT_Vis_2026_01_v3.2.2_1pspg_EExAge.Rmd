@@ -1,0 +1,88 @@
+---
+title: "MssTMT_Vis_2026_01_v3.2.2_1pspg_EExAge"
+output: html_document
+---
+
+
+```{r}
+#load packages
+library(tidyverse)
+library(pheatmap)
+library(msigdbr)
+library(cowplot)
+library(ggh4x)
+library(gt)
+```
+
+
+```{r}
+#psum
+load("input/results/psum/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_psum.rda")
+#comp
+load("input/results/comp/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_comp.rda")
+
+
+#anno
+anno <- read_csv("input/anno/EEv&SH_F&M_TMT_anno_v3_df_b_check_sorted_2025_12_31.csv")
+```
+
+
+
+```{r}
+anno_trim <- anno %>%
+  select(BioReplicate:rat_id)
+```
+
+```{r}
+mapped_psum_v3.2.2_EExAge <- left_join(mapped_psum_v3.2.2_EExAge,
+                                       anno_trim,
+                                       by = join_by(BioReplicate == BioReplicate))
+
+```
+
+
+https://biostatsquid.com/step-by-step-heatmap-tutorial-with-pheatmap/
+
+```{r}
+heatmap_df <- mapped_psum_v3.2.2_EExAge %>%
+  group_by(BioReplicate, Protein) %>%
+  summarise(meanAbundance = mean(Abundance, na.rm = TRUE)) %>%
+  select(Protein, meanAbundance, BioReplicate) %>%
+  pivot_wider(names_from = BioReplicate,
+              values_from = meanAbundance) %>%
+  tidyr::drop_na() %>%
+  tibble::column_to_rownames("Protein") %>% # set Accession to rowname 
+  as.matrix()
+```
+
+```{r}
+heatmap_1 <- pheatmap(heatmap_df, main = "test")
+```
+
+
+```{r}
+sig_proteins <- mapped_comp_v3.2.2_EExAge_t1 %>%
+  filter(adj.pvalue <=0.05) %>%
+  group_by(Label) %>%
+  slice_min(adj.pvalue, n = 3)
+
+unique_top_3_genes <- unique(sig_proteins$gene) #10 unique
+```
+
+```{r}
+top_5_plot <- mapped_psum_v3.2.2_EExAge %>%
+  filter(gene %in% unique_top_3_genes) %>%
+  ggplot(aes(x = BioReplicate, y = Abundance, fill = Condition)) +
+  geom_boxplot() +
+  geom_point() +
+  facet_nested(~ gene + Mixture + Cohort) +
+  theme_bw()
+  
+
+top_5_plot
+```
+
+```{r}
+
+```
+
