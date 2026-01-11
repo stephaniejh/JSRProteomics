@@ -273,11 +273,11 @@ EE_contents_reshaped <- housing_df_3 %>%
 ggplot(EE_contents_reshaped,
        aes(label = contents_split_clean,
            size = n)) +
-  #geom_text_wordcloud() +
+  geom_text_wordcloud() +
   # geom_text_wordcloud_area() +
-  geom_text_wordcloud_area(rm_outside = TRUE) +
-  # scale_size_area(max_size = 16) +
-  scale_size_area(max_size = 50) +
+  # geom_text_wordcloud_area(rm_outside = TRUE) +
+  scale_size_area(max_size = 16) +
+  #scale_size_area(max_size = 50) +
   theme_minimal()
 ```
 
