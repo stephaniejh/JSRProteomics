@@ -9,6 +9,8 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+To Do: Add Zhang et al., 2020, other rat omics, socodato??? Zocher?
+
 ### Load Packages
 
 ```{r}
@@ -18,40 +20,385 @@ library(stringr)
 library(ggplot2)
 library(gt)
 library(lubridate)
+library(ggwordcloud)
 ```
 
-# Read in data
+## Read in data
 
 ```{r}
-rat_df <- read_excel("input/test_2025_12_27_EE_omics_lit_review_mRNA_Proteins.xlsx",
-                              sheet = "rat_housing")
+rat_df <- read_excel(
+  "input/2026_01_11_EE_omics_lit_review_mRNA_Proteins.xlsx",
+                              sheet = "rat_housing") %>%
+  mutate(no_per_cage = as.character(no_per_cage)) # so it can bind 
+
+
+mice_df <- read_excel(
+  "input/2026_01_11_EE_omics_lit_review_mRNA_Proteins.xlsx",
+                              sheet = "mice_housing") %>%
+  mutate(no_per_cage = as.character(no_per_cage))
+  
+
+
+pig_df <- read_excel(
+  "input/2026_01_11_EE_omics_lit_review_mRNA_Proteins.xlsx",
+                              sheet = "pigs_housing") %>%
+  mutate(no_per_cage = as.character(no_per_cage))
 ```
 
+## Wrangling & Shaping
+
+-   <https://www.spsanderson.com/steveondata/posts/2025-10-20/#addressing-truly-empty-rows-with-rowsums>
 
 ```{r}
-str(rat_df)
-summary(rat_df)
-colnames(rat_df)
+
+housing_df_1 <- bind_rows(rat_df, mice_df, pig_df) %>%
+  select(!c("...26", "...31", "...36"))  # rm empty columns spaces | 69x37 
+
+housing_df_2 <- housing_df_1[rowSums(is.na(housing_df_1)) != ncol(housing_df_1), ] # rm truly empty rows | x 37  
+  
 ```
 
+-   split cell into 2 cells - <https://tidyr.tidyverse.org/reference/separate_wider_delim.html>
 
 ```{r}
-housing_rat_calc_1 <- housing_mice_df %>% 
-  group(animal_type, year, author, housing) %>%
-  ()
+housing_df_3 <- housing_df_2 %>%
+  
+  # make combined author & year variable
+  mutate(author_year = paste0(author, ' ', year), .before = year)  %>%
+  
+  # split the housing start column into the number & unit
+  tidyr::separate_wider_delim(housing_start, delim = " ",
+                              names = c("house_start_no", "house_start_unit"),
+                              cols_remove = FALSE) %>%
+  
+  # recode some numbers that are 15-17 or 5-6 or 9-10 & then make numeric
+  mutate(house_start_no = as.numeric(recode(house_start_no, # old = "new"
+                                   "15-17" = "16",
+                                   "5-6" = "5.5",
+                                   "9-10" = "9.5"))) %>%
+  
+  # now calculate as start day (all the same unit)
+  mutate(housing_start_day = case_when(
+     house_start_unit == "months" ~ 30 * house_start_no,
+     house_start_unit == "weeks" ~ 7 * house_start_no,
+     house_start_unit == "days" ~ house_start_no
+        ), .after = house_start_unit) %>%
+  
+  
+  # now do it for housing duration using the same formula from above!
+  tidyr::separate_wider_delim(housing_duration, delim = " ",
+                              names = c("house_dur_no", "house_dur_unit"),
+                              cols_remove = FALSE) %>%
+  mutate(house_dur_no = as.numeric(house_dur_no)) %>%
+
+  mutate(housing_duration_days = case_when(
+    house_dur_unit == "M" ~ 30 * house_dur_no,
+    house_dur_unit == "W" ~ 7 * house_dur_no,
+    house_dur_unit == "d" ~ house_dur_no,
+    house_dur_unit == "h" ~ house_dur_no / 24
+  ), .after = house_dur_unit) %>%
+  
+  mutate(housing_stop_day = housing_start_day + housing_duration_days,
+         .after = housing_duration_days) %>%
+  
+  mutate(animal_type = factor(animal_type,
+                              levels = c("rat", "mice", "pigs"))) %>%
+  mutate(animal_type = recode(animal_type, rat = "rats"))
+
+  
+  
 ```
 
 ```{r}
-m
+summary(housing_df_3)
+# start - mean: median 28 days mean 80.35
+# end - mean: median 98 days mean 167.5 days 
+# duration - median 42 & median 85.635 
 ```
 
-
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{r}
+EE_only_df <- housing_df_3 %>%
+  filter(housing == "EE") %>%
+  group_by(animal_type, author_year) %>%
+  slice_head(n = 1) # keeps 1 observation per group! 
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+```{r}
+one_house_df <- housing_df_3 %>%
+  group_by(animal_type, author_year, housing) %>%
+  slice_head(n=1)
+```
+
+```{r}
+# excludes those in transgenic groups, Stress, Cocaine, etc
+# keeps normal + Aging or duration, or saline or WT 
+WT_ctrl_only <- housing_df_3 %>%
+  filter(!str_detect(housing_condition, "Stress|Cocaine|TG"))
+
+
+# excludes those in transgenic groups, Stress, Cocaine, etc
+# keeps EE normal + Aging or duration, or saline or WT 
+WT_ctrl_EE_only <- housing_df_3 %>%
+  filter(!str_detect(housing_condition, "Stress|Cocaine|TG")) %>%
+  filter(housing == "EE")
+```
+
+## Housing Duration & Start/End Timeline plot test
+
+-   <https://stackoverflow.com/questions/45245368/ggplot2-how-to-create-a-clustered-timeline>
+    -   <https://ggplot2.tidyverse.org/reference/geom_segment.html>
+
+```{r}
+timeline_plot <- ggplot(WT_ctrl_EE_only,
+                        aes(
+                            fill = animal_sex,
+                            color = author_year)) +
+  geom_segment(aes(x = housing_start_day,
+                   xend = housing_stop_day,
+                   y = interaction(author_year, housing_condition),
+                   yend = interaction(author_year, housing_condition)),
+               linewidth = 2) +
+  
+  scale_x_continuous(breaks=seq(-7, 570, 30)) + # seq(lower, upper, divisions)
+  
+  geom_vline(xintercept = 0, linetype = "dashed", # PND 0 line
+             color = "grey30", linewidth = .5) +
+  
+  geom_vline(xintercept = 21, linetype = "dashed", # PND 21 line
+             color = "lightblue", linewidth = .5) +
+  
+  geom_vline(xintercept = 60, linetype = "dashed", # PND 60 line
+             color = "grey80", linewidth = .5) +
+  
+  geom_vline(xintercept = 365, linetype = "dashed", # PND 365 line
+             color = "pink", linewidth = .5) +
+  
+  facet_wrap(animal_type~animal_sex, 
+             # ncol =1,
+             scales = "free_y", space = "free_y",
+             ) +
+  theme_bw() + 
+  theme(
+    # legend.position = "none"
+  )
+
+# 
+# ggplot(data=df, aes(color=Drug))+
+#       geom_segment(aes(x=StartDay, xend=StopDay, y=Drug, yend=Drug),lwd=12)+
+#       facet_grid(Patient~.)+xlab("Days")
+
+timeline_plot
+```
+
+------------------------------------------------------------------------
+
+EE Contents
+
+```{r}
+EE_contents <- housing_df_3 %>%
+  filter(housing == "EE") %>%
+  group_by(animal_type, author_year) %>%
+  slice_head(n = 1) %>% # keeps 1 observation per group! 
+  ungroup() %>% 
+  mutate(enrichment_contents_split = str_split(enrichment_contents_list, "; "),
+         .after = enrichment_contents_list) %>%
+  tidyr::unnest(enrichment_contents_split) %>%
+  count(enrichment_contents_split) 
+```
+
+```{r}
+EE_running_wheel <- housing_df_3 %>%
+  filter(housing == "EE") %>%
+  group_by(animal_type, author_year) %>%
+  slice_head(n = 1) %>% # keeps 1 observation per group! 
+  ungroup() %>% 
+  count(running_wheel)
+
+knitr::kable(EE_running_wheel) # 14/18 yes
+```
+
+-   <https://cran.r-project.org/web/packages/ggwordcloud/vignettes/ggwordcloud.html>
+
+-   <https://lepennec.github.io/ggwordcloud/>
+
+```{r}
+# EE_contents_wordcloud <- EE_contents %>%
+ggplot(EE_contents, aes(label = enrichment_contents_split)) +
+  geom_text_wordcloud() +
+  theme_minimal()
+```
+
+-   <https://forum.posit.co/t/case-when-mutate-str-detect/124835>
+
+```{r}
+EE_contents_reshaped <- housing_df_3 %>%
+  
+  filter(housing == "EE") %>%
+  group_by(animal_type, author_year) %>%
+  slice_head(n = 1) %>% # keeps 1 observation per group! 
+  ungroup() %>% 
+  
+  mutate(enrichment_contents_split = str_split(
+    enrichment_contents_list, ";"),
+    .after = enrichment_contents_list) %>%
+  
+  tidyr::unnest(enrichment_contents_split) %>%
+  mutate(contents_split = str_squish(enrichment_contents_split),
+         .after = enrichment_contents_split) %>%
+  
+  mutate(contents_split_rm = str_remove_all(
+    contents_split, "\\s*\\(.*?\\)"), # rm between brackets
+    .after = contents_split) %>% 
+  
+  mutate(contents_split_clean = case_when(
+    str_detect(contents_split_rm,
+      pattern = "running wheel") ~ "running wheel",
+    str_detect(contents_split_rm, "tunnel") ~ "tunnel",
+    str_detect(contents_split_rm, "ladder") ~ "ladder",
+    str_detect(contents_split_rm, "tube") ~ "tube",
+    str_detect(contents_split_rm, "toys") ~ "toys",
+    str_detect(contents_split_rm, "ball") ~ "balls",
+    str_detect(contents_split_rm, "bedding") ~ "bedding",
+    str_detect(contents_split_rm, "house") ~ "house",
+    str_detect(contents_split_rm, "shelter") ~ "shelter",
+    str_detect(contents_split_rm,
+               "wooden blocks") ~ "wooden blocks",
+    .default = as.character(contents_split_rm)
+  ), .after = contents_split_rm) %>%
+  count(contents_split_clean) 
+
+```
+
+```{r}
+ggplot(EE_contents_reshaped,
+       aes(label = contents_split_clean,
+           size = n)) +
+  #geom_text_wordcloud() +
+  # geom_text_wordcloud_area() +
+  geom_text_wordcloud_area(rm_outside = TRUE) +
+  # scale_size_area(max_size = 16) +
+  scale_size_area(max_size = 50) +
+  theme_minimal()
+```
+
+------------------------------------------------------------------------
+
+### Males vs Females Study Count 
+
+```{r}
+males_females_study <- housing_df_3 %>%
+  group_by(author_year) %>%
+  slice_head(n = 1) %>% # keeps 1 observation per group! 
+  ungroup() %>%
+  count(animal_sex)
+
+knitr::kable(males_females_study)
+```
+
+```{r}
+animal_types_study <- housing_df_3 %>%
+  group_by(author_year) %>%
+  slice_head(n = 1) %>% # keeps 1 observation per group! 
+  ungroup() %>%
+  count(animal_type)
+
+knitr::kable(animal_types_study)
+```
+
+------------------------------------------------------------------------
+
+Protein vs mRNA
+
+```{r}
+protein_mRNA <- housing_df_3 %>%
+  filter(housing == "EE") %>%
+  group_by(animal_type, author_year) %>%
+  slice_head(n = 1) %>% # keeps 1 observation per group! 
+  ungroup() %>%
+  count(h_exp_type)
+
+knitr::kable(protein_mRNA)
+```
+
+------------------------------------------------------------------------
+
+Region
+
+```{r}
+regions_df <- housing_df_3 %>%
+  filter(housing == "EE") %>%
+  filter(!author %in% c("Nithianantharajah", "Ickes", "Angelucci")) %>%
+  group_by(animal_type, author_year) %>%
+  slice_head(n = 1) %>% # keeps 1 observation per group! 
+  ungroup() %>% 
+  mutate(split_regions = str_split(h_regions, "; "), .after = h_regions) %>%
+  tidyr::unnest(split_regions) %>%
+  count(split_regions) %>%
+  arrange(desc(n)) %>%
+  mutate(total = sum(n)) %>%
+  mutate(percent = round(n/total * 100, 1)) %>%
+  mutate(percent_by_paper = round(n/19 * 100, 1))
+
+
+knitr::kable(regions_df)
+# 
+```
+
+```{r}
+
+```
+
+## gt
+
+```{r}
+housing_df_3 |> 
+  # 
+  # dplyr::select(c(animal_type,author_year, housing, animal_strain,
+  #                 inbred_outbred, wt_tg, animal_sex,
+  #                 cage_description, cage_dim_cm, no_per_cage, 
+  #                 enrichment_contents_list, running_wheel,
+  #                 procedure)) |>
+  # ungroup() |>
+  
+  gt(
+    groupname_col = "animal_type",
+    # rowname_col = c("year", "author")
+    rowname_col = "author_year"
+  ) |>
+  
+  cols_label(
+    # Gene_name = "Entry",
+    # Entry.Name = "Name",
+    # Full_name = "Protein Description",
+    # # misc = "Arroyo's Identifiers"
+    # `Protein description` = "Arroyo's Identifiers"
+  ) |>
+  
+  tab_header(
+    title = "Test",
+    # subtitle = "Enriched vs. Barren: 56 DEG, 46 Up & 10 Down (adjp <=0.05), piggenemapped2ratgene (20 EE pigs & 20 BE pigs)", 
+  ) |>
+  
+  # tab_style( 
+  #   style = list(
+  #     # cell_fill(color = "#F9E3D6"),
+  #     cell_text(style = "italic")
+  #     ),
+  #   locations = cells_body(
+  #     # columns = Gene_name,
+  #     # rows = currency < 100
+  #   )
+  # ) |>
+  
+  tab_options(heading.title.font.size = 16.5,
+              table.font.size=11.5,
+              stub.font.weight = "bold",
+              # stub.font.size = 13,
+              row_group.font.weight = "bold",
+              row_group.font.size = 14,
+              column_labels.font.size = 12.5,
+              column_labels.font.weight = "bold") 
+ #|>
+  
+  # opt_stylize(style = 1, color = 'gray', add_row_striping = TRUE)
+```
