@@ -181,7 +181,7 @@ protein_comp_entrez <- left_join(protein_comp, bitr_gn_2_entrez,
 label_names <- unique(df$Label) 
 ```
 
-## KEGG ENTREZ ID all comps 
+## KEGG ENTREZ ID all comps
 
 <https://learn.gencore.bio.nyu.edu/rna-seq-analysis/gene-set-enrichment-analysis/>
 
@@ -428,7 +428,7 @@ for (lb in label_names){
 
 ------------------------------------------------------------------------
 
-## Msigdbr Hallmarks 
+## Msigdbr Hallmarks
 
 see the **BioIn_2025_09_v3.3.1_fgsea_BSS_tut.Rmd** script for more details
 
