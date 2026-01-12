@@ -756,7 +756,7 @@ v3.2.1_sp_main_ef_MSsTMT_comp_results <- bind_rows(
 
 ------------------------------------------------------------------------
 
-# ^t7\ -\ Testing\ annotation\ file^
+# ^t7 - Testing annotation file^
 
 NVM don't worry about it
 
@@ -784,11 +784,11 @@ input.pd.t7 <- PDtoMSstatsTMTFormat(input = raw.pd.nmc,
                                  append = FALSE)
 ```
 
-## ^ERROR\ -\ see\ note\ below\ -\ proteinSummarization()^
+## ^ERROR - see note below - proteinSummarization()^
 
-^Summarises\ the\ PSMs\ into\ protein\ groups\ with\ abundance\ values.^
+^Summarises the PSMs into protein groups with abundance values.^
 
-^[Takes\ only\ 9\ min\ on\ Jen]{.smallcaps}^
+^[Takes only 9 min on Jen]{.smallcaps}^
 
 ```{r}
 # # all defaults
@@ -804,7 +804,7 @@ input.pd.t7 <- PDtoMSstatsTMTFormat(input = raw.pd.nmc,
 #                                       append = FALSE) 
 ```
 
-### NOTE!!! 
+### NOTE!!!
 
 removing as above (t1-t7) is correct (so just have condition & bioreplicate empty)
 
