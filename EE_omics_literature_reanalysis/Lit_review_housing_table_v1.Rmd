@@ -22,8 +22,13 @@ library(gt)
 library(lubridate)
 library(ggwordcloud)
 library(colorspace) # for scale_color_discrete_divergingx
+library(paletteer) # for scale_colour_paletteer_d
+# library(MetBrewer) # for colors
+library(khroma) # for colors
+library(palettesForR) # colors
 library(ggtext) # for element_markdown() - (e.g. custom color & font axis labels)
 library(glue) # glue() - to prep vars for ggtext mapping
+library(cowplot)
 ```
 
 ## Read in data
@@ -165,11 +170,14 @@ WT_ctrl_EE_only <- housing_df_3 %>%
   filter(housing == "EE")
 ```
 
-## Housing Timeline plot test
+## Timeline Plot (for housing start/end & duration)
 
 -   <https://stackoverflow.com/questions/45245368/ggplot2-how-to-create-a-clustered-timeline>
     -   <https://ggplot2.tidyverse.org/reference/geom_segment.html> for timeline bits
+    -   Actually use geom_rect instead (as it allows fill & color!)
 -   <https://colorspace.r-forge.r-project.org/articles/hcl_palettes.html>
+    -   <https://pmassicotte.github.io/paletteer_gallery/#continuous-palettes>
+    -   Browse colors on web <https://emilhvitfeldt.github.io/r-color-palettes/discrete.html#category=>
 -   <https://en.wikipedia.org/wiki/Table_of_divisors>
 -   <https://github.com/wilkelab/ggtext> & <https://r-graph-gallery.com/package/ggtext.html> - element_markdown() (using ggtext & glue packages) for specifying custom axis text labels - e.g. pink for females & blue for males.
     -   <https://stackoverflow.com/questions/72749018/color-axis-text-to-match-grouping-variable-in-ggplot>
@@ -177,16 +185,18 @@ WT_ctrl_EE_only <- housing_df_3 %>%
     -   geom_segment - y & yend= reorder(interaction(author_year, housing_condition), study_yr_by_dur, decreasing = TRUE),
 
 ```{r}
-temp_colors <- c("#c90076", "#A80062", "#2986cc", "#1B5988", "grey15")
+# COLORS
+temp_colors <- c("#c90076", "#B9006C","#A80062", "#2986cc", "#125CCC", "#1B5988")
+palette_color_dynamic_list <- paletteer::palettes_dynamic_names
+palette_color_list <- paletteer::palettes_d_names
+```
 
+```{r}
 timeline_plot <- WT_ctrl_EE_only %>%
   
-  # mutate(across(c(animal_type, housing, animal_sex), as.factor)) %>% # not needed?
-  
-  # MAKE NEW COMPUTED VARIABLES IN PREPARATION FOR PLOTTING 
   mutate(
   # MAKE appended author_year & housing_cond var (tp avoid using messy interaction())
-    author_year_hc = paste0(author_year, " (", housing_condition, ")" ),
+    author_year_hc = paste0(author_year, " - ", housing_condition), # do i need this??
     
   # ORDERING BY YEAR & HOUSING DURATION! 
     # new composite variable for reorder() function below which only takes 1 var
@@ -196,74 +206,55 @@ timeline_plot <- WT_ctrl_EE_only %>%
   
   # COLORING = 
   sex_colors = case_when(
-    animal_sex == "female" ~ "#A80062", # female
-    animal_sex == "male" ~ "#1B5988",  # male
-    .default = "grey10"), # for NA / catch others
+    animal_sex == "female" ~ "#c90076", # female
+    animal_sex == "male" ~ "#125CCC",  # male
+    .default = "grey15"), # for NA / catch others
   .before = author
   ) %>%
 
   # COMPUTE VAR for element_markdown() (for custom axis text colors)
   mutate(
     #color = c("#A80062", "#1B5988", "grey15"), # see above instead! 
-  names = glue("<i style='color:{sex_colors}'>**{author_year_hc}**</i>"),
+    # names = glue("<i style='color:{sex_colors}'>{author_year_hc}</i>"), # italics ver
+  names = glue("<span style='color:{sex_colors}'>{author_year_hc}</span>"),
   names = reorder(names, study_yr_by_dur, decreasing = TRUE)
          ) %>%
   
-  ggplot(aes(
-    color = author_year, # see mapping below 
-    )) +
+  ggplot(aes(color = author)) + 
   
   # LINES for REFERENCE (e.g PND 0, 21, 1 year)
   geom_vline(xintercept = 0, linetype = "solid", # PND 0 line | birth
-             color = "grey20", linewidth = .2) +
-  geom_vline(xintercept = 21, linetype = "dashed", # PND 21 line | weaning
-             color = "grey50", linewidth = .2) +
+             color = "grey20", linewidth = .1) +
+  # annotate("text", x = 1, y = -Inf, label = "0", 
+  #          vjust = -.2, hjust = -.2,
+  #          size = 3, color = "grey10") + 
+  geom_vline(xintercept = 21, linetype = "dotted", # PND 21 line | weaning
+             color = "grey50", linewidth = .1) +
   geom_vline(xintercept = 365, linetype = "dotted", # PND 365 line | 1 year
-             color = "grey50", linewidth = .2) +
+             color = "grey50", linewidth = .1) +
   
-  
-  #TIMELINE SEGMENTS (SOLID)
+  #TIMELINE SEGMENTS (SOLID LARGE for ANIMAL_TYPE COLOR OUTLINE)
   geom_segment(aes( #SOLID
     x = housing_start_day, # housing start date
     xend = housing_stop_day, # housing end date
-    
     y = names,
     yend = names,
-    ),
-    linewidth = 2) +
-    
-    # # Gaps (for part time)
-    # geom_segment(aes( # TIMELINE SEGMENTS
-    # x = housing_start_day, # housing start date
-    # xend = housing_stop_day, # housing end date
-    # 
-    # y = reorder(interaction(author_year, housing_condition),
-    #                         study_yr_by_dur, # using com var made above!
-    #                         decreasing = TRUE), # order by study year frm small2big
-    # yend = reorder(interaction(author_year, housing_condition),
-    #                            study_yr_by_dur, 
-    #                            decreasing = TRUE)),
-    # linewidth = 2) +
-  
+    ), linewidth = 3.5) +
+
   scale_x_continuous(
-    breaks = sort(c(-7, 0, 21, 365, 570, # specific ones i want
-                    60, 120, 180, 240, 300, 420, 480, 540)), # by 30 
-    # breaks=sort(c(0, 21, 365, 570,  # extra no. for labelling 
-    #               seq(-7, 570, 34))), 
-    #breaks=seq(-7,570,34), # seq(low,up,div)) 
-    expand = c(0, 5), # minimal extra white space (0,0 too trimmed)
+    breaks = sort(c(-7, 0, 0, 0, 21, 21, 365, 365, 570, # specific ones i want
+                    60, 120, 180, 240, 300, 420, 480, 540)), # eh just do manually
+    expand = c(0, 3), # minimal extra white space (0,0 too trimmed)
     name = "Postnatal Day (PND)") + 
   
-  scale_color_discrete_qualitative(palette = "Dark 3") + # colorspace pkg
-  # scale_color_discrete_divergingx(palette = "Temps") + # colorspace pkg
-  # scale_color_discrete_qualitative(palette = "Harmonic") +
-    
-  # scale_color_manual(values = c("#A80062", "#1B5988", "grey15")) + 
-  
+  scale_color_discrete_qualitative(palette = "Set 2", rev = TRUE) + # colorspace pkg
+  # scale_color_paletteer_d("khroma::discreterainbow") +
+  # scale_color_paletteer_d("palettesForR::Echo") +
+
 
   # FACET
   facet_wrap(#animal_type~animal_sex, 
-             ~animal_type+animal_sex,
+             ~animal_type,
              # ncol =1,
              scales = "free_y", # don't plot all authors if no obs but x axis same 
              space = "free_y", # varies panel height according to no. authors
@@ -277,15 +268,20 @@ timeline_plot <- WT_ctrl_EE_only %>%
   theme(
     legend.position = "none",
     axis.title.y = element_blank(),
-    axis.text.y = element_markdown(), # custom ggtext color by animal_sex
+    axis.text.y = element_markdown(), # custom ggtext color by animal_sex,
+    axis.text.x = element_text(size = 8, color = "grey10"),
+    axis.title.x = element_text(size = 9, color = "grey10"),
+    #axis.text.x = element_text(color = "grey15")
+    panel.grid = element_line(colour = "grey95")  # lighter 
   )
 
 timeline_plot
+#one currently used for thesis - 2026_01_14_EE_timeline_omics_lit_review_v2.pdf
 ```
 
 ------------------------------------------------------------------------
 
-EE Contents
+## EE Contents
 
 ```{r}
 EE_contents <- housing_df_3 %>%
@@ -331,7 +327,7 @@ EE_contents_reshaped <- housing_df_3 %>%
   group_by(animal_type, author_year) %>%
   slice_head(n = 1) %>% # keeps 1 observation per group! 
   ungroup() %>% 
-  
+  group_by(housing) %>%
   mutate(enrichment_contents_split = str_split(
     enrichment_contents_list, ";"),
     .after = enrichment_contents_list) %>%
@@ -364,20 +360,75 @@ EE_contents_reshaped <- housing_df_3 %>%
 ```
 
 ```{r}
-ggplot(EE_contents_reshaped,
+EE_wordcloud <- ggplot(EE_contents_reshaped,
        aes(label = contents_split_clean,
            size = n)) +
   geom_text_wordcloud() +
   # geom_text_wordcloud_area() +
   # geom_text_wordcloud_area(rm_outside = TRUE) +
-  scale_size_area(max_size = 16) +
+  scale_size_area(max_size = 13) +
+   facet_wrap(~housing,
+             labeller = labeller(
+               housing = c(EE = "Environmental Enrichment")),
+             strip.position = "bottom") +
   #scale_size_area(max_size = 50) +
-  theme_minimal()
+  theme_minimal() 
+
+
+EE_wordcloud
+```
+
+```{r}
+IC_SH_ontents_reshaped <- housing_df_3 %>%
+  filter(housing %in%  c("IC", "SH")) %>%
+  group_by(animal_type, author_year) %>%
+  slice_head(n = 1) %>% # keeps 1 observation per group! 
+  ungroup() %>% 
+  
+  mutate(enrichment_contents_split = str_split(
+    enrichment_contents_list, ";"),
+    .after = enrichment_contents_list) %>%
+  
+  tidyr::unnest(enrichment_contents_split) %>%
+  mutate(contents_split = str_squish(enrichment_contents_split),
+         .after = enrichment_contents_split) %>%
+  group_by(housing) %>%
+  count(contents_split) #
+
+```
+
+```{r}
+IC_SH_wordcloud <- ggplot(IC_SH_ontents_reshaped,
+       aes(label = contents_split,
+           size = n)) +
+  geom_text_wordcloud() +
+  facet_wrap(~housing, ncol = 2,
+             labeller = labeller(
+               housing = c(IC = "Isolated Control",
+                           SH = "Standard Housing")),
+             strip.position = "bottom") +
+  # geom_text_wordcloud_area() +
+  # geom_text_wordcloud_area(rm_outside = TRUE) +
+  scale_size_area(max_size = 13) +
+  #scale_size_area(max_size = 50) +
+  # theme_minimal()
+  theme_minimal() +
+  theme(
+    # panel.border = element_rect(colour = "grey20", fill=NA, size=0.5),
+    # strip.text = element_text(size = 12, face = "italic")
+    ) 
+
+IC_SH_wordcloud
+```
+
+```{r}
+plot_grid(EE_wordcloud,IC_SH_wordcloud, nrow = 2,
+          labels = c("a", "b"))
 ```
 
 ------------------------------------------------------------------------
 
-### Males vs Females Study Count
+## Males vs Females Study Count
 
 ```{r}
 males_females_study <- housing_df_3 %>%
@@ -401,7 +452,7 @@ knitr::kable(animal_types_study)
 
 ------------------------------------------------------------------------
 
-Protein vs mRNA
+## Protein vs mRNA
 
 ```{r}
 protein_mRNA <- housing_df_3 %>%
@@ -430,7 +481,7 @@ proteomics_df <- housing_df_3 %>%
 
 ------------------------------------------------------------------------
 
-Region
+## Region
 
 ```{r}
 regions_df <- housing_df_3 %>%
