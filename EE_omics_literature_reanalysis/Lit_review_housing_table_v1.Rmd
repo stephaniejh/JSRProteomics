@@ -29,6 +29,8 @@ library(palettesForR) # colors
 library(ggtext) # for element_markdown() - (e.g. custom color & font axis labels)
 library(glue) # glue() - to prep vars for ggtext mapping
 library(cowplot)
+library(gg3D) # make ggplots 3D 
+library(ggh4x)
 ```
 
 ## Read in data
@@ -76,8 +78,8 @@ housing_df_3 <- housing_df_2 %>%
   
   # split the housing start column into the number & unit
   tidyr::separate_wider_delim(housing_start, delim = " ",
-                              names = c("house_start_no", "house_start_unit"),
-                              cols_remove = FALSE) %>%
+                             names = c("house_start_no", "house_start_unit"),
+                             cols_remove = FALSE) %>%
   
   # recode some numbers that are 15-17 or 5-6 or 9-10 & then make numeric
   mutate(house_start_no = as.numeric(recode(house_start_no, # old = "new"
@@ -111,25 +113,28 @@ housing_df_3 <- housing_df_2 %>%
   
   mutate(animal_type = factor(animal_type,
                               levels = c("rat", "mice", "pigs"))) %>%
-  mutate(animal_type = recode(animal_type, rat = "rats")) #%>%
+  mutate(animal_type = recode(animal_type, rat = "rats")) %>%
   
-  
-  #  mutate(contents_split_clean = case_when(
-  #   str_detect(contents_split_rm,
-  #     pattern = "running wheel") ~ "running wheels",
-  #   str_detect(contents_split_rm, "tunnel") ~ "tunnels",
-  #   str_detect(contents_split_rm, "ladder") ~ "ladders",
-  #   str_detect(contents_split_rm, "tube") ~ "tubes",
-  #   str_detect(contents_split_rm, "toys") ~ "toys",
-  #   str_detect(contents_split_rm, "ball") ~ "balls",
-  #   str_detect(contents_split_rm, "bedding") ~ "bedding",
-  #   str_detect(contents_split_rm, "house") ~ "house",
-  #   str_detect(contents_split_rm, "shelter") ~ "shelter",
-  #   str_detect(contents_split_rm,
-  #              "wooden blocks") ~ "wooden blocks",
-  #   .default = as.character(contents_split_rm)
-  # ), .after = contents_split_rm) %>%
 
+
+  # CAGE DIMENSIONS
+  # split L x W x H cm cage dimensions into 3 columns & make numeric
+  tidyr::separate_wider_delim(cage_dim_cm, delim = " x ",
+                              names = c("length", "width", "height"),
+                              too_few = "align_start", # deals with 2 or NAs
+                              cols_remove = FALSE) %>%
+  mutate(across(c("length", "width", "height"), as.numeric)) %>%
+  
+  # recode no_per_cage - e.g deal with 4 max or 5-6
+  # use max if 5-6 (spans 1) or mid whole no if 3-5
+  mutate(no_per_cage_2 = as.numeric(recode(no_per_cage,
+                                           "3-4?" = "4",
+                                           "3-5" = "4",
+                                           "4 max" = "4", 
+                                           "4?" = "4",
+                                           "6 max" = "6",
+                                           "5-6" = "6")),
+         .after = no_per_cage)
   
   
 ```
@@ -149,9 +154,16 @@ EE_only_df <- housing_df_3 %>%
 ```
 
 ```{r}
+# one house + controls & WT only)
 one_house_df <- housing_df_3 %>%
+  filter(!str_detect(housing_condition,
+                     "Stress|Cocaine|TG|Injured|MS|EPN"))  %>%
   group_by(animal_type, author_year, housing) %>%
-  slice_head(n=1)
+  slice_head(n=1) %>%
+  ungroup()
+
+# always double check after running
+unique(one_house_df$housing_condition)
 ```
 
 ```{r}
@@ -159,7 +171,8 @@ one_house_df <- housing_df_3 %>%
 # excludes transgenic, Stress, ELS (MS), Cocaine, Injured & EPN (Pb exposure) etc
 # keeps normal + Aging or duration, or saline/PBS, No MS stress (NS), PBS, WT, Intact
 WT_ctrl_only <- housing_df_3 %>%
-  filter(!str_detect(housing_condition, "Stress|Cocaine|TG|Injured|MS|EPN"))
+  filter(!str_detect(housing_condition,
+                     "Stress|Cocaine|TG|Injured|MS|EPN")) 
 
 
 # EE ONLY!!! (used for timeline plot!)
@@ -424,6 +437,46 @@ IC_SH_wordcloud
 ```{r}
 plot_grid(EE_wordcloud,IC_SH_wordcloud, nrow = 2,
           labels = c("a", "b"))
+
+```
+
+## Cage & no. - gg3D
+
+-   <https://htmlpreview.github.io/?https://github.com/AckerDWM/gg3D/blob/master/gg3D-vignette.html>
+
+```{r}
+# NOT RIGHT :(
+# NEED 2 DUMMY CODE DATA
+cage_no_plot <- one_house_df %>%
+  # filter(!is.na(length)) %>% # rm those w/ no length (those r all 3 empty)
+  filter(!is.na(height)) %>% # rm no 3rd (height), (so full NAs & 2Ds)
+  ggplot(aes(x = length,
+             y = width,
+             z = height,
+             color = animal_type)) +
+  # geom_segment(aes(x = 0,
+  #              xend = length,
+  #              y = 0, 
+  #              yend = width,
+  #              # z = 0, # doesnt exist
+  #              # zend = height
+  #              ) ) +
+  axes_3D(aes(group = interaction(author, housing))) +
+  stat_3D() +
+  facet_wrap(~author+housing,
+             # scales = "free",
+             ) +
+  # facet_nested(~ author_year + housing,
+  #              scales = "free",
+  #              space = "free") +
+  theme_bw()
+  # theme(panel.spacing = )
+
+cage_no_plot
+```
+
+```{r}
+
 ```
 
 ------------------------------------------------------------------------
@@ -477,6 +530,12 @@ proteomics_df <- housing_df_3 %>%
                              "no proteomics")) %>%
   group_by(proteomics) %>%
   count(animal_type)
+```
+
+## 
+
+```{r}
+
 ```
 
 ------------------------------------------------------------------------
