@@ -21,7 +21,9 @@ library(ggplot2)
 library(gt)
 library(lubridate)
 library(ggwordcloud)
-library(colorspace)
+library(colorspace) # for scale_color_discrete_divergingx
+library(ggtext) # for element_markdown() - (e.g. custom color & font axis labels)
+library(glue) # glue() - to prep vars for ggtext mapping
 ```
 
 ## Read in data
@@ -129,9 +131,9 @@ housing_df_3 <- housing_df_2 %>%
 
 ```{r}
 summary(housing_df_3)
-# start - mean: median 28 days mean 80.35
-# end - mean: median 98 days mean 167.5 days 
-# duration - median 42 & median 85.635 
+# start - old mean: median 28 days mean 80.35 | new median 28 & mean 73.18
+# end - old mean: median 98 days mean 167.5 days | new median 98 & mean 162.8
+# duration - old median 42 & median 85.635 | new median 40 & mean 90.287
 ```
 
 ```{r}
@@ -155,7 +157,7 @@ WT_ctrl_only <- housing_df_3 %>%
   filter(!str_detect(housing_condition, "Stress|Cocaine|TG|Injured|MS|EPN"))
 
 
-# EE only
+# EE ONLY!!! (used for timeline plot!)
 # excludes transgenic, Stress, ELS (MS), Cocaine, Injured & EPN (Pb exposure) etc
 # keeps EE normal + Aging or duration, or saline/PBS, No MS stress (NS), PBS, WT, Intact
 WT_ctrl_EE_only <- housing_df_3 %>%
@@ -163,57 +165,119 @@ WT_ctrl_EE_only <- housing_df_3 %>%
   filter(housing == "EE")
 ```
 
-## Housing Duration & Start/End Timeline plot test
+## Housing Timeline plot test
 
 -   <https://stackoverflow.com/questions/45245368/ggplot2-how-to-create-a-clustered-timeline>
-    -   <https://ggplot2.tidyverse.org/reference/geom_segment.html>
+    -   <https://ggplot2.tidyverse.org/reference/geom_segment.html> for timeline bits
 -   <https://colorspace.r-forge.r-project.org/articles/hcl_palettes.html>
+-   <https://en.wikipedia.org/wiki/Table_of_divisors>
+-   <https://github.com/wilkelab/ggtext> & <https://r-graph-gallery.com/package/ggtext.html> - element_markdown() (using ggtext & glue packages) for specifying custom axis text labels - e.g. pink for females & blue for males.
+    -   <https://stackoverflow.com/questions/72749018/color-axis-text-to-match-grouping-variable-in-ggplot>
 
 ```{r}
-timeline_plot <- ggplot(WT_ctrl_EE_only,
-                        aes(
-                            #fill = animal_sex,
-                            color = author_year)) +
-  geom_segment(aes(x = housing_start_day,
-                   xend = housing_stop_day,
-                   y = interaction(author_year, housing_condition,
-                                   lex.order = TRUE),
-                   yend = interaction(author_year, housing_condition,
-                                      lex.order = TRUE)),
-               linewidth = 2) +
+temp_colors <- c("#c90076", "#A80062", "#2986cc", "#1B5988", "grey15")
+
+timeline_plot <- WT_ctrl_EE_only %>%
   
-  scale_x_continuous(breaks=seq(-7, 570, 30)) + # seq(lower, upper, divisions) 
+  # mutate(across(c(animal_type, housing, animal_sex), as.factor)) %>% # not needed? 
+  mutate(author_year_hc = )
+  
+  # ORDERING BY YEAR & HOUSING DURATION! 
+  # this is a new composite variable for reorder() function below which only takes 1 var
+  # it takes year year & adds a tiny contribution from during duration (dur/1000)
+  # that way something with 2011 + 200 days ends up being higher 
+  mutate(study_yr_by_dur = (year + (housing_duration_days/1000))) %>% 
+  
+  
+  
+  # COMPUTE VAR for element_markdown() (for custom axis text colors)
+  mutate(color = c("#A80062", "#1B5988", "grey15"),
+         
+         
+         names = glue("<i style='color:{color}'>**{author_name}**</i> ({housing_condition})"),
+         names = reorder(names, animal_sex)
+         ) %>%
+  
+  ggplot(aes(
+    color = author_year, # see mapping below 
+    )) +
+  
+  # LINES for REFERENCE (e.g PND 0, 21, 1 year)
+  geom_vline(xintercept = 0, linetype = "solid", # PND 0 line | birth
+             color = "grey20", linewidth = .2) +
+  geom_vline(xintercept = 21, linetype = "dashed", # PND 21 line | weaning
+             color = "grey50", linewidth = .2) +
+  geom_vline(xintercept = 365, linetype = "dotted", # PND 365 line | 1 year
+             color = "grey50", linewidth = .2) +
+  
+  
+  #TIMELINE SEGMENTS (SOLID)
+  geom_segment(aes( #SOLID
+    x = housing_start_day, # housing start date
+    xend = housing_stop_day, # housing end date
+
+    # y = reorder(interaction(author_year, housing_condition),
+    #                         study_yr_by_dur, # using com var made above!
+    #                         decreasing = TRUE), # order by study year frm small2big
+    # yend = reorder(interaction(author_year, housing_condition),
+    #                            study_yr_by_dur, 
+    #                            decreasing = TRUE)),
+    y = reorder(interaction(author_year, housing_condition),
+                            study_yr_by_dur, # using com var made above!
+                            decreasing = TRUE), # order by study year frm small2big
+    yend = reorder(interaction(author_year, housing_condition),
+                               study_yr_by_dur, 
+                               decreasing = TRUE)),
+    
+    linewidth = 2) +
+    
+    # # Gaps (for part time)
+    # geom_segment(aes( # TIMELINE SEGMENTS
+    # x = housing_start_day, # housing start date
+    # xend = housing_stop_day, # housing end date
+    # 
+    # y = reorder(interaction(author_year, housing_condition),
+    #                         study_yr_by_dur, # using com var made above!
+    #                         decreasing = TRUE), # order by study year frm small2big
+    # yend = reorder(interaction(author_year, housing_condition),
+    #                            study_yr_by_dur, 
+    #                            decreasing = TRUE)),
+    # linewidth = 2) +
+  
+  scale_x_continuous(
+    breaks = sort(c(-7, 0, 21, 365, 570, # specific ones i want
+                    60, 120, 180, 240, 300, 420, 480, 540)), # by 30 
+    # breaks=sort(c(0, 21, 365, 570,  # extra no. for labelling 
+    #               seq(-7, 570, 34))), 
+    #breaks=seq(-7,570,34), # seq(low,up,div)) 
+    expand = c(0, 5), # minimal extra white space (0,0 too trimmed)
+    name = "Postnatal Day (PND)") + 
   
   scale_color_discrete_qualitative(palette = "Dark 3") + # colorspace pkg
   # scale_color_discrete_divergingx(palette = "Temps") + # colorspace pkg
   # scale_color_discrete_qualitative(palette = "Harmonic") +
+    
+  # scale_color_manual(values = c("#A80062", "#1B5988", "grey15")) + 
   
-  geom_vline(xintercept = 0, linetype = "dashed", # PND 0 line
-             color = "grey30", linewidth = .5) +
-  
-  geom_vline(xintercept = 21, linetype = "dashed", # PND 21 line
-             color = "lightblue", linewidth = .5) +
-  
-  geom_vline(xintercept = 60, linetype = "dashed", # PND 60 line
-             color = "grey80", linewidth = .5) +
-  
-  geom_vline(xintercept = 365, linetype = "dashed", # PND 365 line
-             color = "pink", linewidth = .5) +
-  
-  facet_wrap(animal_type~animal_sex, 
+
+  # FACET
+  facet_wrap(#animal_type~animal_sex, 
+             ~animal_type+animal_sex,
              # ncol =1,
-             # scales = "free_y", space = "free_y",
+             scales = "free_y", # don't plot all authors if no obs but x axis same 
+             space = "free_y", # varies panel height according to no. authors
+             labeller = labeller(
+               animal_type = c(rats = "Rats", # capitilise rat = Rats
+                             mice = "Mice",
+                             pigs = "Pigs/Porcine")), 
              ) +
+  # THEME  
   theme_bw() + 
   theme(
     legend.position = "none",
-    axis.title.y = element_blank()
+    axis.title.y = element_blank(),
+    axis.text.y = element_markdown(), # custom ggtext color by animal_sex
   )
-
-# 
-# ggplot(data=df, aes(color=Drug))+
-#       geom_segment(aes(x=StartDay, xend=StopDay, y=Drug, yend=Drug),lwd=12)+
-#       facet_grid(Patient~.)+xlab("Days")
 
 timeline_plot
 ```
