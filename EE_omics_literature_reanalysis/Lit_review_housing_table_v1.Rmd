@@ -173,29 +173,40 @@ WT_ctrl_EE_only <- housing_df_3 %>%
 -   <https://en.wikipedia.org/wiki/Table_of_divisors>
 -   <https://github.com/wilkelab/ggtext> & <https://r-graph-gallery.com/package/ggtext.html> - element_markdown() (using ggtext & glue packages) for specifying custom axis text labels - e.g. pink for females & blue for males.
     -   <https://stackoverflow.com/questions/72749018/color-axis-text-to-match-grouping-variable-in-ggplot>
+-   OLD CODE DELETED
+    -   geom_segment - y & yend= reorder(interaction(author_year, housing_condition), study_yr_by_dur, decreasing = TRUE),
 
 ```{r}
 temp_colors <- c("#c90076", "#A80062", "#2986cc", "#1B5988", "grey15")
 
 timeline_plot <- WT_ctrl_EE_only %>%
   
-  # mutate(across(c(animal_type, housing, animal_sex), as.factor)) %>% # not needed? 
-  mutate(author_year_hc = )
+  # mutate(across(c(animal_type, housing, animal_sex), as.factor)) %>% # not needed?
   
+  # MAKE NEW COMPUTED VARIABLES IN PREPARATION FOR PLOTTING 
+  mutate(
+  # MAKE appended author_year & housing_cond var (tp avoid using messy interaction())
+    author_year_hc = paste0(author_year, " (", housing_condition, ")" ),
+    
   # ORDERING BY YEAR & HOUSING DURATION! 
-  # this is a new composite variable for reorder() function below which only takes 1 var
-  # it takes year year & adds a tiny contribution from during duration (dur/1000)
-  # that way something with 2011 + 200 days ends up being higher 
-  mutate(study_yr_by_dur = (year + (housing_duration_days/1000))) %>% 
+    # new composite variable for reorder() function below which only takes 1 var
+    # it takes year year & adds a tiny contribution from during duration (dur/1000)
+    # that way something with 2011 + 200 days ends up being higher 
+    study_yr_by_dur = (year + (housing_duration_days/1000)), 
   
-  
-  
+  # COLORING = 
+  sex_colors = case_when(
+    animal_sex == "female" ~ "#A80062", # female
+    animal_sex == "male" ~ "#1B5988",  # male
+    .default = "grey10"), # for NA / catch others
+  .before = author
+  ) %>%
+
   # COMPUTE VAR for element_markdown() (for custom axis text colors)
-  mutate(color = c("#A80062", "#1B5988", "grey15"),
-         
-         
-         names = glue("<i style='color:{color}'>**{author_name}**</i> ({housing_condition})"),
-         names = reorder(names, animal_sex)
+  mutate(
+    #color = c("#A80062", "#1B5988", "grey15"), # see above instead! 
+  names = glue("<i style='color:{sex_colors}'>**{author_year_hc}**</i>"),
+  names = reorder(names, study_yr_by_dur, decreasing = TRUE)
          ) %>%
   
   ggplot(aes(
@@ -215,20 +226,10 @@ timeline_plot <- WT_ctrl_EE_only %>%
   geom_segment(aes( #SOLID
     x = housing_start_day, # housing start date
     xend = housing_stop_day, # housing end date
-
-    # y = reorder(interaction(author_year, housing_condition),
-    #                         study_yr_by_dur, # using com var made above!
-    #                         decreasing = TRUE), # order by study year frm small2big
-    # yend = reorder(interaction(author_year, housing_condition),
-    #                            study_yr_by_dur, 
-    #                            decreasing = TRUE)),
-    y = reorder(interaction(author_year, housing_condition),
-                            study_yr_by_dur, # using com var made above!
-                            decreasing = TRUE), # order by study year frm small2big
-    yend = reorder(interaction(author_year, housing_condition),
-                               study_yr_by_dur, 
-                               decreasing = TRUE)),
     
+    y = names,
+    yend = names,
+    ),
     linewidth = 2) +
     
     # # Gaps (for part time)
