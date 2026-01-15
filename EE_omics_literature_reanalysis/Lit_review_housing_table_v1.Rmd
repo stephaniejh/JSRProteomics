@@ -599,51 +599,100 @@ tr_1_house_df <- one_house_df %>%
   filter(!is.na(length)) %>% # rm those without 3D
   filter(animal_type == "rats") %>%
   filter(author %in% c("Angelucci", "Ickes", "Keyvani", "Novati" )) %>%
-  select(c(animal_type:housing, length:no_per_cage_2))
+  select(c(animal_type:housing, length:no_per_cage_2)) %>%
+  mutate(crossed_var = paste0(author_year, " ", housing)) %>%
+  mutate(box_color = case_when(
+    
+  )) %>%
+  mutate(animal_color = case_when(
+    
+  )) %>%
+  mutate(sex_color = ) 
   
 str(tr_1_house_df)
 ```
 
 ```{r}
-study_names <- unique(tr_1_house_df$author_year) 
+# see settings
+current_settings <- trellis.par.get()
+print(current_settings)
+```
 
-housing_names <- unique(tr_1_house_df$housing)
+```{r}
+# study_names <- unique(tr_1_house_df$author_year) 
+# housing_names <- unique(tr_1_house_df$housing)
+
+crosses <- unique(tr_1_house_df$crossed_var)
 
 plot_3D_list <- vector(mode = "list")
 ```
 
 ```{r}
-for(s in study_names) {
-  for(h in housing_names) {
+for(cr in crosses) {
+  
     
     df_1 <- tr_1_house_df %>%
-      filter(author_year == s) %>%
-      filter(housing == h) 
+      filter(crossed_var == cr)
     
+    if(nrow(df_1) == 0) {
+      print("nope!")
+      next 
+    }
+
     
      
-    df_2 <- data.frame(no = 1:df_1$no_per_cage_2,
-                   xd = rnorm(n=1:df_1$no_per_cage_2, mean = df_1$length/2, sd = df_1$length/5),
-                   yd = rnorm(n=1:df_1$no_per_cage_2, mean = df_1$width/2, sd = df_1$width/5),
-                   zd = rnorm(n=1:df_1$no_per_cage_2, mean = df_1$height/2, sd = df_1$height/5),
-                   h_name = df_1$housing,
-                   s_name = df_1$author_year,
-                   height = df_1$height,
-                   width = df_1$width,
-                   length = df_1$length,
-                   stringsAsFactors = TRUE)
+    df_2 <- data.frame(
+      no = 1:df_1$no_per_cage_2[1],
+      xd = rnorm(n=1:df_1$no_per_cage_2[1],
+                 mean = df_1$length[1]/2,
+                 sd = df_1$length[1]/7),
+      yd = rnorm(n=1:df_1$no_per_cage_2[1],
+                 mean = df_1$width[1]/2,
+                 sd = df_1$width[1]/7),
+      zd = rnorm(n=1:df_1$no_per_cage_2[1],
+                 mean = df_1$height[1]/2,
+                 sd = df_1$height[1]/7),
+                 h_name = df_1$housing[1],
+                 s_name = df_1$author_year[1],
+                 height = df_1$height[1],
+                 width = df_1$width[1],
+                 length = df_1$length[1],
+      # y_x = 
+                 stringsAsFactors = TRUE)
     
-    cloud(yd~zd+xd, df_2,
+    plot_3D_cloud <- cloud(yd~zd+xd, df_2,
       # panel.3d.cloud=panel.3dpolygon,
              xbase=0.8, ybase=0.8,
-      xlab= "Study",ylab="Housing",zlab="Height",
-      xlim = c(0, df_2$length), ylim = c(0, df_2$width), zlim = c(0, df_2$height),
-      scales=list(arrows=FALSE, col=1),
-             par.settings = list(axis.line = list(col = "transparent")))
+      xlab= "L",ylab="W",zlab="H",
+      xlim = c(0, df_2$length[1]),
+      ylim = c(0, df_2$width[1]),
+      zlim = c(0, df_2$height[1]),
+      aspect = c(df_2$width[1]/df_2$length[1],
+                 df_2$height[1]/df_2$length[1]),
+      zoom = df_2$length[1]/120,
+      main = paste0(df_2$s_name[1], " - ", df_2$h_name[1]), 
+      scales=list(arrows=TRUE, col=1),
+      par.settings = list(axis.line = list(col = "transparent"),
+                          axis.text = list(cex = 0.5,
+                                           col = "grey20"),
+                          par.xlab.text = list(cex = .2, col = "grey20"),
+                          par.ylab.text = list(cex = .2, col = "grey20"),
+                          par.zlab.text = list(cex = .2, col = "grey20"),
+                          par.main.text = list(cex = .7), # main/title
+                          plot.symbol = list(cex = 2))
+      )
 
+     print(plot_3D_cloud)
      
+     # grobject <- 
+     
+     plot_3D_list[[cr]] <- plot_3D_cloud
   }
-}
+
+```
+
+```{r}
+plot_grid(plotlist = plot_3D_list, ncol = 2)#
 ```
 
 ```{r}
@@ -668,7 +717,7 @@ cloud(yd~zd+xd, df_2,
       # panel.3d.cloud=panel.3dpolygon,
              xbase=0.8, ybase=0.8,
       xlab= "Study",ylab="Housing",zlab="Height",
-      xlim = c(0, df_2$length), ylim = c(0, df_2$width), zlim = c(0, df_2$height),
+      xlim = c(0, df_2$length[1]), ylim = c(0, df_2$width[1]), zlim = c(0, df_2$height[1]),
       scales=list(arrows=FALSE, col=1),
              par.settings = list(axis.line = list(col = "transparent")))
 
@@ -678,7 +727,7 @@ cloud(yd~zd+xd, df_2,
 <https://stackoverflow.com/questions/1406202/plotting-a-wireframe-and-a-cloud-with-lattice-in-r>
 
 ```{r}
-
+plotplots <- unlist(plot_3D_list)
 ```
 
 ------------------------------------------------------------------------
