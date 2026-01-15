@@ -24,13 +24,15 @@ library(ggwordcloud)
 library(colorspace) # for scale_color_discrete_divergingx
 library(paletteer) # for scale_colour_paletteer_d
 # library(MetBrewer) # for colors
-library(khroma) # for colors
-library(palettesForR) # colors
+#library(khroma) # for colors
+#library(palettesForR) # colors
 library(ggtext) # for element_markdown() - (e.g. custom color & font axis labels)
 library(glue) # glue() - to prep vars for ggtext mapping
 library(cowplot)
-library(gg3D) # make ggplots 3D 
+#library(gg3D) # make ggplots 3D 
 library(ggh4x)
+library(rayshader) # for plot_gg (3D plots)
+library(rayviewer)
 ```
 
 ## Read in data
@@ -440,29 +442,28 @@ plot_grid(EE_wordcloud,IC_SH_wordcloud, nrow = 2,
 
 ```
 
-## Cage & no. - gg3D
+## Cage & no. - geom_rect + fill in later
 
--   <https://htmlpreview.github.io/?https://github.com/AckerDWM/gg3D/blob/master/gg3D-vignette.html>
+-   ~~gg3D <https://htmlpreview.github.io/?https://github.com/AckerDWM/gg3D/blob/master/gg3D-vignette.html>~~
 
 ```{r}
-# NOT RIGHT :(
-# NEED 2 DUMMY CODE DATA
 cage_no_plot <- one_house_df %>%
-  # filter(!is.na(length)) %>% # rm those w/ no length (those r all 3 empty)
   filter(!is.na(height)) %>% # rm no 3rd (height), (so full NAs & 2Ds)
   ggplot(aes(x = length,
              y = width,
-             z = height,
-             color = animal_type)) +
-  # geom_segment(aes(x = 0,
-  #              xend = length,
-  #              y = 0, 
-  #              yend = width,
-  #              # z = 0, # doesnt exist
-  #              # zend = height
-  #              ) ) +
-  axes_3D(aes(group = interaction(author, housing))) +
-  stat_3D() +
+             # z = height,
+             color = housing,
+             fill = animal_type)) +
+  # geom_tile(aes(width = length, height = width, alpha = height)) +
+  geom_rect(aes(
+    xmin = 0, xmax = length,
+    ymin = 0, ymax = width,
+    # alpha = height
+  ), alpha = 0.5) +
+  
+  geom_segment(aes(x = 0, xend = height,
+                   y = 0, yend = height))+
+
   facet_wrap(~author+housing,
              # scales = "free",
              ) +
@@ -475,8 +476,43 @@ cage_no_plot <- one_house_df %>%
 cage_no_plot
 ```
 
-```{r}
+With Rayshader !!! works but blocky...
 
+-   <https://www.tylermw.com/posts/data_visualization/3d-ggplots-with-rayshader.html>
+
+    -   <https://forum.posit.co/t/rayshader-3d-ggplots/143602>
+
+    -   <https://www.rayshader.com/reference/plot_gg.html>
+
+```{r}
+cage_no_plot_2 <- one_house_df %>%
+  filter(animal_type == "rats") %>% # temp filter rats only
+  filter(!is.na(height)) %>% # rm no 3rd (height), (so full NAs & 2Ds)
+  mutate(height = ifelse(is.na(height), 0.1, height)) %>% #rplc missing with 1
+
+  ggplot(aes(x = length, y = width)) +
+  geom_rect(aes(
+    xmin = 0, xmax = length,
+    ymin = 0, ymax = width,
+    fill = height,
+    color = height
+  ), alpha = 0.5) +
+  facet_wrap(~author + housing)
+# 
+plot_gg(cage_no_plot_2, multicore = TRUE,  width = 12, height = 12, scale = 100,
+background = "#afceff", shadowcolor = "limegreen")
+
+gg1 = render_snapshot(clear = TRUE, plot = FALSE, # this plots in R viewer
+                      title_text = "RATS")
+
+# gg2 = render_highquality() # weird looking
+
+# render_depth(focallength=100,focus=0.72) # nope
+```
+
+```{r}
+# 
+# rayimage::plot_image(gg1) # giving error
 ```
 
 ------------------------------------------------------------------------
@@ -575,7 +611,7 @@ knitr::kable(regions_df)
 
 ```{r}
 housing_df_3 |> 
-  # 
+  
   # dplyr::select(c(animal_type,author_year, housing, animal_strain,
   #                 inbred_outbred, wt_tg, animal_sex,
   #                 cage_description, cage_dim_cm, no_per_cage, 
