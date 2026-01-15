@@ -32,7 +32,8 @@ library(cowplot)
 #library(gg3D) # make ggplots 3D 
 library(ggh4x)
 library(rayshader) # for plot_gg (3D plots)
-library(rayviewer)
+library(lattice) # for 3D
+library(latticeExtra) # for 3D
 ```
 
 ## Read in data
@@ -449,11 +450,13 @@ plot_grid(EE_wordcloud,IC_SH_wordcloud, nrow = 2,
 ```{r}
 cage_no_plot <- one_house_df %>%
   filter(!is.na(height)) %>% # rm no 3rd (height), (so full NAs & 2Ds)
+  filter(animal_type == "rats") %>%
   ggplot(aes(x = length,
              y = width,
              # z = height,
-             color = housing,
-             fill = animal_type)) +
+             fill = housing,
+             # fill = animal_type
+             )) +
   # geom_tile(aes(width = length, height = width, alpha = height)) +
   geom_rect(aes(
     xmin = 0, xmax = length,
@@ -461,22 +464,22 @@ cage_no_plot <- one_house_df %>%
     # alpha = height
   ), alpha = 0.5) +
   
-  geom_segment(aes(x = 0, xend = height,
-                   y = 0, yend = height))+
+  # geom_segment(aes(x = 0, xend = height, # weird looking 
+  #                  y = 0, yend = height))+ 
 
-  facet_wrap(~author+housing,
-             # scales = "free",
-             ) +
-  # facet_nested(~ author_year + housing,
-  #              scales = "free",
-  #              space = "free") +
+  # facet_wrap(~author+housing,
+  #            # scales = "free",
+  #            ) +
+  facet_wrap2(~ author_year + housing,
+               # scales = "free",
+               ) +
   theme_bw()
   # theme(panel.spacing = )
 
 cage_no_plot
 ```
 
-With Rayshader !!! works but blocky...
+### With Rayshader !!! works but blocky & ugly
 
 -   <https://www.tylermw.com/posts/data_visualization/3d-ggplots-with-rayshader.html>
 
@@ -485,34 +488,197 @@ With Rayshader !!! works but blocky...
     -   <https://www.rayshader.com/reference/plot_gg.html>
 
 ```{r}
-cage_no_plot_2 <- one_house_df %>%
-  filter(animal_type == "rats") %>% # temp filter rats only
-  filter(!is.na(height)) %>% # rm no 3rd (height), (so full NAs & 2Ds)
-  mutate(height = ifelse(is.na(height), 0.1, height)) %>% #rplc missing with 1
-
-  ggplot(aes(x = length, y = width)) +
-  geom_rect(aes(
-    xmin = 0, xmax = length,
-    ymin = 0, ymax = width,
-    fill = height,
-    color = height
-  ), alpha = 0.5) +
-  facet_wrap(~author + housing)
+# cage_no_plot_2 <- one_house_df %>%
+#   filter(animal_type == "rats") %>% # temp filter rats only
+#   filter(!is.na(height)) %>% # rm no 3rd (height), (so full NAs & 2Ds)
+#   mutate(height = ifelse(is.na(height), 0.1, height)) %>% #rplc missing with 1
 # 
-plot_gg(cage_no_plot_2, multicore = TRUE,  width = 12, height = 12, scale = 100,
-background = "#afceff", shadowcolor = "limegreen")
-
-gg1 = render_snapshot(clear = TRUE, plot = FALSE, # this plots in R viewer
-                      title_text = "RATS")
+#   ggplot(aes(x = length, y = width)) +
+#   geom_rect(aes(
+#     xmin = 0, xmax = length,
+#     ymin = 0, ymax = width,
+#     fill = height,
+#     color = height
+#   ), alpha = 0.5) +
+#   facet_wrap(~author + housing)
+# # 
+# plot_gg(cage_no_plot_2, multicore = TRUE,  width = 12, height = 12, scale = 100,
+# background = "#afceff", shadowcolor = "limegreen")
+# 
+# gg1 = render_snapshot(clear = TRUE, plot = FALSE, # this plots in R viewer
+#                       title_text = "RATS")
 
 # gg2 = render_highquality() # weird looking
 
 # render_depth(focallength=100,focus=0.72) # nope
+
+# rayimage::plot_image(gg1) # giving error
+```
+
+### Lattice & LatticeExtra in R
+
+-   <https://stackoverflow.com/questions/65837568/r-adjust-color-gradient-for-3dbarplot-using-latticeextra-cloud-in-r>
+
+-   <https://stackoverflow.com/questions/1406202/plotting-a-wireframe-and-a-cloud-with-lattice-in-r>
+
+```{r}
+library(latticeExtra)
+myPalette <- colorRampPalette(rev(c("red2","tomato2","red4","darkorange", "gold1","forestgreen")))(6)
+k <- read.table(text = 'x y z
+NotKnown   0 Critical
+NotKnown   0 Substantial
+NotKnown   0 Significant
+NotKnown   0 Moderate
+NotKnown   0 Negligible
+NotLikely  2 Critical
+NotLikely  5 Substantial
+NotLikely  7 Significant
+NotLikely  0 Moderate
+NotLikely  0 Negligible
+Reasonable 0 Critical
+Reasonable 1 Substantial
+Reasonable 9 Significant
+Reasonable 1 Moderate
+Reasonable 0 Negligible
+Likely     0 Critical
+Likely     0 Substantial
+Likely     1 Significant
+Likely     0 Moderate
+Likely     0 Negligible
+VeryLikely 0 Critical
+VeryLikely 0 Substantial
+VeryLikely 0 Significant
+VeryLikely 0 Moderate
+VeryLikely 0 Negligible',header=TRUE)
+
+k$x <- factor(k$x,levels = c("VeryLikely", "Likely","Reasonable","NotLikely","NotKnown"))
+k$z <- factor(k$z,levels= c("Critical","Substantial","Significant","Moderate","Negligible"))
+
+cloud(y~z+x, k, panel.3d.cloud=panel.3dbars, col.facet=myPalette, 
+             xbase=0.8, ybase=0.8, xlab= "Severity",ylab="Probability",zlab="Number of Risks",scales=list(arrows=FALSE, col=1), 
+             par.settings = list(axis.line = list(col = "transparent")))
 ```
 
 ```{r}
-# 
-# rayimage::plot_image(gg1) # giving error
+myPalette <-  c("gold1", "forestgreen", "orange")
+
+test_df <- data.frame(
+  x = c('Study_1', 'Study_1',
+        'Study_2', 'Study_2',
+        'Study_3', 'Study_3'),
+  z = c('SH', 'EE',
+        'SH', 'EE',
+        'IC', 'EE'),
+  y = c(2, 5,
+         3, 6,
+        1, 3),
+  w = c(2, 4,
+         4, 7,
+        2, 6),
+  l = c(1, 3,
+         4, 8,
+        1, 7)
+ )
+
+test_df$x <- factor(test_df$x, levels = c("Study_1", "Study_2", "Study_3"))
+test_df$z <- factor(test_df$z, levels = c("SH", "EE", "IC"))
+
+plot_1 <- cloud(y~z+x, test_df, panel.3d.cloud=panel.3dbars, col.facet=myPalette,
+             xbase=0.8, ybase=0.8,
+      xlab= "Study",ylab="Housing",zlab="Height",
+      scales=list(arrows=FALSE, col=1),
+             par.settings = list(axis.line = list(col = "transparent")))
+```
+
+```{r}
+plot_grid(plot_1, plot_1)
+```
+
+```{r}
+tr_1_house_df <- one_house_df %>%
+  filter(!is.na(length)) %>% # rm those without 3D
+  filter(animal_type == "rats") %>%
+  filter(author %in% c("Angelucci", "Ickes", "Keyvani", "Novati" )) %>%
+  select(c(animal_type:housing, length:no_per_cage_2))
+  
+str(tr_1_house_df)
+```
+
+```{r}
+study_names <- unique(tr_1_house_df$author_year) 
+
+housing_names <- unique(tr_1_house_df$housing)
+
+plot_3D_list <- vector(mode = "list")
+```
+
+```{r}
+for(s in study_names) {
+  for(h in housing_names) {
+    
+    df_1 <- tr_1_house_df %>%
+      filter(author_year == s) %>%
+      filter(housing == h) 
+    
+    
+     
+    df_2 <- data.frame(no = 1:df_1$no_per_cage_2,
+                   xd = rnorm(n=1:df_1$no_per_cage_2, mean = df_1$length/2, sd = df_1$length/5),
+                   yd = rnorm(n=1:df_1$no_per_cage_2, mean = df_1$width/2, sd = df_1$width/5),
+                   zd = rnorm(n=1:df_1$no_per_cage_2, mean = df_1$height/2, sd = df_1$height/5),
+                   h_name = df_1$housing,
+                   s_name = df_1$author_year,
+                   height = df_1$height,
+                   width = df_1$width,
+                   length = df_1$length,
+                   stringsAsFactors = TRUE)
+    
+    cloud(yd~zd+xd, df_2,
+      # panel.3d.cloud=panel.3dpolygon,
+             xbase=0.8, ybase=0.8,
+      xlab= "Study",ylab="Housing",zlab="Height",
+      xlim = c(0, df_2$length), ylim = c(0, df_2$width), zlim = c(0, df_2$height),
+      scales=list(arrows=FALSE, col=1),
+             par.settings = list(axis.line = list(col = "transparent")))
+
+     
+  }
+}
+```
+
+```{r}
+df_1 <- tr_1_house_df %>%
+      filter(author_year == "Angelucci 2009") %>%
+      filter(housing == "EE") 
+
+  
+df_2 <- data.frame(no = 1:df_1$no_per_cage_2,
+                   xd = rnorm(n=1:df_1$no_per_cage_2, mean = df_1$length/2, sd = df_1$length/5),
+                   yd = rnorm(n=1:df_1$no_per_cage_2, mean = df_1$width/2, sd = df_1$width/5),
+                   zd = rnorm(n=1:df_1$no_per_cage_2, mean = df_1$height/2, sd = df_1$height/5),
+                   h_name = df_1$housing,
+                   s_name = df_1$author_year,
+                   height = df_1$height,
+                   width = df_1$width,
+                   length = df_1$length,
+                   stringsAsFactors = TRUE)
+
+
+cloud(yd~zd+xd, df_2,
+      # panel.3d.cloud=panel.3dpolygon,
+             xbase=0.8, ybase=0.8,
+      xlab= "Study",ylab="Housing",zlab="Height",
+      xlim = c(0, df_2$length), ylim = c(0, df_2$width), zlim = c(0, df_2$height),
+      scales=list(arrows=FALSE, col=1),
+             par.settings = list(axis.line = list(col = "transparent")))
+
+# wireframe(width~length+height, df_2, drape = TRUE)
+```
+
+<https://stackoverflow.com/questions/1406202/plotting-a-wireframe-and-a-cloud-with-lattice-in-r>
+
+```{r}
+
 ```
 
 ------------------------------------------------------------------------
