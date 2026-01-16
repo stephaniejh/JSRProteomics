@@ -91,14 +91,16 @@ colnames(protein_comp)
 ```
 
 ```{r}
-# check 
-unique(df$Label) 
-# don't want "HxA_EE_YNG_vs_SH_OLD" "HxA_EE_OLD_vs_SH_YNG", so just do manually 
+# # check 
+# unique(df$Label) 
+# # don't want "HxA_EE_YNG_vs_SH_OLD" "HxA_EE_OLD_vs_SH_YNG", so just do manually 
+# 
+# # VECTOR for labels (contrasts from MSstatsTMT analysis)
+# label_names <- c("H_EE_vs_SH", "A_YNG_vs_OLD",
+#                  "HxA_EE_YNG_vs_EE_OLD", "HxA_SH_YNG_vs_SH_OLD",
+#                  "HxA_EE_YNG_vs_SH_YNG", "HxA_EE_OLD_vs_SH_OLD")
 
-# VECTOR for labels (contrasts from MSstatsTMT analysis)
-label_names <- c("H_EE_vs_SH", "A_YNG_vs_OLD",
-                 "HxA_EE_YNG_vs_EE_OLD", "HxA_SH_YNG_vs_SH_OLD",
-                 "HxA_EE_YNG_vs_SH_YNG", "HxA_EE_OLD_vs_SH_OLD")
+label_names <- unique(protein_comp$Label)
 
 # # CONTAINER - EMPTY VECTOR
 # gsea_KEGG_results_list <- vector(mode = "list")
@@ -146,30 +148,57 @@ old stuff
 ------------------------------------------------------------------------
 
 ```{r}
-# load gsea results from v3.4.2. 31 dec & 01 jan 
-# GSEA KEGG - 2025_12_31 - gseKEGG - keytype Uniprot
-load("output/2025_12_31_KEGG_gsea_EExAge_cp_v3.4.2_msstats_v3.2.2_t1.rda")
-# # GSEA GO - 2025_12_31 / gseGO (keytype Uniprot) | takes forever....
-# load("output/2025_12_31_GO_gsea_EExAge_cp_v3.4.2_msstats_v3.2.2_t1.rda")
-# ~ ~ ~ ~ ~~
-# GSEA Msigdb Hallmarks Collection  / gsea key type ncbi entrez - 2026_01_01
-load("output/2026_01_01_gsea_msig_Hallmark_EExAge_cpv3.4.2_mssv3.2.2_t1.rda")
-# GSEA Kegg REDO gsekegg / entrez - 2026_01_01
-load("output/2026_01_01_KEGG_gsea_EExAge_cpv3.4.2t2_mssv3.2.2t1.rda")
+# # load gsea results from v3.4.2. 31 dec & 01 jan 
+# # GSEA KEGG - 2025_12_31 - gseKEGG - keytype Uniprot
+# load("output/2025_12_31_KEGG_gsea_EExAge_cp_v3.4.2_msstats_v3.2.2_t1.rda")
+# # # GSEA GO - 2025_12_31 / gseGO (keytype Uniprot) | takes forever....
+# # load("output/2025_12_31_GO_gsea_EExAge_cp_v3.4.2_msstats_v3.2.2_t1.rda")
+# # ~ ~ ~ ~ ~~
+# # GSEA Msigdb Hallmarks Collection  / gsea key type ncbi entrez - 2026_01_01
+# load("output/2026_01_01_gsea_msig_Hallmark_EExAge_cpv3.4.2_mssv3.2.2_t1.rda")
+# # GSEA Kegg REDO gsekegg / entrez - 2026_01_01
+# load("output/2026_01_01_KEGG_gsea_EExAge_cpv3.4.2t2_mssv3.2.2t1.rda")
 
 ```
 
-### print dot plots 
+```{r}
+load("output/2026_01_12_KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3.rda") # KEGG
+load("output/2026_01_12_GO_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t2.rda") # GO
+
+# MSIGDB
+load("output/2026_01_12_gsea_msig_Hallmark_EExAge_mssv3.2.2_t1_cpv3.4.2_t2.rda") 
+load("output/2026_01_12_gsea_msig_C8_ct_EExAge_mssv3.2.2_t1_cpv3.4.2_t2.rda")
+```
+
+
+## print KEGG sign dot plots 
 
 ```{r fig.height=13, fig.width=11}
-print(KEGG_gsea_EExAge_cp_v3.4.2_msstats_v3.2.2_t1$dotplots) # kegg uniprot 
+print(KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3$dotplots_sign) # kegg
 
 
-print(gsea_msig_Hmrk_EExAge_cp3.4.2_mss3.2.2_t1$dotplots) # msigdb hallmarks entrez
-print(KEGG_gsea_EExAge_cpv3.4.2t2_mssv3.2.2t1$dotplots) # kegg entrez
+# print(gsea_msig_Hmrk_EExAge_cp3.4.2_mss3.2.2_t1$dotplots) # msigdb hallmarks entrez
+# print(KEGG_gsea_EExAge_cpv3.4.2t2_mssv3.2.2t1$dotplots) # kegg entrez
 ```
 
-### Print dotplots sign
+## print GO sign dot plots 
+```{r}
+print(GO_gsea_EExAge_msstats_v3.2.2_t1_cp_v3.4.2_t2$dotplots_sign)
+```
+
+## print Msigdb Hallmarks sign dot plots 
+```{r}
+print(gsea_msig_Hmrk_EExAge_mss3.2.2_t1_cp3.4.2_t2$dotplots_sign)
+```
+
+## print Msigdb C8 CellTypes sign dot plots 
+```{r}
+print(gsea_msig_C8_ct_EExAge_cp3.4.2_mss3.2.2_t1$dotplots_sign)
+```
+
+
+## Print GO dotplots 
+### 
 
 ```{r fig.height=14, fig.width=12}
 print(KEGG_gsea_EExAge_cp_v3.4.2_msstats_v3.2.2_t1$dotplots_sign) # kegg uniprot 
