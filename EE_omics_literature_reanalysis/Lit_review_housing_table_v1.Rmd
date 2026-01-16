@@ -21,8 +21,9 @@ library(ggplot2)
 library(gt)
 library(lubridate)
 library(ggwordcloud)
-library(colorspace) # for scale_color_discrete_divergingx
+library(colorspace) # for scale_color_discrete_divergingx & display colors
 library(paletteer) # for scale_colour_paletteer_d
+library(RColorBrewer) # for colors
 # library(MetBrewer) # for colors
 #library(khroma) # for colors
 #library(palettesForR) # colors
@@ -128,17 +129,25 @@ housing_df_3 <- housing_df_2 %>%
                               cols_remove = FALSE) %>%
   mutate(across(c("length", "width", "height"), as.numeric)) %>%
   
+
+  mutate(cage_volume = round((length * width * height)/100, 1),
+         cage_area = round((length * width)/100, 1), .after = height
+           ) %>%
+  
   # recode no_per_cage - e.g deal with 4 max or 5-6
   # use max if 5-6 (spans 1) or mid whole no if 3-5
   mutate(no_per_cage_2 = as.numeric(recode(no_per_cage,
                                            "3-4?" = "4",
+                                           "3-4" = "4",
                                            "3-5" = "4",
                                            "4 max" = "4", 
                                            "4?" = "4",
                                            "6 max" = "6",
                                            "5-6" = "6")),
-         .after = no_per_cage)
-  
+         .after = no_per_cage) %>%
+  mutate(per_cage_vol = round(cage_volume/no_per_cage_2, 1),
+         per_cage_area = round(cage_area/no_per_cage_2, 1),
+         .after = no_per_cage_2)
   
 ```
 
@@ -594,28 +603,104 @@ plot_1 <- cloud(y~z+x, test_df, panel.3d.cloud=panel.3dbars, col.facet=myPalette
 plot_grid(plot_1, plot_1)
 ```
 
+## Cage plot working with lattice!
+
+-   <https://journal.r-project.org/articles/RJ-2023-071/>
+    -   <https://emilhvitfeldt.github.io/paletteer/>
+        -   <https://github.com/Nowosad/rcartocolor>
+
+```{r}
+# COLOR BLIND FRIENDLY COLORS
+palette.colors() #Okabe-Ito 9 - discrete colors
+palette.colors(10, recycle = TRUE) #Recycles 1st to get 10
+hcl.colors(9, palette = "Purple-Green") # seq/div (continuous)
+hcl.colors(8, palette = "Blues 3") # seq/div (continuous)
+palette.pals() # prints all available 
+palette("Tableau 10")
+
+# colorspace hcl
+colorspace::swatchplot(qualitative_hcl(5, palette = "Dark 3")) #
+colorspace::hclplot(diverging_hcl(10, palette = "Lisbon")) # multicolors
+hcl_palettes("sequential (multi-hue)", n = 7, plot = TRUE)
+qualitative_hcl(4, palette = "Dark 3")
+divergingx_palettes(n = 7, plot = TRUE)
+# colorspace::specplot()
+
+# paleteer
+paletteer_d("nord::aurora")
+
+display.brewer.all() #RColorBrewer
+
+# Paletteer prints hexcode with color in console!!!! 
+paletteer_d("RColorBrewer::RdYlGn")
+paletteer_d("RColorBrewer::Spectral")
+paletteer_d("RColorBrewer::PiYG")
+paletteer_d("RColorBrewer::BrBG")
+paletteer_d("RColorBrewer::Pastel2")
+paletteer_d("RColorBrewer::Dark2")
+paletteer_d("rcartocolor::Temps")
+paletteer_d("rcartocolor::Geyser")
+paletteer_d("rcartocolor::Sunset")
+paletteer_d("rcartocolor::Emrld")
+paletteer_d("rcartocolor::OrYel")
+
+```
+
 ```{r}
 tr_1_house_df <- one_house_df %>%
-  filter(!is.na(length)) %>% # rm those without 3D
+  # filter(!is.na(length)) %>% # rm those without 3D
+  filter(!is.na(length)) %>%
+  filter(!is.na(no_per_cage_2)) %>% # rm those with missing no.
   filter(animal_type == "rats") %>%
-  filter(author %in% c("Angelucci", "Ickes", "Keyvani", "Novati" )) %>%
-  select(c(animal_type:housing, length:no_per_cage_2)) %>%
+  # filter(author %in% c("Angelucci", "Ickes", "Keyvani", "Novati" )) %>%
+  # filter(author == "Ickes") %>%
+  # select(c(animal_type:housing, length:no_per_cage_2)) %>%
   mutate(crossed_var = paste0(author_year, " ", housing)) %>%
-  mutate(box_color = case_when(
-    
-  )) %>%
+  # mutate(box_color = case_when( # more intensely colored 
+  #   housing == "EE" ~ "#A8D9A0", # EE
+  #   housing == "SH" ~ "#FEE697",  # SH
+  #   housing == "IC" ~ "#E6966C", # IC
+  #   housing == "BE" ~ "#DD866E",  # BE
+  #   housing == "NE" ~ "#C65D73",  # NE
+  #   .default = "grey95"), # for NA / catch others
+  # ) %>%
+   mutate(box_color = case_when(
+    housing == "EE" ~ "#D4ECD0", # EE
+    housing == "SH" ~ "#FFF3CB",  # SH
+    housing == "IC" ~ "#F3CBB6", # IC
+    housing == "BE" ~ "#EEC3B7",  # BE
+    housing == "NE" ~ "#E3AEB9",  # NE
+    .default = "grey95"), # for NA / catch others
+  ) %>%
   mutate(animal_color = case_when(
-    
-  )) %>%
-  mutate(sex_color = ) 
+    animal_type == "pigs" ~ "rosybrown3", # pigs
+    animal_type == "mice" ~ "#7570B3FF",  # mice
+    animal_type == "rats" ~ "#1B9E77FF", # rats
+    .default = "grey15"), # for NA / catch others
+  ) %>%
+
+  mutate(sex_color = case_when(
+    animal_sex == "female" ~ "#c90076", # female
+    animal_sex == "male" ~ "#125CCC",  # male
+    .default = "grey15") # for NA / catch others
+  ) 
   
 str(tr_1_house_df)
 ```
 
+-   <https://learnr.wordpress.com/2009/07/15/ggplot2-version-of-figures-in-lattice-multivariate-data-visualization-with-r-part-5/>
+
+-   [https://learnr.wordpress.com/wp-content/uploads/2009/08/latbook.pdf](chrome-extension://efaidnbmnnnibpcajpcglclefindmkaj/https://learnr.wordpress.com/wp-content/uploads/2009/08/latbook.pdf){.uri}
+
 ```{r}
 # see settings
 current_settings <- trellis.par.get()
+
 print(current_settings)
+
+names(lattice.options())
+lattice.getOption("panel.cloud")
+str(lattice.getOption("layout.widths"), max.level = 2)
 ```
 
 ```{r}
@@ -632,102 +717,124 @@ for(cr in crosses) {
   
     
     df_1 <- tr_1_house_df %>%
-      filter(crossed_var == cr)
+      filter(crossed_var == cr) %>%
+      mutate(height = ifelse(is.na(height), 5, height))
     
-    if(nrow(df_1) == 0) {
-      print("nope!")
-      next 
-    }
-
-    
-     
+    if(nrow(df_1) == 1) {
+      
+    set.seed(2)
+      
     df_2 <- data.frame(
       no = 1:df_1$no_per_cage_2[1],
-      xd = rnorm(n=1:df_1$no_per_cage_2[1],
-                 mean = df_1$length[1]/2,
-                 sd = df_1$length[1]/7),
-      yd = rnorm(n=1:df_1$no_per_cage_2[1],
-                 mean = df_1$width[1]/2,
-                 sd = df_1$width[1]/7),
-      zd = rnorm(n=1:df_1$no_per_cage_2[1],
-                 mean = df_1$height[1]/2,
-                 sd = df_1$height[1]/7),
+      # xd = rnorm(n=1:df_1$no_per_cage_2[1], # old version
+      #            mean = df_1$length[1]/2,
+      #            sd = df_1$length[1]/7),
+      # xd = sample(1:df_1$length[1],
+      #            df_1$no_per_cage_2[1],
+      #            replace = FALSE),
+      xd = runif(n = df_1$no_per_cage_2[1],
+                 min = 1, max = (df_1$length[1]) -.5),
+      yd =  runif(n = df_1$no_per_cage_2[1],
+                 min = 1, max = (df_1$width[1]) -.5),
+      zd = runif(n = df_1$no_per_cage_2[1],
+                 min = 1, max = (df_1$height[1]) -.5),
+      
                  h_name = df_1$housing[1],
                  s_name = df_1$author_year[1],
                  height = df_1$height[1],
                  width = df_1$width[1],
                  length = df_1$length[1],
+                 box_col = df_1$box_color[1],
+                 sex_col = df_1$sex_color[1],
+                 animal_col = df_1$animal_color[1],
       # y_x = 
                  stringsAsFactors = TRUE)
     
+    # MAKE 3D CLOUD PLOT
     plot_3D_cloud <- cloud(yd~zd+xd, df_2,
       # panel.3d.cloud=panel.3dpolygon,
-             xbase=0.8, ybase=0.8,
-      xlab= "L",ylab="W",zlab="H",
+      # xbase=0.8, ybase=0.8,# does this make it smaller? 
+      
+      xlab= paste0("",df_2$length[1], ""),
+      ylab="W",
+      zlab="H",
       xlim = c(0, df_2$length[1]),
       ylim = c(0, df_2$width[1]),
       zlim = c(0, df_2$height[1]),
       aspect = c(df_2$width[1]/df_2$length[1],
                  df_2$height[1]/df_2$length[1]),
-      zoom = df_2$length[1]/120,
+      zoom = df_2$length[1]/150,
       main = paste0(df_2$s_name[1], " - ", df_2$h_name[1]), 
-      scales=list(arrows=TRUE, col=1),
-      par.settings = list(axis.line = list(col = "transparent"),
-                          axis.text = list(cex = 0.5,
-                                           col = "grey20"),
-                          par.xlab.text = list(cex = .2, col = "grey20"),
-                          par.ylab.text = list(cex = .2, col = "grey20"),
-                          par.zlab.text = list(cex = .2, col = "grey20"),
-                          par.main.text = list(cex = .7), # main/title
-                          plot.symbol = list(cex = 2))
+      scales=list(arrows=TRUE, col= paste0("",df_2$box_col[1], "")), # OMG THIS WORKS!!!
+      par.settings = list(
+        axis.line = list(col = paste0("", df_2$animal_col[1], "")), # border
+        axis.text = list(cex = 0.5,col = "grey20"),
+        par.xlab.text = list(cex = .5, col = "grey20"),
+        par.ylab.text = list(cex = .5, col = "grey20"),
+        par.zlab.text = list(cex = .5, col = "grey20"),
+        par.main.text = list(cex = .8, font = 1), # main/title
+        par.sub.text = list(cex = .8, font = 1), # sub
+        plot.symbol = list(cex = 3, col = paste0("",df_2$sex_col[1], "")),
+        
+        panel.background = list(col = paste0("",df_2$box_col[1], ""), alpha = 0.1),
+        
+        box.rectangle = list(fill = paste0("",df_2$sex_col[1], "")), # WORKS!!!
+        box.3d = list(col = paste0("",df_2$sex_col[1], ""))
+        
+        
+        )
       )
 
      print(plot_3D_cloud)
      
      # grobject <- 
+     # DO IF ELSE FOR RATS?
      
      plot_3D_list[[cr]] <- plot_3D_cloud
+    }
+    
+    print("skipped")
   }
 
 ```
 
 ```{r}
-plot_grid(plotlist = plot_3D_list, ncol = 2)#
+plot_grid(plotlist = plot_3D_list, ncol = 6)#
 ```
 
 ```{r}
-df_1 <- tr_1_house_df %>%
-      filter(author_year == "Angelucci 2009") %>%
-      filter(housing == "EE") 
-
-  
-df_2 <- data.frame(no = 1:df_1$no_per_cage_2,
-                   xd = rnorm(n=1:df_1$no_per_cage_2, mean = df_1$length/2, sd = df_1$length/5),
-                   yd = rnorm(n=1:df_1$no_per_cage_2, mean = df_1$width/2, sd = df_1$width/5),
-                   zd = rnorm(n=1:df_1$no_per_cage_2, mean = df_1$height/2, sd = df_1$height/5),
-                   h_name = df_1$housing,
-                   s_name = df_1$author_year,
-                   height = df_1$height,
-                   width = df_1$width,
-                   length = df_1$length,
-                   stringsAsFactors = TRUE)
-
-
-cloud(yd~zd+xd, df_2,
-      # panel.3d.cloud=panel.3dpolygon,
-             xbase=0.8, ybase=0.8,
-      xlab= "Study",ylab="Housing",zlab="Height",
-      xlim = c(0, df_2$length[1]), ylim = c(0, df_2$width[1]), zlim = c(0, df_2$height[1]),
-      scales=list(arrows=FALSE, col=1),
-             par.settings = list(axis.line = list(col = "transparent")))
-
-# wireframe(width~length+height, df_2, drape = TRUE)
+# df_1 <- tr_1_house_df %>%
+#       filter(author_year == "Angelucci 2009") %>%
+#       filter(housing == "EE") 
+# 
+#   
+# df_2 <- data.frame(no = 1:df_1$no_per_cage_2,
+#                    xd = rnorm(n=1:df_1$no_per_cage_2, mean = df_1$length/2, sd = df_1$length/5),
+#                    yd = rnorm(n=1:df_1$no_per_cage_2, mean = df_1$width/2, sd = df_1$width/5),
+#                    zd = rnorm(n=1:df_1$no_per_cage_2, mean = df_1$height/2, sd = df_1$height/5),
+#                    h_name = df_1$housing,
+#                    s_name = df_1$author_year,
+#                    height = df_1$height,
+#                    width = df_1$width,
+#                    length = df_1$length,
+#                    stringsAsFactors = TRUE)
+# 
+# 
+# cloud(yd~zd+xd, df_2,
+#       # panel.3d.cloud=panel.3dpolygon,
+#              xbase=0.8, ybase=0.8,
+#       xlab= "Study",ylab="Housing",zlab="Height",
+#       xlim = c(0, df_2$length[1]), ylim = c(0, df_2$width[1]), zlim = c(0, df_2$height[1]),
+#       scales=list(arrows=FALSE, col=1),
+#              par.settings = list(axis.line = list(col = "transparent")))
+# 
+# # wireframe(width~length+height, df_2, drape = TRUE)
 ```
 
 <https://stackoverflow.com/questions/1406202/plotting-a-wireframe-and-a-cloud-with-lattice-in-r>
 
 ```{r}
-plotplots <- unlist(plot_3D_list)
+# plotplots <- unlist(plot_3D_list)
 ```
 
 ------------------------------------------------------------------------
