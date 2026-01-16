@@ -39,7 +39,7 @@ This script is for running the clusterprofiler GSEA for KEGG, GO & Msigdb (Hallm
 
     4.  [Msigdb H Hallmarks via GSEA]{.underline} ➝ gsea_msig_Hmrk_EExAge_mss3.2.2_t1_cp3.4.2_t2 ➝ 2026_01_12_gsea_msig_Hallmark_EExAge_mssv3.2.2_t1_cpv3.4.2_t2.rda
 
-    5.  [Msigdb C8 Celltypes_via_GSEA]{.underline} ➝ gsea_msig_C8_ct_EExAge_cp3.4.2_mss3.2.2_t1 ➝ 2026_01_04_gsea_msig_C8_ct_EExAge_cpv3.4.2_mssv3.2.2_t1.rda
+    5.  [Msigdb C8 Celltypes_via_GSEA]{.underline} ➝ gsea_msig_C8_ct_EExAge_mss3.2.2_t1_cp3.4.2_t2 ➝ 2026_01_12_gsea_msig_C8_ct_EExAge_mssv3.2.2_t1_cpv3.4.2_t2.rda
 
 ## Set up
 
@@ -656,7 +656,7 @@ for (lb in label_names) {
 # gsea_msig_C8_ct_EExAge_mss3.2.2_t1_cp3.4.2_t2  <- gsea_msig_C8_ct_results_list
 # 
 # save(gsea_msig_C8_ct_EExAge_mss3.2.2_t1_cp3.4.2_t2,
-#      file = "output/2026_01_12_gsea_msig_C8_ct_EExAge_mssv3.2.2_t1_cpv3.4.2_t2.rda")
+#      file = "output/gsea_msig_C8_ct_EExAge_mss3.2.2_t1_cp3.4.2_t2gsea_msig_C8_ct_EExAge_mss3.2.2_t1_cp3.4.2_t2")
 ```
 
 ```{r}
