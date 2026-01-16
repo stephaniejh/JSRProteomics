@@ -37,6 +37,9 @@ Outputs
 # BiocManager::install("org.Rn.eg.db")
 # BiocManager::install("enrichplot")
 # BiocManager::install("pathview")
+
+# draw cell for SwissBioPics 
+devtools::install_github("svalvaro/drawCell")
 ```
 
 ```{r}
@@ -48,6 +51,10 @@ library(msigdbr) # MSigDB gene sets
 library(enrichplot) # for dotplot()
 library(ggridges) # for ridgeplot()
 library(pathview) # pathview() - Kegg pathway visualisation
+
+library(drawCell)
+library(htmlwidgets)
+library(webshot2)
 ```
 
 ### Import data
@@ -162,16 +169,17 @@ old stuff
 ```
 
 ```{r}
-load("output/2026_01_12_KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3.rda") # KEGG
-load("output/2026_01_12_GO_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t2.rda") # GO
+load("output/gsea_results/2026_01_12_KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3.rda") # KEGG
+
+load("output/gsea_results/2026_01_12_GO_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t2.rda") # GO
 
 # MSIGDB
-load("output/2026_01_12_gsea_msig_Hallmark_EExAge_mssv3.2.2_t1_cpv3.4.2_t2.rda") 
-load("output/2026_01_12_gsea_msig_C8_ct_EExAge_mssv3.2.2_t1_cpv3.4.2_t2.rda")
+load("output/gsea_results/2026_01_12_gsea_msig_Hallmark_EExAge_mssv3.2.2_t1_cpv3.4.2_t2.rda") 
+
+load("output/gsea_results/2026_01_12_gsea_msig_C8_ct_EExAge_mssv3.2.2_t1_cpv3.4.2_t2.rda")
 ```
 
-
-## print KEGG sign dot plots 
+## print KEGG sign dot plots
 
 ```{r fig.height=13, fig.width=11}
 print(KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3$dotplots_sign) # kegg
@@ -181,31 +189,22 @@ print(KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3$dotplots_sign) # kegg
 # print(KEGG_gsea_EExAge_cpv3.4.2t2_mssv3.2.2t1$dotplots) # kegg entrez
 ```
 
-## print GO sign dot plots 
+## print GO sign dot plots
+
 ```{r}
 print(GO_gsea_EExAge_msstats_v3.2.2_t1_cp_v3.4.2_t2$dotplots_sign)
 ```
 
-## print Msigdb Hallmarks sign dot plots 
+## print Msigdb Hallmarks sign dot plots
+
 ```{r}
 print(gsea_msig_Hmrk_EExAge_mss3.2.2_t1_cp3.4.2_t2$dotplots_sign)
 ```
 
-## print Msigdb C8 CellTypes sign dot plots 
+## print Msigdb C8 CellTypes sign dot plots
+
 ```{r}
 print(gsea_msig_C8_ct_EExAge_cp3.4.2_mss3.2.2_t1$dotplots_sign)
-```
-
-
-## Print GO dotplots 
-### 
-
-```{r fig.height=14, fig.width=12}
-print(KEGG_gsea_EExAge_cp_v3.4.2_msstats_v3.2.2_t1$dotplots_sign) # kegg uniprot 
-
-
-print(gsea_msig_Hmrk_EExAge_cp3.4.2_mss3.2.2_t1$dotplots_sign) # msigdb hallmarks entrez
-print(KEGG_gsea_EExAge_cpv3.4.2t2_mssv3.2.2t1$dotplots_sign) # kegg entrez
 ```
 
 ```{r}
@@ -214,224 +213,18 @@ print(KEGG_gsea_EExAge_cp_v3.4.2_msstats_v3.2.2_t1$dotplots$H_EE_vs_SH)
 print(KEGG_gsea_EExAge_cpv3.4.2t2_mssv3.2.2t1$dotplots$H_EE_vs_SH)
 ```
 
-## Comparing 
+```{r}
+EEvsSH_kegg_tib <- KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3[["kegg_results_tib"]][["H_EE_vs_SH"]]
+```
 
 ```{r}
-enrichplot::dotplot(KEGG_gsea_EExAge_cpv3.4.2t2_mssv3.2.2t1$kegg_results$H_EE_vs_SH,
+enrichplot::dotplot(KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3$kegg_results$H_EE_vs_SH,
                               showCategory = 50,
                               font.size = 11,
-                              title = 'EE vs SH - entrez ver 20260101 ',
+                              title = 'EE vs SH - entrez ve ',
                               # subtitle = 
                               #   '1pspg MSstatsTMT (v3.2.2) 2025_12_31 - gseGO_r'
                     )
-```
-
-```{r}
-enrichplot::dotplot(KEGG_gsea_EExAge_cp_v3.4.2_msstats_v3.2.2_t1$kegg_results$H_EE_vs_SH,
-                              showCategory = 50,
-                              font.size = 11,
-                              title = 'EE vs SH - uniprot ver 20251231 ',
-                              # subtitle = 
-                              #   '1pspg MSstatsTMT (v3.2.2) 2025_12_31 - gseGO_r'
-                    )
-```
-
-```{r}
-enrichplot::dotplot(KEGG_gsea_EExAge_cpv3.4.2t2_mssv3.2.2t1$kegg_results$A_YNG_vs_OLD,
-                              showCategory = 50,
-                              font.size = 11,
-                              title = 'Age - Yng vs old - entrez ver 20260101 ',
-                              # subtitle = 
-                              #   '1pspg MSstatsTMT (v3.2.2) 2025_12_31 - gseGO_r'
-                    )
-```
-
-```{r}
-enrichplot::dotplot(KEGG_gsea_EExAge_cp_v3.4.2_msstats_v3.2.2_t1$kegg_results$A_YNG_vs_OLD,
-                              showCategory = 50,
-                              font.size = 11,
-                              title = 'Age - Yng vs old  - uniprot ver 20251231 ',
-                              # subtitle = 
-                              #   '1pspg MSstatsTMT (v3.2.2) 2025_12_31 - gseGO_r'
-                    )
-```
-
-## Test of pathview 
-
-### Main Effect of housing - EE vs SH
-
-```{r}
-# print EE vs SH sig KEGG gsea res tibble 
-print(KEGG_gsea_EExAge_cpv3.4.2t2_mssv3.2.2t1$kegg_results_tib$H_EE_vs_SH)
-```
-
-```{r}
-# Produce the native KEGG plot (PNG)
-dme <- pathview(gene.data=KEGG_gsea_EExAge_cpv3.4.2t2_mssv3.2.2t1$geneList_vec$H_EE_vs_SH,
-                pathway.id="rno00190",
-                species = 'rno')
-
-
-
-knitr::include_graphics("rno00190.pathview.png")
-```
-
-```{r}
-# # NVM can't map since uniprot IDs! 
-# # Produce the native KEGG plot (PNG)
-# dmet <- pathview(gene.data=KEGG_gsea_EExAge_cp_v3.4.2_msstats_v3.2.2_t1$geneList_vec$H_EE_vs_SH,
-#                 pathway.id="rno00190",
-#                 species = 'rno')
-# 
-# 
-# 
-# knitr::include_graphics("rno00190.pathview.png")
-```
-
-```{r}
-#synaptic vesicle cycle
-pathview(gene.data=KEGG_gsea_EExAge_cpv3.4.2t2_mssv3.2.2t1$geneList_vec$H_EE_vs_SH,
-                pathway.id="rno04721",
-                species = 'rno')
-```
-
-```{r}
-# Parkinson's
-pathview(gene.data=KEGG_gsea_EExAge_cpv3.4.2t2_mssv3.2.2t1$geneList_vec$H_EE_vs_SH,
-                pathway.id="rno05012",
-                species = 'rno')
-```
-
-```{r}
-# Retrograde_endocannabinoid
-pathview(gene.data=KEGG_gsea_EExAge_cpv3.4.2t2_mssv3.2.2t1$geneList_vec$H_EE_vs_SH,
-                pathway.id="rno04723",
-                species = 'rno')
-
-#Error in img[pidx[i, 3]:pidx[i, 4], sel.px, 1:3] : 
-  # only 0's may be mixed with negative subscripts
-```
-
-```{r}
-# Neuroactive_ligand
-pathview(gene.data=KEGG_gsea_EExAge_cpv3.4.2t2_mssv3.2.2t1$geneList_vec$H_EE_vs_SH,
-                pathway.id="rno04082",
-                species = 'rno')
-```
-
-```{r}
-# Diabetic_cardiomyopathy
-pathview(gene.data=KEGG_gsea_EExAge_cpv3.4.2t2_mssv3.2.2t1$geneList_vec$H_EE_vs_SH,
-                pathway.id="rno05415",
-                species = 'rno')
-```
-
-```{r}
-# proteosome 
-pathview(gene.data=KEGG_gsea_EExAge_cpv3.4.2t2_mssv3.2.2t1$geneList_vec$H_EE_vs_SH,
-                pathway.id="rno03050",
-                species = 'rno')
-```
-
-```{r}
-# TCA_cycle
-pathview(gene.data=KEGG_gsea_EExAge_cpv3.4.2t2_mssv3.2.2t1$geneList_vec$H_EE_vs_SH,
-                pathway.id="rno00020",
-                species = 'rno')
-```
-
-```{r}
-# Chemical_carcogenesis_ROS
-pathview(gene.data=KEGG_gsea_EExAge_cpv3.4.2t2_mssv3.2.2t1$geneList_vec$H_EE_vs_SH,
-                pathway.id="rno05208",
-                species = 'rno')
-
-```
-
-```{r}
-# spliceosome
-pathview(gene.data=KEGG_gsea_EExAge_cpv3.4.2t2_mssv3.2.2t1$geneList_vec$H_EE_vs_SH,
-                pathway.id="rno03040",
-                species = 'rno')
-```
-
-NS but check
-
-```{r}
-# LTP EE vs SH (all) | rno04720
-pathview(gene.data=KEGG_gsea_EExAge_cpv3.4.2t2_mssv3.2.2t1$geneList_vec$H_EE_vs_SH,
-                pathway.id="rno04720",
-                species = 'rno')
-```
-
-```{r}
-# LTP EE vs SH (yng) | rno04720
-pathview(gene.data=KEGG_gsea_EExAge_cpv3.4.2t2_mssv3.2.2t1$geneList_vec$HxA_EE_YNG_vs_SH_YNG,
-                pathway.id="rno04720",
-                species = 'rno')
-```
-
-```{r}
-# LTP EE vs SH (old) | rno04720
-pathview(gene.data=KEGG_gsea_EExAge_cpv3.4.2t2_mssv3.2.2t1$geneList_vec$HxA_EE_OLD_vs_SH_OLD,
-                pathway.id="rno04720",
-                species = 'rno')
-```
-
-```{r}
-# Neurotrophin EE vs SH (all) | rno04722
-pathview(gene.data=KEGG_gsea_EExAge_cpv3.4.2t2_mssv3.2.2t1$geneList_vec$H_EE_vs_SH,
-                pathway.id="rno04722",
-                species = 'rno')
-```
-
-### Aging - Young vs Old 
-
-```{r}
-# print Yng vs Old sig KEGG gsea res tibble 
-print(KEGG_gsea_EExAge_cpv3.4.2t2_mssv3.2.2t1$kegg_results_tib$A_YNG_vs_OLD)
-```
-
-```{r}
-# COVID19
-pathview(gene.data=KEGG_gsea_EExAge_cpv3.4.2t2_mssv3.2.2t1$geneList_vec$A_YNG_vs_OLD,
-                pathway.id="rno05171",
-                species = 'rno')
-```
-
-```{r}
-# Ribosome
-pathview(gene.data=KEGG_gsea_EExAge_cpv3.4.2t2_mssv3.2.2t1$geneList_vec$A_YNG_vs_OLD,
-                pathway.id="rno03010",
-                species = 'rno')
-```
-
-```{r}
-# Salmonella_infection 
-pathview(gene.data=KEGG_gsea_EExAge_cpv3.4.2t2_mssv3.2.2t1$geneList_vec$A_YNG_vs_OLD,
-                pathway.id="rno05132",
-                species = 'rno')
-```
-
-```{r}
-# axon guidance  
-pathview(gene.data=KEGG_gsea_EExAge_cpv3.4.2t2_mssv3.2.2t1$geneList_vec$A_YNG_vs_OLD,
-                pathway.id="rno04360",
-                species = 'rno')
-```
-
-```{r}
-# Proteasome  
-pathview(gene.data=KEGG_gsea_EExAge_cpv3.4.2t2_mssv3.2.2t1$geneList_vec$A_YNG_vs_OLD,
-                pathway.id="rno03050",
-                species = 'rno')
-```
-
-```{r}
-# Diabetic Myocardiopathy
-pathview(gene.data=KEGG_gsea_EExAge_cpv3.4.2t2_mssv3.2.2t1$geneList_vec$A_YNG_vs_OLD,
-                pathway.id="rno05415",
-                species = 'rno')
 ```
 
 ```{r}
@@ -441,20 +234,73 @@ pathview(gene.data=KEGG_gsea_EExAge_cpv3.4.2t2_mssv3.2.2t1$geneList_vec$A_YNG_vs
                 species = 'rno')
 ```
 
+### Pathview test 
+
+-   <https://pathview.r-forge.r-project.org/pathview.pdf>
+
+```{r}
+data(gse16873.d)
+data(gse16873.d)
+```
+
+```{r}
+# oxidative phosphorylation
+# add defailts! png
+pathview(gene.data=KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3$geneList_vec$H_EE_vs_SH,
+                pathway.id="rno00190",
+                species = 'rno',
+         out.suffix = "defaults",
+         kegg.native = T,
+         # same.layer = F #slower & on top (out of bounds?)
+         )
+```
+
+```{r}
+# graphviz!
+pv.out <- pathview(gene.data=KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3$geneList_vec$H_EE_vs_SH,
+                pathway.id="rno00190",
+                species = 'rno',
+         out.suffix = "graphviz",
+         kegg.native = F,
+         # same.layer = F #slower & on top (out of bounds?)
+         )
+```
+
 ------------------------------------------------------------------------
 
-EE Young vs SH Young
+drawCell:drawCell
+
+-   TaxonId - https://www.ncbi.nlm.nih.gov/taxonomy/
+
+-   list_sl_colors (subcellular location) - http://current.geneontology.org/ontology/external2go/uniprotkb_sl2go
+
+-   Code for neuron is 6072
+
+-   export widget <https://stackoverflow.com/questions/40089207/how-to-arrange-html-widget-plots-in-a-grid-for-export-as-pdf>
+
+-   <https://forum.posit.co/t/save-viewer-object-rendered-in-rstudio-as-image/32796/10>
 
 ```{r}
-# print EE Yng vs SH yng sig KEGG gsea res tibble 
-print(KEGG_gsea_EExAge_cpv3.4.2t2_mssv3.2.2t1$kegg_results_tib$HxA_EE_YNG_vs_SH_YNG)
+
+# pdf(file = "output/testing.123")
+
+mycell <- drawCell::drawCell(organism_identifier = "6072",
+                   list_sl_colors = list("SL0288" = "orange",
+                                         "SL0191" = "#1F4861",
+                                         "SL0259" = "forestgreen",
+                                         "SL0260" = "#BD88A5"),
+                   # width = 1500,
+                   # height = 500
+                   )
+
+saveWidget(mycell, "temp.html")
+webshot(url = "temp.html",
+        file = "temp.jpeg",
+        vwidth = 410,
+        vheight = 310
+        )
 ```
 
 ```{r}
-# print EE Yng vs SH yng sig KEGG gsea res tibble 
-print(KEGG_gsea_EExAge_cpv3.4.2t2_mssv3.2.2t1$kegg_results_tib$HxA_EE_OLD_vs_SH_OLD)
-```
-
-```{r}
-
+drawCell::drawCellOutput(mycell, width = "100%", height = "400px")
 ```
