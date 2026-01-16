@@ -649,12 +649,11 @@ paletteer_d("rcartocolor::OrYel")
 ```{r}
 tr_1_house_df <- one_house_df %>%
   # filter(!is.na(length)) %>% # rm those without 3D
-  filter(!is.na(length)) %>%
+  filter(!is.na(height)) %>%
   filter(!is.na(no_per_cage_2)) %>% # rm those with missing no.
+  # filter(animal_type == "mice") %>%
   filter(animal_type == "rats") %>%
-  # filter(author %in% c("Angelucci", "Ickes", "Keyvani", "Novati" )) %>%
-  # filter(author == "Ickes") %>%
-  # select(c(animal_type:housing, length:no_per_cage_2)) %>%
+
   mutate(crossed_var = paste0(author_year, " ", housing)) %>%
   # mutate(box_color = case_when( # more intensely colored 
   #   housing == "EE" ~ "#A8D9A0", # EE
@@ -717,8 +716,8 @@ for(cr in crosses) {
   
     
     df_1 <- tr_1_house_df %>%
-      filter(crossed_var == cr) %>%
-      mutate(height = ifelse(is.na(height), 5, height))
+      filter(crossed_var == cr) #%>%
+      # mutate(height = ifelse(is.na(height), 1, height))
     
     if(nrow(df_1) == 1) {
       
@@ -733,11 +732,11 @@ for(cr in crosses) {
       #            df_1$no_per_cage_2[1],
       #            replace = FALSE),
       xd = runif(n = df_1$no_per_cage_2[1],
-                 min = 1, max = (df_1$length[1]) -.5),
+                 min = .1, max = (df_1$length[1]) -.1),
       yd =  runif(n = df_1$no_per_cage_2[1],
-                 min = 1, max = (df_1$width[1]) -.5),
+                 min = .1, max = (df_1$width[1]) -.1),
       zd = runif(n = df_1$no_per_cage_2[1],
-                 min = 1, max = (df_1$height[1]) -.5),
+                 min = .1, max = (df_1$height[1]) -.1),
       
                  h_name = df_1$housing[1],
                  s_name = df_1$author_year[1],
@@ -747,7 +746,9 @@ for(cr in crosses) {
                  box_col = df_1$box_color[1],
                  sex_col = df_1$sex_color[1],
                  animal_col = df_1$animal_color[1],
-      # y_x = 
+                 cage_vol = df_1$cage_volume[1],
+                 no_in_cage = df_1$no_per_cage_2[1],
+                 p_cage_vol = df_1$per_cage_vol[1],
                  stringsAsFactors = TRUE)
     
     # MAKE 3D CLOUD PLOT
@@ -756,30 +757,47 @@ for(cr in crosses) {
       # xbase=0.8, ybase=0.8,# does this make it smaller? 
       
       xlab= paste0("",df_2$length[1], ""),
-      ylab="W",
-      zlab="H",
+      ylab= paste0("",df_2$width[1], ""),
+      zlab= paste0("",df_2$height[1], ""),
       xlim = c(0, df_2$length[1]),
       ylim = c(0, df_2$width[1]),
       zlim = c(0, df_2$height[1]),
       aspect = c(df_2$width[1]/df_2$length[1],
                  df_2$height[1]/df_2$length[1]),
-      zoom = df_2$length[1]/150,
+      zoom = df_2$length[1]/135,
       main = paste0(df_2$s_name[1], " - ", df_2$h_name[1]), 
-      scales=list(arrows=TRUE, col= paste0("",df_2$box_col[1], "")), # OMG THIS WORKS!!!
+      # xlab.top = paste0("", ,""), # additional title @ top! ,
+      xlab.top = list(label = paste0("",
+                                     # df_2$p_cage_vol[1], " cm\u00B3/mouse (", # mouse
+                                     df_2$p_cage_vol[1], " cm\u00B3/rat (", # rat
+                                     df_2$no_in_cage[1], " per cage)"
+                                     ),
+                      cex = 0.65, col = "grey30", font = 3,
+                      y = 0, just = "bottom"), # moves down?
+      scales=list(arrows=TRUE, col= paste0("",df_2$box_col[1], "") # OMG THIS WORKS!!!
+                  ), 
       par.settings = list(
         axis.line = list(col = paste0("", df_2$animal_col[1], "")), # border
         axis.text = list(cex = 0.5,col = "grey20"),
         par.xlab.text = list(cex = .5, col = "grey20"),
         par.ylab.text = list(cex = .5, col = "grey20"),
         par.zlab.text = list(cex = .5, col = "grey20"),
-        par.main.text = list(cex = .8, font = 1), # main/title
+        par.main.text = list(cex = .75, font = 1), # main/title
+
         par.sub.text = list(cex = .8, font = 1), # sub
-        plot.symbol = list(cex = 3, col = paste0("",df_2$sex_col[1], "")),
+        plot.symbol = list(cex = 2.5, col = paste0("",df_2$sex_col[1], "")),
         
         panel.background = list(col = paste0("",df_2$box_col[1], ""), alpha = 0.1),
         
         box.rectangle = list(fill = paste0("",df_2$sex_col[1], "")), # WORKS!!!
-        box.3d = list(col = paste0("",df_2$sex_col[1], ""))
+        box.3d = list(col = paste0("",df_2$sex_col[1], "")),
+        
+        # layout.widths = list(panel = c(2,1.5)) #4:3 ratio WIDE STROTCH
+        
+        layout.widths = list(left.padding = 0, right.padding = 0), # rm padding
+          layout.heights = list(top.padding = 1, bottom.padding = -1,
+                                main = -0.5, 
+                                main.key.padding = 1.5)
         
         
         )
@@ -798,8 +816,10 @@ for(cr in crosses) {
 
 ```
 
+![](images/clipboard-9133593.png)
+
 ```{r}
-plot_grid(plotlist = plot_3D_list, ncol = 6)#
+plot_grid(plotlist = plot_3D_list, ncol = 5)#
 ```
 
 ```{r}
