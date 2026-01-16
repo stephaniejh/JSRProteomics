@@ -9,6 +9,8 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+2026_01_16 -\> moving to intro at start -\> too long -\> revisit later
+
 To Do: Add Zhang et al., 2020, other rat omics, socodato??? Zocher?
 
 ### Load Packages
@@ -954,11 +956,7 @@ knitr::kable(regions_df)
 ```{r}
 housing_df_3 |> 
   
-  # dplyr::select(c(animal_type,author_year, housing, animal_strain,
-  #                 inbred_outbred, wt_tg, animal_sex,
-  #                 cage_description, cage_dim_cm, no_per_cage, 
-  #                 enrichment_contents_list, running_wheel,
-  #                 procedure)) |>
+  dplyr::select(!c(year, author, )) |>
   # ungroup() |>
   
   gt(
@@ -998,8 +996,8 @@ housing_df_3 |>
               row_group.font.weight = "bold",
               row_group.font.size = 14,
               column_labels.font.size = 12.5,
-              column_labels.font.weight = "bold") 
- #|>
+              column_labels.font.weight = "bold") |>
+
   
-  # opt_stylize(style = 1, color = 'gray', add_row_striping = TRUE)
+opt_stylize(style = 1, color = 'pink', add_row_striping = TRUE)
 ```
