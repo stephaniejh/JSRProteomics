@@ -297,7 +297,7 @@ saveWidget(mycell, "temp.html")
 webshot(url = "temp.html",
         file = "temp.jpeg",
         vwidth = 410,
-        vheight = 310
+        vheight = 310, delay = 10
         )
 ```
 
