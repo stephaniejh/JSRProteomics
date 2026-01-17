@@ -150,23 +150,7 @@ protein_comp_entrez <- left_join(protein_comp, bitr_gn_2_entrez,
   filter(!is.na(ENTREZID)) # remove non mapped - 64384 to 61952 
 ```
 
-old stuff
-
 ------------------------------------------------------------------------
-
-```{r}
-# # load gsea results from v3.4.2. 31 dec & 01 jan 
-# # GSEA KEGG - 2025_12_31 - gseKEGG - keytype Uniprot
-# load("output/2025_12_31_KEGG_gsea_EExAge_cp_v3.4.2_msstats_v3.2.2_t1.rda")
-# # # GSEA GO - 2025_12_31 / gseGO (keytype Uniprot) | takes forever....
-# # load("output/2025_12_31_GO_gsea_EExAge_cp_v3.4.2_msstats_v3.2.2_t1.rda")
-# # ~ ~ ~ ~ ~~
-# # GSEA Msigdb Hallmarks Collection  / gsea key type ncbi entrez - 2026_01_01
-# load("output/2026_01_01_gsea_msig_Hallmark_EExAge_cpv3.4.2_mssv3.2.2_t1.rda")
-# # GSEA Kegg REDO gsekegg / entrez - 2026_01_01
-# load("output/2026_01_01_KEGG_gsea_EExAge_cpv3.4.2t2_mssv3.2.2t1.rda")
-
-```
 
 ```{r}
 load("output/gsea_results/2026_01_12_KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3.rda") # KEGG
@@ -178,6 +162,8 @@ load("output/gsea_results/2026_01_12_gsea_msig_Hallmark_EExAge_mssv3.2.2_t1_cpv3
 
 load("output/gsea_results/2026_01_12_gsea_msig_C8_ct_EExAge_mssv3.2.2_t1_cpv3.4.2_t2.rda")
 ```
+
+------------------------------------------------------------------------
 
 ## print KEGG sign dot plots
 
@@ -280,6 +266,8 @@ drawCell:drawCell
 
 -   <https://forum.posit.co/t/save-viewer-object-rendered-in-rstudio-as-image/32796/10>
 
+-   <https://github.com/wch/webshot/issues/72>
+
 ```{r}
 
 # pdf(file = "output/testing.123")
@@ -295,9 +283,11 @@ mycell <- drawCell::drawCell(organism_identifier = "6072",
 
 saveWidget(mycell, "temp.html")
 webshot(url = "temp.html",
-        file = "temp.jpeg",
-        vwidth = 410,
-        vheight = 310, delay = 10
+        file = "temp.pdf",
+        # file = "temp.png",
+        vwidth = 600,
+        vheight = 300,
+        delay = 10 # adding delay fixes problem (slow! otherwise blanks)
         )
 ```
 
