@@ -3,6 +3,7 @@ title: "MssTMT_Vis_2026_01_v3.2.2_1pspg_EExAge"
 output: html_document
 ---
 
+## Setup
 
 ```{r}
 #load packages
@@ -10,44 +11,138 @@ library(tidyverse)
 library(pheatmap)
 library(msigdbr)
 library(cowplot)
-library(ggh4x)
+library(ggh4x) # scalenested
 library(gt)
+library(ggrepel) #  for geom_text_repel()
+library(colorspace)
+library(RColorBrewer)
+library(paletteer)
+library(ggnewscale) # additional color/fill scale new_scale_fill()
+library(ggvenn) # vennys (old ones)
 ```
 
+### Load in data
 
 ```{r}
 #psum
 load("input/results/psum/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_psum.rda")
+
 #comp
 load("input/results/comp/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_comp.rda")
-
 
 #anno
 anno <- read_csv("input/anno/EEv&SH_F&M_TMT_anno_v3_df_b_check_sorted_2025_12_31.csv")
 ```
 
-
+### Map/Fix names
 
 ```{r}
-anno_trim <- anno %>%
-  select(BioReplicate:rat_id)
+# map details & shorten name
+mapped_psum <- left_join(mapped_psum_v3.2.2_EExAge,
+                                       anno,
+                                       by = join_by(
+                                         BioReplicate == BioReplicate,
+                                         Mixture == Mixture,
+                                         Channel == Channel)) %>%
+  rename(Condition = Condition.x , Housing_c_anno = Condition.y) %>%
+  mutate(Age = ifelse(PND > 100, "OLD", "YNG"))
+  
+#Check 
+colnames(mapped_psum)
 ```
 
 ```{r}
-mapped_psum_v3.2.2_EExAge <- left_join(mapped_psum_v3.2.2_EExAge,
-                                       anno_trim,
-                                       by = join_by(BioReplicate == BioReplicate))
+# lil checks
+head(mapped_comp_v3.2.2_EExAge_t1) # peak
+str(mapped_comp_v3.2.2_EExAge_t1) # structure 
+colnames(mapped_comp_v3.2.2_EExAge_t1) # column names
+dim(mapped_comp_v3.2.2_EExAge_t1) # 64392 x 8
+
+# lil checks (bit messy)
+unique(mapped_comp_v3.2.2_EExAge_t1$issue) # na in issue col = good. if not excl
+check_1 <- mapped_comp_v3.2.2_EExAge_t1 %>%
+  filter(str_detect(log2FC, "Inf")) # 5 inf 
+check_2 <- mapped_comp_v3.2.2_EExAge_t1 %>%
+  filter(str_detect(Protein, "Cont")) # 0 (since already removed)
+unique(mapped_comp_v3.2.2_EExAge_t1$Label) 
+length(unique(mapped_comp_v3.2.2_EExAge_t1$Label)) #8
+```
+
+```{r}
+# shorten name & clean up! 
+mapped_comp <- mapped_comp_v3.2.2_EExAge_t1 %>%
+  
+  filter(is.na(issue)) %>% # keeps rows with issue == na (so comps that are ok)
+  filter(!str_detect(log2FC, "Inf")) %>% # remove infinity/missing FC values
+  
+  # make gene label for significant! 
+  mutate(sig_g_label = if_else(adj.pvalue <= .1, gene, NA)) %>%
+  
+  # make one for no of sig up & down for each comaprison group/label
+  group_by(Label) %>%
+  mutate(sig_no_up_lab = sum(adj.pvalue < 0.05 & log2FC > 0), # up
+         sig_no_down_lab = sum(adj.pvalue < 0.05 & log2FC < 0)) %>%  #  down
+  
+  mutate(Direction = ifelse(log2FC > 0, "Up", "Down"))
+
+# check 
+head(mapped_comp) 
+colnames(mapped_comp)
+dim(mapped_comp) # 64384 x 22
+
+unique_check <- mapped_comp %>% 
+  select(Label, sig_no_down_lab, sig_no_up_lab) %>%
+  unique() # yep matches up! 
+```
+
+```{r}
+mapped_comp_sig <- mapped_comp %>%
+  filter(adj.pvalue < 0.05)
+
+dim(mapped_comp_sig) # 458 x 21
+```
+
+# Plotting Comp
+
+```{r}
+my_theme <- theme(
+    axis.line = element_blank(),
+    axis.title = element_text(size = 10, color = "grey10"), 
+    # axis.title.x = element_blank(),
+    axis.text = element_text(size = 7.5, color ="grey10"),
+    axis.ticks = element_line(size=0.5, colour = "grey15"),
+    axis.ticks.length.y.left = unit(-0.1, 'cm'), # inwards ticks (L)
+    axis.ticks.length.y.right = unit(-0.07, 'cm'), # inwards ticks (R)
+    panel.background = element_rect(fill = "white"), #bg of plot (inner bit)
+    panel.border = element_rect(fill = NA,
+                                color = "grey10"), #plot borders
+    plot.background = element_rect(fill = "white"), # bg of plot (outer)
+    panel.grid = element_blank(),
+    panel.spacing = unit(0, "cm"),  # Removes space between panel 
+    legend.position = 'bottom',
+    legend.title = element_text(size = 9, face="italic", color = "grey10"),
+    legend.margin = margin(-5,0,0,0), # space between plot & legend
+    #legend.title.align = (0.5), # centres legend title
+    legend.text = element_text(size = 8.5, color = "grey10"),
+    legend.box = "horizontal", 
+    legend.direction = "horizontal", 
+    legend.key.size = unit(0.5, "cm"), # size of legend key icon
+    strip.background = element_rect(color = 'grey10', fill = 'grey90'), 
+    strip.text.x = element_text(size = 9, color = 'grey10',
+                                margin = margin(b = 3, t = 2)) #vert spacing
+  )
 
 ```
 
+## Heatmap
 
-https://biostatsquid.com/step-by-step-heatmap-tutorial-with-pheatmap/
+<https://biostatsquid.com/step-by-step-heatmap-tutorial-with-pheatmap/>
 
 ```{r}
-heatmap_df <- mapped_psum_v3.2.2_EExAge %>%
+heatmap_df <- mapped_psum %>%
   group_by(BioReplicate, Protein) %>%
-  summarise(meanAbundance = mean(Abundance, na.rm = TRUE)) %>%
-  select(Protein, meanAbundance, BioReplicate) %>%
+  summarise(meanAbundance = mean(Abundance, na.rm = TRUE)) %>% # rm na 2 plot
+  dplyr::select(Protein, meanAbundance, BioReplicate) %>%
   pivot_wider(names_from = BioReplicate,
               values_from = meanAbundance) %>%
   tidyr::drop_na() %>%
@@ -59,30 +154,1031 @@ heatmap_df <- mapped_psum_v3.2.2_EExAge %>%
 heatmap_1 <- pheatmap(heatmap_df, main = "test")
 ```
 
+------------------------------------------------------------------------
+
+## Volcano
+
+-   Big Volcano - When doing all -\> Error in UseMethod("depth") : no applicable method for 'depth' applied to an object of class "NULL (takes 10 years on laptop) ➝ due to geom_text_repel() trying to plot the ns ones ➝ fixed if make a just sig gene/protein column
+
+-   Should have just made a function..... oh well do later.
 
 ```{r}
-sig_proteins <- mapped_comp_v3.2.2_EExAge_t1 %>%
-  filter(adj.pvalue <=0.05) %>%
-  group_by(Label) %>%
-  slice_min(adj.pvalue, n = 3)
+# make new df for the geom_text bit below.
+# prev had from 1 df but over plots repeately & cant index since mapped_comp huge.
+sig_volcano_sum <- mapped_comp %>%
+  select(Label, sig_no_up_lab, sig_no_down_lab) %>%
+  unique()
 
-unique_top_3_genes <- unique(sig_proteins$gene) #10 unique
+# reoder factor levels for plotting
+mapped_comp$Label <- factor(
+  mapped_comp$Label,
+    levels = c(
+      "H_EE_vs_SH", "A_YNG_vs_OLD",
+      "HxA_EE_YNG_vs_SH_YNG", "HxA_EE_YNG_vs_EE_OLD",
+      "HxA_EE_OLD_vs_SH_OLD", "HxA_SH_YNG_vs_SH_OLD",
+      "HxA_EE_YNG_vs_SH_OLD", "HxA_EE_OLD_vs_SH_YNG"
+      ))
 ```
 
 ```{r}
-top_5_plot <- mapped_psum_v3.2.2_EExAge %>%
-  filter(gene %in% unique_top_3_genes) %>%
-  ggplot(aes(x = BioReplicate, y = Abundance, fill = Condition)) +
-  geom_boxplot() +
-  geom_point() +
-  facet_nested(~ gene + Mixture + Cohort) +
-  theme_bw()
+# unique(mapped_comp$Label)
+# unicodes for up \U2191 & down \U2193
+big_volcano <- mapped_comp %>%
+  
+  
+  # filter((Label %in% c("HxA_EE_YNG_vs_SH_YNG"))) %>%
+
+  
+  ggplot(aes(x = log2FC, y = -log10(adj.pvalue), label = sig_g_label)) +
+  
+  
+  # POINTS
+  geom_point(aes(color = case_when( # conditional ass for color mapping
+    adj.pvalue < 0.05 & log2FC > 0 ~ "up_adjp.05", # up sig .05
+    adj.pvalue < 0.05 & log2FC < 0 ~ "down_adjp.05", # down sig .05
+    adj.pvalue < 0.1 & log2FC > 0 ~ "up_adjp.1", # up 0.1
+    adj.pvalue < 0.1 & log2FC < 0 ~ "down_adjp.1", # down .1
+    TRUE ~ "ns" )), # catch the rest
+    alpha = .9, size = 1, shape = 1) +
+  
+  scale_color_manual(values = c("firebrick", # coloring
+                                "royalblue3",
+                                "lightpink",
+                                "lightblue3",
+                                "grey80"),
+                     breaks = c("up_adjp.05",
+                                "down_adjp.05",
+                                "up_adjp.1",
+                                "down_adjp.1"),
+                     labels = c("\U2191 (adj.p <.05)",
+                                "\U2193 (adj.p <.05)",
+                                "\U2191 (adj.p <.1)",
+                                "\U2193 (adj.p <.1)")) +
+  
+  geom_text_repel(max.overlaps = 30, size = 2, # gene text on points
+                  color = "grey10") + 
+  
+  
+  # NUM SIG UP & DOWN! | use sep df, overwise overplots
+  geom_text(data = sig_volcano_sum, # up 
+            aes(label = paste0(sig_no_up_lab, " \U2191")),
+            x = 1.8, y = 7.4, size = 3.5, color = "firebrick"
+            ) + 
+  geom_text(data = sig_volcano_sum, # down
+            aes(label = paste0(sig_no_down_lab, " \U2193")),
+            x = -1.8, y = 7.4, size = 3.5, color = "royalblue3"
+            ) + 
+
+  xlim(-2,2) +
+  facet_wrap(~Label, ncol = 4) + 
+  facet_wrap(~Label, ncol = 4) + 
+  
+  labs(x = "log2FC",
+       y = "-Log10(adj.p value)",
+       color = "Protein Regulation") +
+  
+  geom_hline(yintercept = -log10(0.05),
+             linetype = "dotted", linewidth = 0.1,
+             color = "grey30") +
+  # annotate("text", x = 1.95, y = -log10(0.05),
+  #          label = "adj.p <.05 \n",
+  #          fontface = 'italic', size = 1.5, color = "grey10") +
+  
+  geom_hline(yintercept = -log10(0.1),linetype = "dotted",
+             linewidth = 0.1, color = "grey50") +
+  # annotate("text", x = 1.95, y = -log10(0.1),
+  #          label = " adj.p <.1 \n",
+  #          fontface = 'italic', size = 1.5, color = "grey30") +
+  
+  geom_vline(xintercept = c(0),linetype = "solid",
+             linewidth = 0.1, color = "grey80") +
+  
+  guides(color=guide_legend(nrow=1, byrow=TRUE)) +
+  
+  theme_bw() +
+  theme(legend.position = "bottom",
+        axis.title = element_text(color = "grey10", size = 10),
+        legend.title = element_text(color = "grey10", size = 10),
+        strip.text = element_text(size = 9, color = "grey10"),
+        panel.grid.major = element_line(color = "grey90"),
+        panel.grid.minor = element_line(color = "grey95"),
+        legend.margin = margin(-10,0,0,0),  # space between plot & legend
+        legend.key.size = unit(1, "cm"), # size of legend key icon
+        )
+
+big_volcano
+  
+# exported 4 x 2 mini version just for overview   10.5 x 6 inches pdf 
+# 2026_01_17_EExAge_8_volcanos_4x2_mini_v2 | 10.5 x 6 inches pdf 
+# 2026_01_17_EExAge_8_volcanos_4x2_mini_v3 | 10.5 x 6 inches pdf (fixed name)
+```
+
+### EE Volcanos
+
+```{r}
+EE_Volcano <- mapped_comp %>%
+  
+  filter(Label == "H_EE_vs_SH") %>%
+  
+    ggplot(aes(x = log2FC, y = -log10(adj.pvalue), label = sig_g_label,
+               alpha = adj.pvalue)) +
+  
+  
+  # POINTS
+  geom_point(aes(color = case_when( # conditional ass for color mapping
+    adj.pvalue < 0.05 & log2FC > 0 ~ "up_adjp.05", # up sig .05
+    adj.pvalue < 0.05 & log2FC < 0 ~ "down_adjp.05", # down sig .05
+    adj.pvalue < 0.1 & log2FC > 0 ~ "up_adjp.1", # up 0.1
+    adj.pvalue < 0.1 & log2FC < 0 ~ "down_adjp.1", # down .1
+    TRUE ~ "ns" )), # catch the rest
+     size = 2.5, shape = 1, stroke = 1) +
+  
+  scale_color_manual(values = c("firebrick", # coloring
+                                "royalblue3",
+                                "pink3",
+                                "lightblue3",
+                                "grey90"),
+                     breaks = c("up_adjp.05",
+                                "down_adjp.05",
+                                "up_adjp.1",
+                                "down_adjp.1"),
+                     labels = c("\U2191 (adj.p <.05)",
+                                "\U2193 (adj.p <.05)",
+                                "\U2191 (adj.p <.1)",
+                                "\U2193 (adj.p <.1)")) +
+  
+  geom_text_repel(max.overlaps = 30, size = 3.5, # gene text on points
+                  color = "grey10", alpha = 1 ) + 
+  
+  scale_alpha_continuous(range = c(1, .2), # rev, smaller p = higher
+                         guide = 'none') + 
   
 
-top_5_plot
+
+  xlim(-1,1) +
+  # facet_wrap(~Label, scales = "free_y") +
+  facet_wrap(~Label, ncol = 4) +
+  
+  labs(x = "log2FC",
+       y = "-Log10(adj.p value)",
+       color = "Protein Regulation") +
+  
+  geom_hline(yintercept = -log10(0.05),
+             linetype = "solid", linewidth = 0.01,
+             color = "grey60") +
+  annotate("text", x = .95, y = -log10(0.05),
+           label = "adj.p <.05 \n",
+           fontface = 'italic', size = 3, color = "grey40") +
+  
+  geom_hline(yintercept = -log10(0.1),linetype = "solid",
+             linewidth = 0.01, color = "grey70") +
+  annotate("text", x = .95, y = -log10(0.1),
+           label = " adj.p <.1 \n",
+           fontface = 'italic', size = 3, color = "grey50") +
+  
+  geom_vline(xintercept = c(0),linetype = "solid",
+             linewidth = 0.01, color = "grey80") +
+  
+  guides(color=guide_legend(nrow=1, byrow=TRUE)) +
+  
+  my_theme +
+  theme(
+        panel.grid.major = element_line(color = "grey90"),
+        panel.grid.minor = element_line(color = "grey95"),
+        legend.margin = margin(-10,0,0,0),  # space between plot & legend
+        legend.key.size = unit(1, "cm"), # size of legend key icon
+  )
+
+EE_Volcano
+```
+
+```{r}
+EE_Volcano_age <- mapped_comp %>%
+  
+  filter(Label %in% c("HxA_EE_YNG_vs_SH_YNG", "HxA_EE_OLD_vs_SH_OLD" )) %>%
+  
+    ggplot(aes(x = log2FC, y = -log10(adj.pvalue), label = sig_g_label,
+               alpha = adj.pvalue)) +
+  
+  
+  # POINTS
+  geom_point(aes(color = case_when( # conditional ass for color mapping
+    adj.pvalue < 0.05 & log2FC > 0 ~ "up_adjp.05", # up sig .05
+    adj.pvalue < 0.05 & log2FC < 0 ~ "down_adjp.05", # down sig .05
+    adj.pvalue < 0.1 & log2FC > 0 ~ "up_adjp.1", # up 0.1
+    adj.pvalue < 0.1 & log2FC < 0 ~ "down_adjp.1", # down .1
+    TRUE ~ "ns" )), # catch the rest
+     size = 2.5, shape = 1, stroke = 1) +
+  
+  scale_color_manual(values = c("firebrick", # coloring
+                                "royalblue3",
+                                "pink3",
+                                "lightblue3",
+                                "grey90"),
+                     breaks = c("up_adjp.05",
+                                "down_adjp.05",
+                                "up_adjp.1",
+                                "down_adjp.1"),
+                     labels = c("\U2191 (adj.p <.05)",
+                                "\U2193 (adj.p <.05)",
+                                "\U2191 (adj.p <.1)",
+                                "\U2193 (adj.p <.1)")) +
+  
+  geom_text_repel(max.overlaps = 30, size = 3.5, # gene text on points
+                  color = "grey10", alpha = 1 ) + 
+  
+  scale_alpha_continuous(range = c(1, .2), # rev, smaller p = higher
+                         guide = 'none') + 
+  
+
+
+  xlim(-1,1) +
+  # facet_wrap(~Label, scales = "free_y") +
+  facet_wrap(~Label, ncol = 1) +
+  
+  labs(x = "log2FC",
+       y = "-Log10(adj.p value)",
+       color = "Protein Regulation") +
+  
+  geom_hline(yintercept = -log10(0.05),
+             linetype = "solid", linewidth = 0.01,
+             color = "grey60") +
+  annotate("text", x = .90, y = -log10(0.05),
+           label = "adj.p <.05 \n",
+           fontface = 'italic', size = 2, color = "grey40") +
+  
+  geom_hline(yintercept = -log10(0.1),linetype = "solid",
+             linewidth = 0.01, color = "grey70") +
+  annotate("text", x = .90, y = -log10(0.1),
+           label = " adj.p <.1 \n",
+           fontface = 'italic', size = 2, color = "grey50") +
+  
+  geom_vline(xintercept = c(0),linetype = "solid",
+             linewidth = 0.01, color = "grey80") +
+  
+  guides(color=guide_legend(nrow=1, byrow=TRUE)) +
+  
+  my_theme +
+  theme(legend.position = 'none',
+        panel.grid.major = element_line(color = "grey90"),
+        panel.grid.minor = element_line(color = "grey95"),
+
+        )
+
+EE_Volcano_age
+```
+
+```{r}
+#cowplot
+plot_grid(EE_Volcano, EE_Volcano_age, ncol = 2,
+          rel_widths = c(2,1))
+#2026_01_18_EEcomps_3_volcanos_cowplot_v1 exp 9.5 x 6 ?
+```
+
+### Age
+
+```{r}
+Age_Volcano <- mapped_comp %>%
+  
+  filter(Label == "A_YNG_vs_OLD") %>%
+  
+    ggplot(aes(x = log2FC, y = -log10(adj.pvalue), label = sig_g_label,
+               alpha = adj.pvalue)) +
+  
+  
+  # POINTS
+  geom_point(aes(color = case_when( # conditional ass for color mapping
+    adj.pvalue < 0.05 & log2FC > 0 ~ "up_adjp.05", # up sig .05
+    adj.pvalue < 0.05 & log2FC < 0 ~ "down_adjp.05", # down sig .05
+    adj.pvalue < 0.1 & log2FC > 0 ~ "up_adjp.1", # up 0.1
+    adj.pvalue < 0.1 & log2FC < 0 ~ "down_adjp.1", # down .1
+    TRUE ~ "ns" )), # catch the rest
+     size = 2.3, shape = 1, stroke = 1) +
+  
+  scale_color_manual(values = c("firebrick", # coloring
+                                "royalblue3",
+                                "pink3",
+                                "lightblue3",
+                                "grey90"),
+                     breaks = c("up_adjp.05",
+                                "down_adjp.05",
+                                "up_adjp.1",
+                                "down_adjp.1"),
+                     labels = c("\U2191 (adj.p <.05)",
+                                "\U2193 (adj.p <.05)",
+                                "\U2191 (adj.p <.1)",
+                                "\U2193 (adj.p <.1)")) +
+  
+  geom_text_repel(max.overlaps = 30, size = 3.3, # gene text on points
+                  color = "grey10", alpha = 1 ) + 
+  
+  scale_alpha_continuous(range = c(1, .15), # rev, smaller p = higher
+                         guide = 'none') + 
+  
+
+
+  xlim(-2,2) +
+  # facet_wrap(~Label, scales = "free_y") +
+  facet_wrap(~Label, ncol = 4) +
+  
+  labs(x = "log2FC",
+       y = "-Log10(adj.p value)",
+       color = "Protein Regulation") +
+  
+  geom_hline(yintercept = -log10(0.05),
+             linetype = "solid", linewidth = 0.01,
+             color = "grey60") +
+  annotate("text", x = 1.96, y = -log10(0.05),
+           label = "adj.p <.05 \n",
+           fontface = 'italic', size = 3, color = "grey40") +
+  
+  geom_hline(yintercept = -log10(0.1),linetype = "solid",
+             linewidth = 0.01, color = "grey70") +
+  annotate("text", x = 1.96, y = -log10(0.1),
+           label = " adj.p <.1 \n",
+           fontface = 'italic', size = 3, color = "grey50") +
+  
+  geom_vline(xintercept = c(0),linetype = "solid",
+             linewidth = 0.01, color = "grey80") +
+  
+  guides(color=guide_legend(nrow=1, byrow=TRUE)) +
+  
+  my_theme +
+  theme(
+        panel.grid.major = element_line(color = "grey90"),
+        panel.grid.minor = element_line(color = "grey95"),
+        legend.margin = margin(-10,0,0,0),  # space between plot & legend
+        legend.key.size = unit(1, "cm"), # size of legend key icon
+  )
+
+Age_Volcano
+```
+
+```{r}
+Age_Volcano_H <- mapped_comp %>%
+  
+  filter(Label %in% c("HxA_EE_YNG_vs_EE_OLD", "HxA_SH_YNG_vs_SH_OLD" )) %>%
+  
+    ggplot(aes(x = log2FC, y = -log10(adj.pvalue), label = sig_g_label,
+               alpha = adj.pvalue)) +
+  
+  
+  # POINTS
+  geom_point(aes(color = case_when( # conditional ass for color mapping
+    adj.pvalue < 0.05 & log2FC > 0 ~ "up_adjp.05", # up sig .05
+    adj.pvalue < 0.05 & log2FC < 0 ~ "down_adjp.05", # down sig .05
+    adj.pvalue < 0.1 & log2FC > 0 ~ "up_adjp.1", # up 0.1
+    adj.pvalue < 0.1 & log2FC < 0 ~ "down_adjp.1", # down .1
+    TRUE ~ "ns" )), # catch the rest
+     size = 2.2, shape = 1, stroke = 1) +
+  
+  scale_color_manual(values = c("firebrick", # coloring
+                                "royalblue3",
+                                "pink3",
+                                "lightblue3",
+                                "grey90"),
+                     breaks = c("up_adjp.05",
+                                "down_adjp.05",
+                                "up_adjp.1",
+                                "down_adjp.1"),
+                     labels = c("\U2191 (adj.p <.05)",
+                                "\U2193 (adj.p <.05)",
+                                "\U2191 (adj.p <.1)",
+                                "\U2193 (adj.p <.1)")) +
+  
+  geom_text_repel(max.overlaps = 30, size = 3.3, # gene text on points
+                  color = "grey10", alpha = 1 ) + 
+  
+  scale_alpha_continuous(range = c(1, .15), # rev, smaller p = higher
+                         guide = 'none') + 
+  
+
+
+  xlim(-2,2) +
+  # facet_wrap(~Label, scales = "free_y") +
+  facet_wrap(~Label, ncol = 1) +
+  
+  labs(x = "log2FC",
+       y = "-Log10(adj.p value)",
+       color = "Protein Regulation") +
+  
+  geom_hline(yintercept = -log10(0.05),
+             linetype = "solid", linewidth = 0.01,
+             color = "grey60") +
+  annotate("text", x = 1.9, y = -log10(0.05),
+           label = "adj.p <.05 \n",
+           fontface = 'italic', size = 2, color = "grey40") +
+  
+  geom_hline(yintercept = -log10(0.1),linetype = "solid",
+             linewidth = 0.01, color = "grey70") +
+  annotate("text", x = 1.9, y = -log10(0.1),
+           label = " adj.p <.1 \n",
+           fontface = 'italic', size = 2, color = "grey50") +
+  
+  geom_vline(xintercept = c(0),linetype = "solid",
+             linewidth = 0.01, color = "grey80") +
+  
+  guides(color=guide_legend(nrow=1, byrow=TRUE)) +
+  
+  my_theme +
+  theme(legend.position = 'none',
+        panel.grid.major = element_line(color = "grey90"),
+        panel.grid.minor = element_line(color = "grey95"),
+
+        )
+
+Age_Volcano_H
+```
+
+```{r}
+# cowplot
+plot_grid(Age_Volcano, Age_Volcano_H, ncol = 2,
+          rel_widths = c(2,1))
+#2026_01_18_Agecomps_3_volcanos_cowplot_v1 exp 9.5 x 6 
+```
+
+```{r}
+# sig_proteins <- mapped_comp_v3.2.2_EExAge_t1 %>%
+#   filter(adj.pvalue <=0.05) %>%
+#   group_by(Label) %>%
+#   slice_min(adj.pvalue, n = 3)
+# 
+# unique_top_3_genes <- unique(sig_proteins$gene) #10 unique
+```
+
+```{r}
+# top_5_plot <- mapped_psum_v3.2.2_EExAge %>%
+#   filter(gene %in% unique_top_3_genes) %>%
+#   ggplot(aes(x = BioReplicate, y = Abundance, fill = Condition)) +
+#   geom_boxplot() +
+#   geom_point() +
+#   facet_nested(~ gene + Mixture + Cohort) +
+#   theme_bw()
+#   
+# 
+# top_5_plot
 ```
 
 ```{r}
 
 ```
 
+------------------------------------------------------------------------
+
+## Lollipop plot?
+
+------------------------------------------------------------------------
+
+# psumplots
+
+mt theme
+
+#### Colors
+
+```{r}
+# COLOR BLIND FRIENDLY COLORS
+palette.colors() #Okabe-Ito 9 - discrete colors
+palette.colors(10, recycle = TRUE) #Recycles 1st to get 10
+hcl.colors(9, palette = "Purple-Green") # seq/div (continuous)
+hcl.colors(8, palette = "Blues 3") # seq/div (continuous)
+palette.pals() # prints all available 
+palette("Tableau 10")
+
+# colorspace hcl
+colorspace::swatchplot(qualitative_hcl(5, palette = "Dark 3")) #
+colorspace::hclplot(diverging_hcl(10, palette = "Lisbon")) # multicolors
+hcl_palettes("sequential (multi-hue)", n = 7, plot = TRUE)
+qualitative_hcl(4, palette = "Dark 3")
+divergingx_palettes(n = 7, plot = TRUE)
+# colorspace::specplot()
+
+# paleteer
+paletteer_d("nord::aurora")
+
+display.brewer.all() #RColorBrewer
+
+# Paletteer prints hexcode with color in console!!!! 
+paletteer_d("RColorBrewer::RdYlGn")
+paletteer_d("RColorBrewer::Spectral")
+paletteer_d("RColorBrewer::PiYG")
+paletteer_d("RColorBrewer::BrBG")
+paletteer_d("RColorBrewer::Pastel2")
+paletteer_d("RColorBrewer::Dark2")
+paletteer_d("rcartocolor::Temps")
+paletteer_d("rcartocolor::Geyser")
+paletteer_d("rcartocolor::Sunset")
+paletteer_d("rcartocolor::Emrld")
+paletteer_d("rcartocolor::OrYel")
+```
+
+EE vs SH
+
+-   <https://stats.oarc.ucla.edu/r/modules/subsetting-data/>
+
+```{r}
+# # base R subset & make list 
+EE_list_up <- as.vector(subset(mapped_comp,
+                  Label == "H_EE_vs_SH" & adj.pvalue <.05 & log2FC > 0,
+                  select = Protein))
+
+
+EE_list_down <- as.vector(subset(mapped_comp,
+                  Label == "H_EE_vs_SH" & adj.pvalue <.05 & log2FC < 0,
+                  select = Protein))
+```
+
+```{r}
+# shows variation!!! 
+psum_EE_plot_test <- mapped_psum %>%
+  
+  filter(Protein %in% EE_list_down$Protein) %>%
+  # filter(gene == "Penk") %>%
+  filter(gene == "Hmgcs1") %>%
+  #sex is missing from anno?
+  mutate(Sex = ifelse(Mixture == "B1", "M",
+                      ifelse(Mixture == "B2", "M", "F"))) %>%
+  mutate(Age = ifelse(str_detect(Condition, "OLD"), "OLD", "YNG")) %>%
+  
+  ggplot(aes(x = Channel, y = Abundance,
+             fill = Housing
+             # alpha = Age
+             )) +
+  geom_boxplot(width = 0.5, outlier.shape = NA, alpha= 0.6) +
+  geom_point(aes(color = TechRepMixture), shape = 1) +
+  scale_fill_manual(values = c("#66A61EFF", "#E6AB02FF")) +
+  scale_color_manual(values = c("#3288BDFF", "#CA562CFF", "#5E4FA2FF")) +
+  scale_alpha_manual(values = c(0.6,0.7)) +
+  
+  facet_nested(~Mixture+Cohort,
+               scales = "free_x", 
+               space = "free") + 
+  labs(title = "HMGCOA Syntase 1 ")
+  # facet_wrap()
+  boxplot_theme +
+  theme(
+    axis.text.x = element_text(angle = 90, hjust = 0.5, vjust =0.5)
+  )
+
+psum_EE_plot_test
+  
+```
+
+-   <https://en.wikipedia.org/wiki/List_of_Crayola_crayon_colors>
+
+```{r}
+colors <- c("#8CB585","#A8D9A0", "#D4C07E", "#FEE697", "#E6AB02FF",
+            "#66A61EFF", )
+# Banana Mania (#FBE7B2), Sunglow (#FFCC33), 	Dandelion (#FED85D)
+# Maximum Green (#5E8C31)| Asparagus #7BA05B, Middle Green Yellow (#ACBF60)
+```
+
+```{r}
+
+```
+
+### For Loops & Functions
+
+Function for boxplots
+
+-   <https://github.com/eliocamp/ggnewscale?tab=readme-ov-file>
+
+```{r}
+boxplot_function <- function(data, x , y, # function inputs
+                             fill = Housing,
+                             # alpha = NULL,
+                             shape_color = TechRepMixture,
+                             shape_fill = NULL,
+                             facet_formula = ~Age+Cohort+Litter+Sex , # default
+                             legend_pos = "bottom", 
+                             title = NULL, # need to set as NULL?
+                             subtitle = NULL) {
+  
+  #set up polot ^ assign 2 p
+  p <- ggplot(data, aes({{x}},{{y}},
+              # color = {{color}},
+              # shape = {{shape}},
+              # alpha = {{alpha}}
+              )) +
+    
+    # make box plot
+    geom_boxplot(aes(fill = {{fill}}),
+                 width = 0.55, size = 0.7, fatten = 1, linewidth = 0.2,
+                 position = position_dodge(width = 0.7),
+                 outlier.shape = NA,
+                 color = "grey10", alpha = 0.7) +
+    
+    stat_summary(fun=mean, geom="point", position = position_dodge(width = 0.7),
+               shape=4, size = .8, stroke = 0.2, color ="grey10") + #displays mean 
+    
+    # scale_alpha_discrete(guide = 'none', range = c(0.65, 0.75)) +
+    scale_fill_manual(values = c("#66A61EFF", "#E6AB02FF")) + # housing colors 
+    # scale_shape_manual(values = c(1, 3, 4)) + # techreplicate (3)
+    
+
+    # New SCALE with NEW GEOM 
+    ggnewscale::new_scale_fill() +
+      geom_point(aes(fill = {{shape_fill}}, color = {{shape_color}}),
+      size = 1, shape = 21, stroke = .1, 
+      position = position_jitterdodge(dodge.width = 0.4, jitter.width = 0.02)) +
+    #2nd scale
+    scale_color_manual(values = c("#003a6d","#31135e","#510224")) + # IBM
+    scale_fill_manual(values = alpha(c("#eee8d5", "#b58900", "#C06A0B", "#cb4b16",
+                                       "#D43F23", "#dc322f", "#D83459", "#d33682",
+                                       "#A054A3", "#6c71c4", "#497ECB", "#268bd2",
+                                       "#2896B5", "#2aa198", "#589D4C", "#859900",
+                                       "#586e75"), 0.5)) + # solarised mix
+    
+    
+    # FACET
+    ggh4x::facet_nested(facet_formula) +
+    
+    labs(title = title, subtitle = subtitle) + # TITLE & SUBTITLE
+    
+    guides(color = "none",
+           fill = guide_legend(nrow=1, byrow=TRUE)) +
+    
+    # theme (maybe just add theme from above or beeter self contained like this?)
+    theme(
+    plot.title = element_text(size = 10.5, color = "grey10"),
+    plot.subtitle = element_text(size = 9, color = "grey10", face = "italic"),
+    axis.line = element_blank(),
+    axis.title = element_text(size = 9, color = "grey10"), 
+    axis.text = element_text(size = 7.5, color ="grey10"),
+    axis.ticks = element_line(size=0.1, colour = "grey15", linewidth = .1),
+    panel.background = element_rect(fill = "white"), #bg of plot (inner bit)
+    panel.border = element_rect(fill = NA, linewidth = .1,
+                                color = "grey10"), #plot borders
+    plot.background = element_rect(fill = "white"), # bg of plot (outer)
+    panel.grid = element_blank(),
+    panel.spacing = unit(0, "cm"),  # Removes space between panel 
+    
+    legend.position = legend_pos, # LEGEND POSITON
+    
+    legend.title = element_text(size = 9, face="italic", color = "grey10"),
+    legend.margin = margin(-5,0,0,0), # space between plot & legend
+    #legend.title.align = (0.5), # centres legend title
+    legend.text = element_text(size = 8.5, color = "grey10"),
+    legend.box = "horizontal", 
+    legend.direction = "horizontal", 
+    legend.key.size = unit(0.5, "cm"), # size of legend key icon
+    strip.background = element_rect(color = 'grey10', fill = 'grey90',
+                                    linewidth = .1), 
+    strip.text.x = element_text(size = 8.5, color = 'grey10',
+                                margin = margin(b = 2, t = 1.5)) #vert spacing
+  )
+    
+}
+```
+
+Testing Function! - Yep works!
+
+```{r}
+# Synaptopodin
+Synpo <- mapped_psum %>%
+  filter(Protein %in% c("Q9Z327")) # 
+
+Synpo_plot <- boxplot_function(Synpo, 
+                       x = Housing, 
+                       y = Abundance,
+                       fill = Housing,  # by default
+                       # color = interaction(BioReplicate, TechRepMixture),
+                       shape_fill = Channel,
+                       shape_color = TechRepMixture,
+                       # alpha = Age,
+                       legend_pos = "none",
+                       title = 'Q9Z327 - Synaptopodin',
+                       subtitle = '(Synpo) - In all 55 Samples')
+
+Synpo_plot
+
+unique(Synpo$BioReplicate)
+unique(Synpo$`Gene Names (primary)`) #Synpo
+length(unique(Synpo$BioReplicate)) # 56 observations! 55
+
+Synpo %>% 
+  group_by(TechRepMixture) %>%
+  count(TechRepMixture)
+```
+
+### For Housing per protein
+
+```{r}
+EE_main_sig_df <- mapped_comp %>%
+  filter(Label == "H_EE_vs_SH" & adj.pvalue < 0.05) %>%
+  group_by(Direction) %>%
+  arrange(adj.pvalue)
+
+
+EE_main_p_sig_list <- unique(EE_main_sig_df$Protein)
+
+EE_main_psum_plot_list <- vector(mode = "list")
+```
+
+```{r}
+for (p in EE_main_p_sig_list){
+  
+  #OPERATIONS
+  #SET UP/CALC
+  bp_df <- mapped_psum %>% #from psums
+  filter(Protein == p) 
+  
+  
+  bp_labs <- EE_main_sig_df %>% # using the filter mapped_comp list 
+    filter(Protein == p) %>%
+    slice(1) 
+  
+  obs_in <- mapped_psum %>% #get no. biorep observed
+  filter(Protein == p) %>%
+    summarise(n_unique = n_distinct(BioReplicate)) %>%
+    pull(n_unique)
+  
+  
+  
+  # MAKE PLOT
+  bp <- boxplot_function( 
+       data = bp_df,
+       x = Housing, 
+       y = Abundance,
+       fill = Housing,  # by default
+       shape_fill = Channel, #de
+       shape_color = TechRepMixture,
+       legend_pos = "none", # default
+       title = paste0(bp_labs$gene, " - ", bp_labs$description),
+       subtitle = paste0(bp_labs$Direction, "regulated in EE (",
+                         bp_labs$uniprot_acc, " ", bp_labs$database,
+                         " - observed in ", obs_in, " samples)"
+                         )
+       )
+  
+  print(bp)
+
+  
+  # SAVIHG PLOTS
+    if (bp_labs$Direction[1] == "Up") {
+      EE_main_psum_plot_list$Up[[p]] <- bp
+
+    } else{
+      EE_main_psum_plot_list$Down[[p]] <- bp
+    }
+
+
+  
+}
+```
+
+Save list of plots
+
+```{r}
+save()
+```
+
+#### cowplots
+
+saved everything for EE sig (16 prots)
+
+```{r}
+# get 5 at a time
+plot_grid(plotlist = EE_main_psum_plot_list$Down[1:5], ncol = 1)
+```
+
+```{r}
+plot_grid(plotlist = EE_main_psum_plot_list$Up, ncol = 1)
+# maybe need to export again, a bit squished
+```
+
+```{r}
+# FINISH HERE!!!
+# EE_psum_facet <- mapped_psum %>%
+#   filter(protein_existence)
+```
+
+### For Age
+
+```{r}
+top_20_sig_Age_df <- mapped_comp %>%
+  filter(Label == "A_YNG_vs_OLD" & adj.pvalue <0.05) %>%
+  group_by(Direction) %>%
+  arrange(adj.pvalue)%>%
+  slice_min(adj.pvalue, n = 10)
+
+
+Age_main_p_sig_list <- unique(top_20_sig_Age$Protein)
+
+Age_main_20_psum_plot_list <- vector(mode = "list")
+```
+
+```{r}
+for (p in Age_main_p_sig_list){
+  
+  #OPERATIONS
+  # SET UP/ CALC
+  bp_df <- mapped_psum %>% #from psums
+  filter(Protein == p) 
+  
+  
+  bp_labs <- top_20_sig_Age_df %>% # using the filter mapped_comp list 
+    filter(Protein == p) %>%
+    slice(1) 
+  
+  
+  obs_in <- mapped_psum %>% #get no. biorep observed
+  filter(Protein == p) %>%
+    summarise(n_unique = n_distinct(BioReplicate)) %>%
+    pull(n_unique)
+  
+  # MAKE PLOT
+  bp <- boxplot_function( 
+       data = bp_df,
+       x = Housing, 
+       y = Abundance,
+       fill = Housing,  # by default
+       shape_fill = Channel, #de
+       shape_color = TechRepMixture,
+       legend_pos = "none", # default
+       title = paste0(bp_labs$gene, " - ", bp_labs$description),
+       subtitle = paste0(bp_labs$Direction, "regulated in YNG (",
+                         bp_labs$uniprot_acc, " ", bp_labs$database,
+                         " - observed in ", obs_in, " samples)"
+                         )
+       )
+  
+  print(bp)
+
+  
+  # SAVIHG PLOTS
+    if (bp_labs$Direction[1] == "Up") {
+      Age_main_20_psum_plot_list$Up[[p]] <- bp
+
+    } else{
+      Age_main_20_psum_plot_list$Down[[p]] <- bp
+    }
+
+
+  
+}
+```
+
+```{r}
+# cowplot = DOWN IN AGE (YNG)
+plot_grid(plotlist = Age_main_20_psum_plot_list$Down, ncol = 2)
+```
+
+```{r}
+# cowplot = UP IN AGE (YNG)
+plot_grid(plotlist = Age_main_20_psum_plot_list$Up, ncol = 2)
+```
+
+```{r}
+plot_grid(plotlist = Age_main_20_psum_plot_list$Down[6:10], ncol = 1)
+```
+
+```{r}
+plot_grid(plotlist = Age_main_20_psum_plot_list$Up[6:10], ncol = 1)
+```
+
+## Venny's?
+
+"Age specific differences in housing contribute to the effect driving but not age in itself!" This is reassuring!
+
+```{r}
+# from above 
+# EE_main_p_sig_list
+EE_main_p_sig_01_list <- 
+
+Age_main_sig_list <- mapped_comp %>%
+  filter(Label == "A_YNG_vs_OLD" & adj.pvalue <0.05) %>%
+  pull(Protein)
+
+# only "P85845" fascin! 
+intersect(EE_main_p_sig_list, Age_main_sig_list)
+
+# 
+# venn_list <- list(Housing = EE_main_p_sig_list, Age = Age_main_sig_list)
+```
+
+```{r}
+# TO FIX 
+# ggvenn(c(EE_main_p_sig_list, Age_main_sig_list),
+#          digits = 0, # 0 digits after decimal,
+#          stroke_alpha = 0.7,
+#          fill_alpha = 0.45,
+#               stroke_size = 0.5,
+#               set_name_size = 3.5,
+#               text_size = 3.2)
+```
+
+# gt tables
+
+"Age specific differences in housing contribute to the effect driving but not age in itself!" This is reassuring!
+
+## All Significant (8 comp)
+
+```{r}
+mapped_comp_sig |> 
+  
+  
+  dplyr::select(c(Label,Direction, gene, Protein, description, 
+                  log2FC, adj.pvalue, database)) |>
+  
+  arrange(adj.pvalue) |>
+  
+  gt(
+    groupname_col = "Label",
+    rowname_col = "Direction"
+  ) |>
+  
+  cols_label(
+    
+  ) |>
+  
+  fmt_number(decimals = 3) |>
+  
+  tab_header(
+    title = "All EExAge (8 comps)",
+
+  ) |>
+  
+  tab_style( 
+    style = list(
+      cell_text(size = 8)
+      ),
+    locations = cells_body(
+      columns = c(description)
+    )
+  ) |>
+  
+  tab_options(heading.title.font.size = 16.5,
+              table.font.size=11.5,
+              row_group.font.weight = "bold",
+              row_group.font.size = 14,
+              column_labels.font.size = 12.5,
+              column_labels.font.weight = "bold") #|>
+```
+
+## EE Comps
+
+```{r}
+mapped_comp |> 
+  
+  filter(Label %in% c("H_EE_vs_SH",
+                      "HxA_EE_YNG_vs_SH_YNG", "HxA_EE_OLD_vs_SH_OLD")) |>
+  
+  filter(adj.pvalue < 0.1) |> #
+
+  dplyr::select(c(Label,Direction, gene, Protein, description, 
+                  log2FC, adj.pvalue, pvalue, database)) |>
+  
+  arrange(adj.pvalue) |>
+  
+  gt(
+    groupname_col = "Label",
+    rowname_col = "Direction"
+  ) |>
+  
+  cols_label(
+    # Gene_name = "Entry",
+    # Uniprot_entry_name = "Name",
+    # Full_name = "Protein Description",
+    # # misc = "Arroyo's Identifiers"
+    # Accession = "Shaw Acc",
+    # Description = "Shaw Desc",
+  ) |>
+  
+  fmt_number(decimals = 3) |>
+  
+  tab_header(
+    title = "Shaw et al., 2020 (Mice Hippocampus & Frontal Pole/Lobe - POS(EE) vs. NEG)",
+    # subtitle = "44 DEG (Front), 5 DEG (Hip) - all down in POS(EE) p<=.05, data is a bit odd/confusing (removed excess rodents) + some missing data? look at note at the start of the knitted", 
+  ) |>
+  
+  tab_style( 
+    style = list(
+      # cell_fill(color = "#F9E3D6"),
+      cell_text(style = "italic")
+      ),
+    locations = cells_body(
+      # columns = gene,
+      # rows = currency < 100
+    )
+  ) |>
+  
+  tab_style( 
+    style = list(
+      # cell_fill(color = "#F9E3D6"),
+      cell_text(size = 8)
+      ),
+    locations = cells_body(
+      columns = c(description)
+      # rows = currency < 100
+    )
+  ) |>
+  
+  tab_options(heading.title.font.size = 16.5,
+              table.font.size=11.5,
+              # stub.font.weight = "bold",
+              # stub.font.size = 13,
+              row_group.font.weight = "bold",
+              row_group.font.size = 14,
+              column_labels.font.size = 12.5,
+              column_labels.font.weight = "bold") #|>
+```
