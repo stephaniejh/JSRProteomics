@@ -19,19 +19,23 @@ library(RColorBrewer)
 library(paletteer)
 library(ggnewscale) # additional color/fill scale new_scale_fill()
 library(ggvenn) # vennys (old ones)
+library(pcaMethods) # for various pca()
 ```
 
 ### Load in data
 
 ```{r}
 #psum
-load("input/results/psum/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_psum.rda")
+# load("input/results/psum/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_psum.rda") # laptop
+load("input/MSstatsTMT/psum/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_psum.rda") # Jen
 
 #comp
-load("input/results/comp/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_comp.rda")
+# load("input/results/comp/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_comp.rda") # laptop
+load("input/MSstatsTMT/comp/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_comp.rda") # Jen
 
 #anno
-anno <- read_csv("input/anno/EEv&SH_F&M_TMT_anno_v3_df_b_check_sorted_2025_12_31.csv")
+anno <- read_csv("input/anno/EEv&SH_F&M_TMT_anno_v3_df_b_check_sorted_2025_12_31.csv") 
+# double check later!
 ```
 
 ### Map/Fix names
@@ -134,24 +138,91 @@ my_theme <- theme(
 
 ```
 
+# General QC Plots
+
 ## Heatmap
 
 <https://biostatsquid.com/step-by-step-heatmap-tutorial-with-pheatmap/>
 
 ```{r}
-heatmap_df <- mapped_psum %>%
-  group_by(BioReplicate, Protein) %>%
+# matrix df for heatmap &  PCAs
+heatmap_matrix <- mapped_psum %>%
+  mutate(comb_name = paste0(BioReplicate, " - ", Mixture, " - ", Channel)) %>%
+  group_by(comb_name, Protein) %>%
   summarise(meanAbundance = mean(Abundance, na.rm = TRUE)) %>% # rm na 2 plot
-  dplyr::select(Protein, meanAbundance, BioReplicate) %>%
-  pivot_wider(names_from = BioReplicate,
+  dplyr::select(Protein, meanAbundance, comb_name) %>%
+  pivot_wider(names_from = comb_name,
               values_from = meanAbundance) %>%
   tidyr::drop_na() %>%
-  tibble::column_to_rownames("Protein") %>% # set Accession to rowname 
+  tibble::column_to_rownames("Protein") %>% # set Accession to rowname
   as.matrix()
 ```
 
 ```{r}
-heatmap_1 <- pheatmap(heatmap_df, main = "test")
+heatmap_1 <- pheatmap(heatmap_matrix,
+                      main = "QC Check - Mean Abundance Across Samples (55/56)",
+                      show_rownames =  FALSE, # rms overplotted protein names
+                      fontsize_col = 9)
+# exported as 2026_01_19_pheatmap_QC_check_mean_abund_rm129_outlier_v1
+# basic QC
+```
+
+### PCA
+
+-   see pg 5 of doc & MSstatsTMT_2025_10_v3.1.6_plots.Rmd - <https://www.bioconductor.org/packages/release/bioc/html/pcaMethods.html>
+
+```{r}
+# PCA MATRIX - basically the same as above... 
+pca_matrix <- mapped_psum  %>%
+  mutate(rcbr = paste0(Run, '_', Channel, '_', BioReplicate), .after = Channel) %>%
+  dplyr::select(rcbr, Protein, Abundance) %>%
+  pivot_wider(names_from = rcbr,
+              values_from = Abundance) %>%
+  tidyr::drop_na() %>%
+  tibble::column_to_rownames("Protein") %>%
+  as.matrix()
+
+dim(pca_matrix) # 3767 x 165
+```
+
+```{r}
+# prep labeling with the rcbr col
+prots_anno <- mapped_psum %>%
+  mutate(rcbr = paste0(Run, '_', Channel, '_', BioReplicate), .after = Channel) %>%
+  dplyr::select(Mixture:rcbr, BioReplicate, Condition, Year:Age) %>%
+  unique()
+
+rownames(prots_anno) <- prots_anno$rcbr # needed for by = 0 in merge to work
+dim(prots_anno)
+```
+
+```{r}
+# swap dir or prot & samples 
+pca_cc <- pca(t(pca_matrix)) # transposed (so 55 scores)
+
+# Do this way instead. for some reason the doing it directly results
+pca_scores_cc <- scores(pca_cc)
+
+merged_pca_cc <- merge(prots_anno, pca_scores_cc, by = 0) # row names set for by = 0 
+
+ggplot(merged_pca_cc,
+       aes(x = PC1, y = PC2,
+           color = Mixture,
+           fill = Housing,
+           label = rcbr)) +
+  geom_point(shape = 21, size =2, alpha = 0.7) +
+  geom_text_repel() +
+  scale_fill_manual(values = c("#66A61EFF", "#E6AB02FF")) + # housing colors 
+  scale_color_manual(values = c("#d5a6bd", "#9fc5e8",
+                             "#ea9999", "#f9cb9c")) +
+  labs(title = "129N B1 removed (55/56)",
+       subtitle = "MssTMT_Vis_2026_01_v3.2.2_1pspg_EExAge") +
+  stat_ellipse() +
+  theme_bw()
+
+# exp 9 x 9 - not much of a difference between rm & non rm.
+#2026_01_19_mss_v3.2.2_PCA_plot_rm_129N_B1_55_v1 
+# plot is a big ugly?
 ```
 
 ------------------------------------------------------------------------
@@ -675,53 +746,7 @@ EE vs SH
 
 -   <https://stats.oarc.ucla.edu/r/modules/subsetting-data/>
 
-```{r}
-# # base R subset & make list 
-EE_list_up <- as.vector(subset(mapped_comp,
-                  Label == "H_EE_vs_SH" & adj.pvalue <.05 & log2FC > 0,
-                  select = Protein))
-
-
-EE_list_down <- as.vector(subset(mapped_comp,
-                  Label == "H_EE_vs_SH" & adj.pvalue <.05 & log2FC < 0,
-                  select = Protein))
-```
-
-```{r}
-# shows variation!!! 
-psum_EE_plot_test <- mapped_psum %>%
-  
-  filter(Protein %in% EE_list_down$Protein) %>%
-  # filter(gene == "Penk") %>%
-  filter(gene == "Hmgcs1") %>%
-  #sex is missing from anno?
-  mutate(Sex = ifelse(Mixture == "B1", "M",
-                      ifelse(Mixture == "B2", "M", "F"))) %>%
-  mutate(Age = ifelse(str_detect(Condition, "OLD"), "OLD", "YNG")) %>%
-  
-  ggplot(aes(x = Channel, y = Abundance,
-             fill = Housing
-             # alpha = Age
-             )) +
-  geom_boxplot(width = 0.5, outlier.shape = NA, alpha= 0.6) +
-  geom_point(aes(color = TechRepMixture), shape = 1) +
-  scale_fill_manual(values = c("#66A61EFF", "#E6AB02FF")) +
-  scale_color_manual(values = c("#3288BDFF", "#CA562CFF", "#5E4FA2FF")) +
-  scale_alpha_manual(values = c(0.6,0.7)) +
-  
-  facet_nested(~Mixture+Cohort,
-               scales = "free_x", 
-               space = "free") + 
-  labs(title = "HMGCOA Syntase 1 ")
-  # facet_wrap()
-  boxplot_theme +
-  theme(
-    axis.text.x = element_text(angle = 90, hjust = 0.5, vjust =0.5)
-  )
-
-psum_EE_plot_test
-  
-```
+<!-- -->
 
 -   <https://en.wikipedia.org/wiki/List_of_Crayola_crayon_colors>
 
@@ -730,10 +755,6 @@ colors <- c("#8CB585","#A8D9A0", "#D4C07E", "#FEE697", "#E6AB02FF",
             "#66A61EFF", )
 # Banana Mania (#FBE7B2), Sunglow (#FFCC33), 	Dandelion (#FED85D)
 # Maximum Green (#5E8C31)| Asparagus #7BA05B, Middle Green Yellow (#ACBF60)
-```
-
-```{r}
-
 ```
 
 ### For Loops & Functions
@@ -805,7 +826,9 @@ boxplot_function <- function(data, x , y, # function inputs
     axis.title = element_text(size = 9, color = "grey10"), 
     axis.text = element_text(size = 7.5, color ="grey10"),
     axis.ticks = element_line(size=0.1, colour = "grey15", linewidth = .1),
-    panel.background = element_rect(fill = "white"), #bg of plot (inner bit)
+    
+    panel.background = element_rect(fill = "white"), #bg of plot (inner)
+    
     panel.border = element_rect(fill = NA, linewidth = .1,
                                 color = "grey10"), #plot borders
     plot.background = element_rect(fill = "white"), # bg of plot (outer)
@@ -859,6 +882,8 @@ Synpo %>%
   group_by(TechRepMixture) %>%
   count(TechRepMixture)
 ```
+
+------------------------------------------------------------------------
 
 ### For Housing per protein
 
@@ -952,6 +977,8 @@ plot_grid(plotlist = EE_main_psum_plot_list$Up, ncol = 1)
 #   filter(protein_existence)
 ```
 
+------------------------------------------------------------------------
+
 ### For Age
 
 ```{r}
@@ -1034,6 +1061,140 @@ plot_grid(plotlist = Age_main_20_psum_plot_list$Down[6:10], ncol = 1)
 
 ```{r}
 plot_grid(plotlist = Age_main_20_psum_plot_list$Up[6:10], ncol = 1)
+```
+
+------------------------------------------------------------------------
+
+```{r}
+boxplot_function <- function(data, x , y, # function inputs
+                             fill = Housing,
+                             # alpha = NULL,
+                             shape_color = TechRepMixture,
+                             shape_fill = NULL,
+                             facet_formula = ~Age+Cohort+Litter+Sex , # default
+                             legend_pos = "bottom", 
+                             title = NULL, # need to set as NULL?
+                             subtitle = NULL) {
+  
+  #set up polot ^ assign 2 p
+  p <- ggplot(data, aes({{x}},{{y}},
+              )) +
+    
+    # make box plot
+    geom_boxplot(aes(fill = {{fill}}),
+                 width = 0.55, size = 0.7, fatten = 1, linewidth = 0.2,
+                 position = position_dodge(width = 0.7),
+                 outlier.shape = NA,
+                 color = "grey10", alpha = 0.7) +
+    
+    stat_summary(fun=mean, geom="point", position = position_dodge(width = 0.7),
+               shape=4, size = .8, stroke = 0.2, color ="grey10") + #displays mean 
+    
+    # scale_alpha_discrete(guide = 'none', range = c(0.65, 0.75)) +
+    scale_fill_manual(values = c("#66A61EFF", "#E6AB02FF")) + # housing colors 
+    # scale_shape_manual(values = c(1, 3, 4)) + # techreplicate (3)
+    
+
+    # New SCALE with NEW GEOM 
+    ggnewscale::new_scale_fill() +
+      geom_point(aes(fill = {{shape_fill}}, color = {{shape_color}}),
+      size = 1, shape = 21, stroke = .1, 
+      position = position_jitterdodge(dodge.width = 0.4, jitter.width = 0.02)) +
+    #2nd scale
+    scale_color_manual(values = c("#003a6d","#31135e","#510224")) + # IBM
+    scale_fill_manual(values = alpha(c("#eee8d5", "#b58900", "#C06A0B", "#cb4b16",
+                                       "#D43F23", "#dc322f", "#D83459", "#d33682",
+                                       "#A054A3", "#6c71c4", "#497ECB", "#268bd2",
+                                       "#2896B5", "#2aa198", "#589D4C", "#859900",
+                                       "#586e75"), 0.5)) + # solarised mix
+    
+    
+    # FACET
+    ggh4x::facet_nested(facet_formula) +
+    
+    labs(title = title, subtitle = subtitle) + # TITLE & SUBTITLE
+    
+    guides(color = "none",
+           fill = guide_legend(nrow=1, byrow=TRUE)) +
+    
+    # theme (maybe just add theme from above or beeter self contained like this?)
+    theme(
+    plot.title = element_text(size = 10.5, color = "grey10"),
+    plot.subtitle = element_text(size = 9, color = "grey10", face = "italic"),
+    axis.line = element_blank(),
+    axis.title = element_text(size = 9, color = "grey10"), 
+    axis.text = element_text(size = 7.5, color ="grey10"),
+    axis.ticks = element_line(size=0.1, colour = "grey15", linewidth = .1),
+    
+    panel.background = element_rect(fill = "white"), #bg of plot (inner)
+    
+    panel.border = element_rect(fill = NA, linewidth = .1,
+                                color = "grey10"), #plot borders
+    plot.background = element_rect(fill = "white"), # bg of plot (outer)
+    panel.grid = element_blank(),
+    panel.spacing = unit(0, "cm"),  # Removes space between panel 
+    
+    legend.position = legend_pos, # LEGEND POSITON
+    
+    legend.title = element_text(size = 9, face="italic", color = "grey10"),
+    legend.margin = margin(-5,0,0,0), # space between plot & legend
+    #legend.title.align = (0.5), # centres legend title
+    legend.text = element_text(size = 8.5, color = "grey10"),
+    legend.box = "horizontal", 
+    legend.direction = "horizontal", 
+    legend.key.size = unit(0.5, "cm"), # size of legend key icon
+    strip.background = element_rect(color = 'grey10', fill = 'grey90',
+                                    linewidth = .1), 
+    strip.text.x = element_text(size = 8.5, color = 'grey10',
+                                margin = margin(b = 2, t = 1.5)) #vert spacing
+  )
+    
+}
+```
+
+```{r}
+# Synaptopodin
+EE_facet_up_prot_list <- mapped_comp %>%
+  filter(Label == "H_EE_vs_SH" & adj.pvalue < 0.05 & Direction == "Up") %>%
+    pull(Protein)
+
+  
+EE_facet_up_plot <- mapped_psum %>%
+  
+  mutate(Condition = forcats::fct_reorder(Condition, PND)) %>% # reoder by PND (num)
+  
+  filter(Protein %in% EE_facet_up_prot_list) %>%
+  
+  
+  ggplot(aes(x = Condition, y = Abundance,
+             fill = Housing, alpha = Age)) +
+  geom_boxplot(width = 0.55, size = 0.7, fatten = 1, linewidth = 0.2,
+                 position = position_dodge(width = 0.7),
+                 outlier.shape = NA,
+                 color = "grey10") +
+  stat_summary(fun=mean, geom="point", position = position_dodge(width = 0.7),
+               shape=4, size = .8, stroke = 0.2, color ="grey10") +
+  geom_point(color = "grey10", size = 1, shape = 1, stroke = .2, 
+      position = position_jitterdodge(dodge.width = 0.6, jitter.width = 0.4)) +
+  scale_fill_manual(values = c("#66A61EFF", "#E6AB02FF")) + # housing colors 
+  scale_alpha_manual(values = c(.6,.75)) +
+  # scale_color_manual(values = c("#003a6d", "#31135e")) +
+  facet_wrap(~gene, ncol = 6) +
+  my_theme +
+  theme(
+     axis.text = element_text(size = 7, color ="grey10"),
+  )
+  
+
+EE_facet_up_plot
+# 
+# unique(Synpo$BioReplicate)
+# unique(Synpo$`Gene Names (primary)`) #Synpo
+# length(unique(Synpo$BioReplicate)) # 56 observations! 55
+# 
+# Synpo %>% 
+#   group_by(TechRepMixture) %>%
+#   count(TechRepMixture)
 ```
 
 ## Venny's?
