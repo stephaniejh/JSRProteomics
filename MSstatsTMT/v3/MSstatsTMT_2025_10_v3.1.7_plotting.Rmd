@@ -283,9 +283,16 @@ merged_pca_cc <- merge(prots_anno, pca_scores_cc, by = 0) # row names set for by
 ggplot(merged_pca_cc,
        aes(x = PC1, y = PC2,
            color = Mixture,
-           fill = Housing)) +
-  geom_point(shape = 21) +
+           fill = Housing,
+           label = rcbr)) +
+  geom_point(shape = 21, size =2, alpha = 0.7) +
+  geom_text_repel() +
+  scale_fill_manual(values = c("#66A61EFF", "#E6AB02FF")) + # housing colors 
+  scale_color_manual(values = c("#d5a6bd", "#9fc5e8",
+                             "#ea9999", "#f9cb9c")) +
   stat_ellipse() +
+  labs(title = "None removed (56/56)",
+       subtitle = "MSstatsTMT_2025_10_v3.1.7_plotting") +
   theme_bw()
 
 ```
