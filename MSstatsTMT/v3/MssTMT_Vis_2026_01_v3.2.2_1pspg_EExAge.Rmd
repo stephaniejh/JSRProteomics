@@ -26,12 +26,12 @@ library(pcaMethods) # for various pca()
 
 ```{r}
 #psum
-# load("input/results/psum/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_psum.rda") # laptop
-load("input/MSstatsTMT/psum/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_psum.rda") # Jen
+load("input/results/psum/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_psum.rda") # laptop
+# load("input/MSstatsTMT/psum/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_psum.rda") # Jen
 
 #comp
-# load("input/results/comp/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_comp.rda") # laptop
-load("input/MSstatsTMT/comp/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_comp.rda") # Jen
+load("input/results/comp/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_comp.rda") # laptop
+# load("input/MSstatsTMT/comp/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_comp.rda") # Jen
 
 #anno
 anno <- read_csv("input/anno/EEv&SH_F&M_TMT_anno_v3_df_b_check_sorted_2025_12_31.csv") 
@@ -1065,6 +1065,8 @@ plot_grid(plotlist = Age_main_20_psum_plot_list$Up[6:10], ncol = 1)
 
 ------------------------------------------------------------------------
 
+### EE FACET 
+
 ```{r}
 boxplot_function <- function(data, x , y, # function inputs
                              fill = Housing,
@@ -1153,7 +1155,7 @@ boxplot_function <- function(data, x , y, # function inputs
 ```
 
 ```{r}
-# Synaptopodin
+# EE UP
 EE_facet_up_prot_list <- mapped_comp %>%
   filter(Label == "H_EE_vs_SH" & adj.pvalue < 0.05 & Direction == "Up") %>%
     pull(Protein)
@@ -1161,40 +1163,222 @@ EE_facet_up_prot_list <- mapped_comp %>%
   
 EE_facet_up_plot <- mapped_psum %>%
   
-  mutate(Condition = forcats::fct_reorder(Condition, PND)) %>% # reoder by PND (num)
+  mutate(Condition = forcats::fct_reorder(Condition, PND)) %>% # reoder by PND (no)
+  
   
   filter(Protein %in% EE_facet_up_prot_list) %>%
   
   
-  ggplot(aes(x = Condition, y = Abundance,
+  
+  ggplot(aes(x = interaction(Age, Housing, 
+                             sep = "\n", # space
+                             lex.order = TRUE),
+             y = Abundance,
              fill = Housing, alpha = Age)) +
-  geom_boxplot(width = 0.55, size = 0.7, fatten = 1, linewidth = 0.2,
+  geom_boxplot(width = 0.45, size = 0.7, fatten = 1, linewidth = 0.2,
                  position = position_dodge(width = 0.7),
                  outlier.shape = NA,
                  color = "grey10") +
   stat_summary(fun=mean, geom="point", position = position_dodge(width = 0.7),
                shape=4, size = .8, stroke = 0.2, color ="grey10") +
-  geom_point(color = "grey10", size = 1, shape = 1, stroke = .2, 
-      position = position_jitterdodge(dodge.width = 0.6, jitter.width = 0.4)) +
-  scale_fill_manual(values = c("#66A61EFF", "#E6AB02FF")) + # housing colors 
+  geom_point(color = "grey10", size = 0.6, shape = 1, stroke = .1, 
+      position = position_jitterdodge(dodge.width = 0.6, jitter.width = 0.3)) +
+  
+  scale_fill_manual(values = c("#66A61EFF", "#E6AB02FF")) + # housing colors
   scale_alpha_manual(values = c(.6,.75)) +
-  # scale_color_manual(values = c("#003a6d", "#31135e")) +
-  facet_wrap(~gene, ncol = 6) +
+  scale_color_manual(values = c("#003a6d", "#31135e")) +
+  # guides(y.sec = 'axis') + # adds 2nd y axis (right side)
+  facet_wrap(~gene, ncol = 6, scale = "free_y") +
   my_theme +
   theme(
-     axis.text = element_text(size = 7, color ="grey10"),
+     axis.text.y = element_text(size = 7.5, color ="grey10"),
+     axis.text.x = element_text(size = 7, color ="grey10"),
+     axis.title.x = element_blank(),
+     panel.spacing = unit(0.2, "cm"),  # Removes space between panel 
+     legend.margin = margin(,0,20,0), # space between plot & legend
+     axis.ticks = element_line(size=0.1, colour = "grey15", linewidth = .01),
+         panel.border = element_rect(fill = NA, linewidth = .01,
+                                color = "grey10"), #plot borders
+         strip.background = element_rect(color = 'grey10', fill = 'grey90',
+                                    linewidth = .01), 
   )
   
 
 EE_facet_up_plot
-# 
-# unique(Synpo$BioReplicate)
-# unique(Synpo$`Gene Names (primary)`) #Synpo
-# length(unique(Synpo$BioReplicate)) # 56 observations! 55
-# 
-# Synpo %>% 
-#   group_by(TechRepMixture) %>%
-#   count(TechRepMixture)
+```
+
+```{r}
+# EE down
+EE_facet_down_prot_list <- mapped_comp %>%
+  filter(Label == "H_EE_vs_SH" & adj.pvalue < 0.05 & Direction == "Down") %>%
+  arrange(adj.pvalue) %>%
+  pull(Protein)
+
+  
+EE_facet_down_plot <- mapped_psum %>%
+  
+  mutate(Condition = forcats::fct_reorder(Condition, PND)) %>% # reoder by PND (no)
+  
+  filter(Protein %in% EE_facet_down_prot_list) %>%
+  
+  mutate(gene = ifelse(Protein == "Q5U2Q3", "NA (Ester hydrolase ...)",
+                       gene)) %>%
+  
+  ggplot(aes(x = interaction(Age, Housing, 
+                             sep = "\n", # space
+                             lex.order = TRUE),
+             y = Abundance,
+             fill = Housing, alpha = Age)) +
+  geom_boxplot(width = 0.5, size = 0.6, fatten = 1, linewidth = 0.2,
+                 position = position_dodge(width = 0.7),
+                 outlier.shape = NA,
+                 color = "grey10") +
+  stat_summary(fun=mean, geom="point", position = position_dodge(width = 0.7),
+               shape=4, size = .8, stroke = 0.2, color ="grey10") +
+  geom_point(color = "grey10", size = 0.7, shape = 1, stroke = .1, 
+      position = position_jitterdodge(dodge.width = 0.6, jitter.width = 0.3)) +
+  
+  scale_fill_manual(values = c("#66A61EFF", "#E6AB02FF")) + # housing colors
+  scale_alpha_manual(values = c(.6,.75)) +
+  scale_color_manual(values = c("#003a6d", "#31135e")) +
+  # guides(y.sec = 'axis') + # adds 2nd y axis (right side)
+  facet_wrap(~gene, ncol = 5, scales = "free_y") +
+  my_theme +
+  theme(
+     axis.text.y = element_text(size = 7.5, color ="grey10"),
+     axis.text.x = element_text(size = 7, color ="grey10"),
+     axis.title.x = element_blank(),
+      panel.spacing = unit(0.9, "cm"),  # Removes space between panel 
+        legend.margin = margin(0,0,0,0), # space between plot & legend
+          axis.ticks = element_line(size=0.1, colour = "grey15", linewidth = .01),
+         panel.border = element_rect(fill = NA, linewidth = .01,
+                                color = "grey10"), #plot borders
+         strip.background = element_rect(color = 'grey10', fill = 'grey90',
+                                    linewidth = .01), 
+  )
+  
+
+EE_facet_down_plot
+```
+
+```{r}
+plot_grid(EE_facet_up_plot,EE_facet_down_plot, ncol = 1,
+          labels = c("A", "B"), rel_heights = c(1.15,2))
+```
+
+### AGE FACET
+
+```{r}
+# AGE UP
+Age_facet_up_prot_list <- mapped_comp %>%
+  filter(Label == "A_YNG_vs_OLD" & adj.pvalue < 0.05 & Direction == "Up") %>%
+    slice_min(adj.pvalue, n = 18) %>%
+    pull(Protein)
+
+  
+Age_facet_up_plot <- mapped_psum %>%
+  
+  mutate(Condition = forcats::fct_reorder(Condition, PND)) %>% # reoder by PND (no)
+  
+  
+  filter(Protein %in% Age_facet_up_prot_list) %>%
+  
+  
+  ggplot(aes(x = interaction(Age, Housing, 
+                             sep = "\n", # space
+                             lex.order = TRUE),
+             y = Abundance,
+             fill = Housing, alpha = Age)) +
+  geom_boxplot(width = 0.5, size = 0.7, fatten = 1, linewidth = 0.2,
+                 position = position_dodge(width = 0.7),
+                 outlier.shape = NA,
+                 color = "grey10") +
+  stat_summary(fun=mean, geom="point", position = position_dodge(width = 0.7),
+               shape=4, size = .8, stroke = 0.2, color ="grey10") +
+  geom_point(color = "grey10", size = .5, shape = 1, stroke = .1, 
+      position = position_jitterdodge(dodge.width = 0.6, jitter.width = 0.3)) +
+  
+  scale_fill_manual(values = c("#66A61EFF", "#E6AB02FF")) + # housing colors
+  scale_alpha_manual(values = c(.6,.75)) +
+  scale_color_manual(values = c("#003a6d", "#31135e")) +
+  # guides(y.sec = 'axis') + # adds 2nd y axis (right side)
+  facet_wrap(~gene, ncol = 6, scale = "free_y") +
+  my_theme +
+  theme(
+     axis.text.y = element_text(size = 7.5, color ="grey10"),
+     axis.text.x = element_text(size = 7, color ="grey10"),
+     axis.title.x = element_blank(),
+     panel.spacing = unit(0.2, "cm"),  # Removes space between panel 
+     legend.margin = margin(0,0,5,0), # space between plot & legend
+     axis.ticks = element_line(size=0.1, colour = "grey15", linewidth = .01),
+         panel.border = element_rect(fill = NA, linewidth = .01,
+                                color = "grey10"), #plot borders
+         strip.background = element_rect(color = 'grey10', fill = 'grey90',
+                                    linewidth = .01), 
+  )
+  
+
+Age_facet_up_plot
+```
+
+```{r}
+# AGE Down
+Age_facet_down_prot_list <- mapped_comp %>%
+  filter(Label == "A_YNG_vs_OLD" & adj.pvalue < 0.05 & Direction == "Down") %>%
+    slice_min(adj.pvalue, n = 18) %>%
+    pull(Protein)
+
+
+Age_facet_down_plot <- mapped_psum %>%
+  
+  mutate(Condition = forcats::fct_reorder(Condition, PND)) %>% # reoder by PND (no)
+  
+  
+  filter(Protein %in% Age_facet_down_prot_list) %>%
+
+  
+  
+  
+  ggplot(aes(x = interaction(Age, Housing, 
+                             sep = "\n", # space
+                             lex.order = TRUE),
+             y = Abundance,
+             fill = Housing, alpha = Age)) +
+  geom_boxplot(width = 0.5, size = 0.7, fatten = 1, linewidth = 0.2,
+                 position = position_dodge(width = 0.7),
+                 outlier.shape = NA,
+                 color = "grey10") +
+  stat_summary(fun=mean, geom="point", position = position_dodge(width = 0.7),
+               shape=4, size = .8, stroke = 0.2, color ="grey10") +
+  geom_point(color = "grey10", size = .5, shape = 1, stroke = .1, 
+      position = position_jitterdodge(dodge.width = 0.6, jitter.width = 0.3)) +
+  
+  scale_fill_manual(values = c("#66A61EFF", "#E6AB02FF")) + # housing colors
+  scale_alpha_manual(values = c(.6,.75)) +
+  scale_color_manual(values = c("#003a6d", "#31135e")) +
+  # guides(y.sec = 'axis') + # adds 2nd y axis (right side)
+  facet_wrap(~gene, ncol = 6, scale = "free_y") +
+  my_theme +
+  theme(
+     axis.text.y = element_text(size = 7.5, color ="grey10"),
+     axis.text.x = element_text(size = 7, color ="grey10"),
+     axis.title.x = element_blank(),
+     panel.spacing = unit(0.2, "cm"),  # Removes space between panel 
+     legend.margin = margin(0,0,0,0), # space between plot & legend
+     axis.ticks = element_line(size=0.1, colour = "grey15", linewidth = .01),
+         panel.border = element_rect(fill = NA, linewidth = .01,
+                                color = "grey10"), #plot borders
+         strip.background = element_rect(color = 'grey10', fill = 'grey90',
+                                    linewidth = .01), 
+  )
+  
+
+Age_facet_down_plot
+```
+
+```{r}
+plot_grid(Age_facet_up_plot, Age_facet_down_plot, ncol = 1,
+          labels = c("A", "B"))
 ```
 
 ## Venny's?
@@ -1255,7 +1439,7 @@ mapped_comp_sig |>
   fmt_number(decimals = 3) |>
   
   tab_header(
-    title = "All EExAge (8 comps)",
+    title = "EE x Age (all 8 comparisons)",
 
   ) |>
   
@@ -1268,60 +1452,66 @@ mapped_comp_sig |>
     )
   ) |>
   
-  tab_options(heading.title.font.size = 16.5,
-              table.font.size=11.5,
-              row_group.font.weight = "bold",
-              row_group.font.size = 14,
-              column_labels.font.size = 12.5,
-              column_labels.font.weight = "bold") #|>
+  tab_options(table.font.size = 11)
+  
+  # tab_options(
+  #   heading.title.font.size = 16.5,
+  #             table.font.size=11.5,
+  #             row_group.font.weight = "bold",
+  #             row_group.font.size = 14,
+  #             column_labels.font.size = 12.5,
+  #             column_labels.font.weight = "bold") #|>
 ```
 
 ## EE Comps
 
 ```{r}
-mapped_comp |> 
+gt_1 <- mapped_comp %>%
   
-  filter(Label %in% c("H_EE_vs_SH",
-                      "HxA_EE_YNG_vs_SH_YNG", "HxA_EE_OLD_vs_SH_OLD")) |>
+  #filter(Label %in% c("H_EE_vs_SH",
+                      #"HxA_EE_YNG_vs_SH_YNG", "HxA_EE_OLD_vs_SH_OLD")) %>%
   
-  filter(adj.pvalue < 0.1) |> #
+  filter(Label == "H_YNG_vs_OLD") %>%
+  
+  
+  filter(adj.pvalue < 0.05) %>% #
 
   dplyr::select(c(Label,Direction, gene, Protein, description, 
-                  log2FC, adj.pvalue, pvalue, database)) |>
+                  log2FC, adj.pvalue, pvalue, database)) %>%
   
-  arrange(adj.pvalue) |>
+  arrange(adj.pvalue) %>%
+  
+  # slice_min(adj.pvalue,n=20) %>%
   
   gt(
     groupname_col = "Label",
     rowname_col = "Direction"
-  ) |>
+  ) %>%
   
   cols_label(
-    # Gene_name = "Entry",
+    gene = "Gene",
     # Uniprot_entry_name = "Name",
-    # Full_name = "Protein Description",
-    # # misc = "Arroyo's Identifiers"
-    # Accession = "Shaw Acc",
-    # Description = "Shaw Desc",
-  ) |>
+    description = "Protein Description",
+    database = "db"
+  ) %>%
   
-  fmt_number(decimals = 3) |>
+  fmt_number(decimals = 3) %>%
   
-  tab_header(
-    title = "Shaw et al., 2020 (Mice Hippocampus & Frontal Pole/Lobe - POS(EE) vs. NEG)",
-    # subtitle = "44 DEG (Front), 5 DEG (Hip) - all down in POS(EE) p<=.05, data is a bit odd/confusing (removed excess rodents) + some missing data? look at note at the start of the knitted", 
-  ) |>
-  
+  # tab_header(
+  #   # title = "Proteins Differentially Regulated by Housing Condition",
+  #   # subtitle = "This table is arranged from the smallest adj. p-value and is split by comparison label. For the main effect of housing, the 16 significant proteins (adj.p <.05) are shown, followed by an additional 9 (adj p <.05).",
+  # ) %>%
+  # 
   tab_style( 
     style = list(
       # cell_fill(color = "#F9E3D6"),
       cell_text(style = "italic")
       ),
     locations = cells_body(
-      # columns = gene,
+      columns = gene,
       # rows = currency < 100
     )
-  ) |>
+  ) %>%
   
   tab_style( 
     style = list(
@@ -1332,14 +1522,56 @@ mapped_comp |>
       columns = c(description)
       # rows = currency < 100
     )
-  ) |>
+  ) %>%
   
-  tab_options(heading.title.font.size = 16.5,
-              table.font.size=11.5,
+  tab_options(
+    #heading.title.font.size = 16.5,
+              table.font.size=11,
+              # table.font.style = "lighter",
               # stub.font.weight = "bold",
               # stub.font.size = 13,
-              row_group.font.weight = "bold",
-              row_group.font.size = 14,
-              column_labels.font.size = 12.5,
-              column_labels.font.weight = "bold") #|>
+              # row_group.font.weight = "italic",
+              #row_group.font.size = 14,
+              #column_labels.font.size = 12.5,
+              # column_labels.font.weight = "bold"
+              ) #|>
+
+gt_1
+```
+
+```{r}
+gt <- as_gtable(gt_1, plot = TRUE, text_grob = grid::textGrob)
+```
+
+------------------------------------------------------------------------
+
+Exports
+
+```{r}
+#
+# write_excel_csv(mapped_comp_sig, "output/2026_01_20_EExAge_mapped_comp_sig_458obs.csv")
+
+#
+
+```
+
+```{r}
+
+unique_g <- unique(mapped_comp$gene) %>% as.tibble()
+
+# write_excel_csv(unique_g,
+#                 "output/2026_01_20_EExAge_mapped_comp_unique_genes_8014.csv")
+```
+
+```{r}
+# EE_main_df_all <- mapped_comp %>%
+#   filter(Label == "H_EE_vs_SH") %>%
+#   group_by(Direction) %>%
+#   arrange(adj.pvalue)
+
+# write_excel_csv(EE_main_df_all, "output/2026_01_20_ExA_EE_main_comp_mapped_8048.csv")
+```
+
+```{r}
+
 ```
