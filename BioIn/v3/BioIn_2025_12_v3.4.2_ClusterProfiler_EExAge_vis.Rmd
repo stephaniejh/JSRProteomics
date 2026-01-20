@@ -1,3 +1,5 @@
+------------------------------------------------------------------------
+
 ---
 title: "BioIn_2026_01_v3.4.2_ClusterProfiler"
 author: "Stephanie Huang"
@@ -55,6 +57,9 @@ library(pathview) # pathview() - Kegg pathway visualisation
 library(drawCell)
 library(htmlwidgets)
 library(webshot2)
+
+library(paletteer) # colors
+library(colorspace) # colors
 ```
 
 ### Import data
@@ -195,8 +200,13 @@ print(gsea_msig_C8_ct_EExAge_cp3.4.2_mss3.2.2_t1$dotplots_sign)
 
 ```{r}
 
-print(KEGG_gsea_EExAge_cp_v3.4.2_msstats_v3.2.2_t1$dotplots$H_EE_vs_SH)
-print(KEGG_gsea_EExAge_cpv3.4.2t2_mssv3.2.2t1$dotplots$H_EE_vs_SH)
+print(gsea_msig_Hmrk_EExAge_mss3.2.2_t1_cp3.4.2_t2$dotplots_sign$H_EE_vs_SH)
+print(KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3$dotplots_sign$H_EE_vs_SH)
+
+```
+
+```{r}
+print(GO_gsea_EExAge_msstats_v3.2.2_t1_cp_v3.4.2_t2$dotplots_sign$H_EE_vs_SH)
 ```
 
 ```{r}
@@ -208,9 +218,100 @@ enrichplot::dotplot(KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3$kegg_results$H_EE_vs
                               showCategory = 50,
                               font.size = 11,
                               title = 'EE vs SH - entrez ve ',
-                              # subtitle = 
-                              #   '1pspg MSstatsTMT (v3.2.2) 2025_12_31 - gseGO_r'
+                # subtitle = '1pspg MSstatsTMT (v3.2.2) 2025_12_31 - gseGO_r'
                     )
+```
+
+```{r}
+# colnames(EEvsSH_kegg_tib)
+
+custom_dopplot <- EEvsSH_kegg_tib %>%
+  ggplot(aes(x= reorder(Description, NES), 
+             y = NES,
+             fill = NES)) +
+  geom_segment(aes(x = Description,
+                   yend = NES, y = 0,
+                   alpha = p.adjust)) +
+  geom_point(aes(alpha = p.adjust, size = setSize),
+             shape = 21) +
+  scale_alpha(range = c(.9,.3), guide = 'none') + # rev alpha so darker = more sig
+  # geom_text(aes(label = gene_name), color = "grey10", size = 2.5,
+  #           position = position_stack()) +
+  geom_hline(yintercept = 0, color = 'grey20', linewidth = 0.1) +
+  scale_color_manual(breaks = c("Up", "Down"),
+                     # values = c("#dc322f", "#268bd2"),
+                     guide = 'none') + 
+  scale_size_continuous(range = c(2,9)) + # map size oflolly (set size)
+  
+  # scale_fill_continuous_diverging("Blue-Red 3") + # colorspace
+  scale_fill_continuous_diverging("Blue-Red 2") +
+  
+  
+  labs(title = 'EE vs SH KEGG',
+       y = 'NES',
+       x = 'KEGG PATH') +
+  coord_flip() + #fliptheplot
+  # facet_wrap(~fraction, space = 'free_x', scale = 'free_x') +
+  #theme_void() +
+  theme_bw() +
+  theme(
+    axis.text.x = element_text(angle = 90, hjust = 1,
+                               vjust = 0.5, # 90, hj1 t/R, vj.5 cent
+                               size = 9, face = 'italic'), 
+    axis.text.y = element_text(hjust = 1, color = "grey20",
+                               size = 9, face = 'italic'), 
+    axis.title.y = element_blank(),
+    legend.position = "none"
+        ) 
+
+custom_dopplot  
+```
+
+```{r}
+YNGvsOLD_kegg_tib <- KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3[["kegg_results_tib"]][["A_YNG_vs_OLD"]]
+```
+
+```{r}
+custom_dopplot_2 <- YNGvsOLD_kegg_tib %>%
+  ggplot(aes(x= reorder(Description, NES), 
+             y = NES,
+             fill = NES)) +
+  geom_segment(aes(x = Description,
+                   yend = NES, y = 0,
+                   alpha = p.adjust)) +
+  geom_point(aes(alpha = p.adjust, size = setSize),
+             shape = 21) +
+  scale_alpha(range = c(.9,.3), guide = 'none') + # rev alpha so darker = more sig
+  # geom_text(aes(label = gene_name), color = "grey10", size = 2.5,
+  #           position = position_stack()) +
+  geom_hline(yintercept = 0, color = 'grey20', linewidth = 0.1) +
+  scale_color_manual(breaks = c("Up", "Down"),
+                     # values = c("#dc322f", "#268bd2"),
+                     guide = 'none') + 
+  scale_size_continuous(range = c(3,9)) + # map size oflolly (set size)
+  
+  # scale_fill_continuous_diverging("Blue-Red 3") + # colorspace
+  scale_fill_continuous_diverging("Blue-Red 2") +
+  
+  
+  labs(title = 'YNG vs OLD KEGG',
+       y = 'NES',
+       x = 'KEGG PATH') +
+  coord_flip() + #fliptheplot
+  # facet_wrap(~fraction, space = 'free_x', scale = 'free_x') +
+  #theme_void() +
+  theme_bw() +
+  theme(
+    axis.text.x = element_text(angle = 90, hjust = 1,
+                               vjust = 0.5, # 90, hj1 t/R, vj.5 cent
+                               size = 9, face = 'italic'), 
+    axis.text.y = element_text(hjust = 1, color = "grey20",
+                               size = 9, face = 'italic'), 
+    axis.title.y = element_blank(),
+    legend.position = "none"
+        ) 
+
+custom_dopplot_2 
 ```
 
 ```{r}
@@ -220,7 +321,7 @@ pathview(gene.data=KEGG_gsea_EExAge_cpv3.4.2t2_mssv3.2.2t1$geneList_vec$A_YNG_vs
                 species = 'rno')
 ```
 
-### Pathview test 
+### Pathview test
 
 -   <https://pathview.r-forge.r-project.org/pathview.pdf>
 
@@ -242,9 +343,42 @@ pathview(gene.data=KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3$geneList_vec$H_EE_vs_
 ```
 
 ```{r}
+# neurotrophic signalling
+pathview(gene.data=KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3$geneList_vec$H_EE_vs_SH,
+                pathway.id="rno04722",
+                species = 'rno',
+         out.suffix = "defaults",
+         kegg.native = T,
+         # same.layer = F #slower & on top (out of bounds?)
+         )
+```
+
+```{r}
 # graphviz!
 pv.out <- pathview(gene.data=KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3$geneList_vec$H_EE_vs_SH,
                 pathway.id="rno00190",
+                species = 'rno',
+         out.suffix = "graphviz",
+         kegg.native = F,
+         # same.layer = F #slower & on top (out of bounds?)
+         )
+```
+
+```{r}
+# graphviz!
+pv.out <- pathview(gene.data=KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3$geneList_vec$H_EE_vs_SH,
+                pathway.id="rno04722",
+                species = 'rno',
+         out.suffix = "graphviz",
+         kegg.native = F,
+         # same.layer = F #slower & on top (out of bounds?)
+         )
+```
+
+```{r}
+# graphviz! | neuroactive ligand signalling 
+pv.out <- pathview(gene.data=KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3$geneList_vec$H_EE_vs_SH,
+                pathway.id="rno04082",
                 species = 'rno',
          out.suffix = "graphviz",
          kegg.native = F,
@@ -256,9 +390,9 @@ pv.out <- pathview(gene.data=KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3$geneList_ve
 
 drawCell:drawCell
 
--   TaxonId - https://www.ncbi.nlm.nih.gov/taxonomy/
+-   TaxonId - <https://www.ncbi.nlm.nih.gov/taxonomy/>
 
--   list_sl_colors (subcellular location) - http://current.geneontology.org/ontology/external2go/uniprotkb_sl2go
+-   list_sl_colors (subcellular location) - <http://current.geneontology.org/ontology/external2go/uniprotkb_sl2go>
 
 -   Code for neuron is 6072
 
