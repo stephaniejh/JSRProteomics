@@ -1065,7 +1065,7 @@ plot_grid(plotlist = Age_main_20_psum_plot_list$Up[6:10], ncol = 1)
 
 ------------------------------------------------------------------------
 
-### EE FACET 
+### EE FACET
 
 ```{r}
 boxplot_function <- function(data, x , y, # function inputs
