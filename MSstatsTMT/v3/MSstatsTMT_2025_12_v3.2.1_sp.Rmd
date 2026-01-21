@@ -11,6 +11,8 @@ vignette: >
 
 # MSstatsTMT_2025_12_v3.2.1_sp main effects analysis (after removing outlier TMT 129N B1)
 
+2026_01_22 - Turns out removing the outlier does not do anything since MSstatsTMT corrects sufficiently (129C B2 R was divergent on the PCA.. not 129N B1) so was already corrected for -\> so fine to add back in -\> if worried, then do abundance plot check just incase but -\> version MSstatsTMT_2026_01_v3.3.1 & MSstatsTMT_2026_01_v3.3.2 after this with 56 samples. Also next verision is 1pspg & EE x Age x Beh (adding Beh because despite no sig dif in prots KEGG shows difference in behaviour helper vs behaviour).
+
 December 31st 2025
 
 Background - The PCAs & abundance plots from the QC analysis showed that sample from TMT 129N B1 (the same with higher loading) was more divergent that others despite normalisation in MSstatsTMT. Because of this, I decided to remove it from the annotation file & rerun the MSstatsTMT analysis. This is the 1st rerun of that - mainly looking at the main effects.
