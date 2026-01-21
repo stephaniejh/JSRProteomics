@@ -23,7 +23,7 @@ Outputs
 
 1.  2025_12_31
 
-2.  
+2.  <https://yulab-smu.top/biomedical-knowledge-mining-book/02-Enrichment.html#gsea-algorithm>
 
 ## Set up
 
@@ -47,6 +47,7 @@ devtools::install_github("svalvaro/drawCell")
 ```{r}
 # Load Packages 
 library(tidyverse) # for dplyr, ggplot, stringr, readr etc 
+library(purrr) # map_dfr()
 library(clusterProfiler) #GSEA includes gsea, enrichplot etc.
 library(org.Rn.eg.db) # Rat genome anno pack- incl. AnnotationDbi
 library(msigdbr) # MSigDB gene sets
@@ -60,6 +61,7 @@ library(webshot2)
 
 library(paletteer) # colors
 library(colorspace) # colors
+library(cowplot) # plot_grid
 ```
 
 ### Import data
@@ -198,16 +200,9 @@ print(gsea_msig_Hmrk_EExAge_mss3.2.2_t1_cp3.4.2_t2$dotplots_sign)
 print(gsea_msig_C8_ct_EExAge_cp3.4.2_mss3.2.2_t1$dotplots_sign)
 ```
 
-```{r}
+# KEGG
 
-print(gsea_msig_Hmrk_EExAge_mss3.2.2_t1_cp3.4.2_t2$dotplots_sign$H_EE_vs_SH)
-print(KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3$dotplots_sign$H_EE_vs_SH)
-
-```
-
-```{r}
-print(GO_gsea_EExAge_msstats_v3.2.2_t1_cp_v3.4.2_t2$dotplots_sign$H_EE_vs_SH)
-```
+## lolliplots (alt to dotplots)
 
 ```{r}
 EEvsSH_kegg_tib <- KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3[["kegg_results_tib"]][["H_EE_vs_SH"]]
@@ -246,13 +241,11 @@ custom_dopplot <- EEvsSH_kegg_tib %>%
   # scale_fill_continuous_diverging("Blue-Red 3") + # colorspace
   scale_fill_continuous_diverging("Blue-Red 2") +
   
-  
   labs(title = 'EE vs SH KEGG',
        y = 'NES',
        x = 'KEGG PATH') +
   coord_flip() + #fliptheplot
   # facet_wrap(~fraction, space = 'free_x', scale = 'free_x') +
-  #theme_void() +
   theme_bw() +
   theme(
     axis.text.x = element_text(angle = 90, hjust = 1,
@@ -293,13 +286,11 @@ custom_dopplot_2 <- YNGvsOLD_kegg_tib %>%
   # scale_fill_continuous_diverging("Blue-Red 3") + # colorspace
   scale_fill_continuous_diverging("Blue-Red 2") +
   
-  
   labs(title = 'YNG vs OLD KEGG',
        y = 'NES',
        x = 'KEGG PATH') +
   coord_flip() + #fliptheplot
   # facet_wrap(~fraction, space = 'free_x', scale = 'free_x') +
-  #theme_void() +
   theme_bw() +
   theme(
     axis.text.x = element_text(angle = 90, hjust = 1,
@@ -315,13 +306,89 @@ custom_dopplot_2
 ```
 
 ```{r}
-# FC_gam_Rm_phagocytosis rno04666
-pathview(gene.data=KEGG_gsea_EExAge_cpv3.4.2t2_mssv3.2.2t1$geneList_vec$A_YNG_vs_OLD,
-                pathway.id="rno04666",
-                species = 'rno')
+plot_grid(custom_dopplot, custom_dopplot_2, ncol = 1)
 ```
 
-### Pathview test
+### Working with lists (side tangent
+
+-   [https://stackoverflow.com/questions/32819539/proper-way-to-access-list-elements-in-r](https://stackoverflow.com/questions/32819539/proper-way-to-access-list-elements-in-r#){.uri}
+-   [https://www.r-bloggers.com/2023/07/how-to-subset-list-objects-in-r](https://www.r-bloggers.com/2023/07/how-to-subset-list-objects-in-r/#){.uri}
+-   <https://www.reddit.com/r/rstats/comments/sd3n8k/extract_data_from_a_list_within_a_list_that_is/>
+-   <https://pratikunterwegs.github.io/tres-tidy-tutorial/working-with-lists-and-iteration.html>
+-   SOLUTION ! - purrr:::map_dfr() <https://purrr.tidyverse.org/reference/map_dfr.html>
+
+```{r}
+# baseR - nope assumes list
+# unlisted_df <- unlist(KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3$kegg_results_tib)
+
+KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3[1] # gets genelist vec (1st list set)
+
+# gets kegg_results_tib [[3]] & then A_YNG_vs_OLD [[2]]
+KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3[[3]][[2]]
+KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3[["kegg_results_tib"]][["A_YNG_vs_OLD"]]
+
+
+df_str <- KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3[["kegg_results_tib"]]
+
+```
+
+```{r}
+# SOLUTION !!! lol it really is that easy,,, 
+KEGG_tibs_df <- purrr::map_dfr(
+  KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3$kegg_results_tib,
+  as.data.frame,
+  .id = "Label") 
+```
+
+#### KEGG facet lolliplot
+
+```{r}
+# looks kinda horrifc buy honestly a good check! 
+lolly_KEGG_facet <- KEGG_tibs_df  %>%
+  ggplot(aes(x= reorder(Description, NES), 
+             y = NES,
+             fill = NES)) +
+  geom_segment(aes(x = Description,
+                   yend = NES, y = 0,
+                   alpha = p.adjust)) +
+  geom_point(aes(alpha = p.adjust, size = setSize),
+             shape = 21) +
+  scale_alpha(range = c(.9,.3), guide = 'none') + # rev alpha so darker = more sig
+  geom_hline(yintercept = 0, color = 'grey20', linewidth = 0.1) +
+  scale_color_manual(breaks = c("Up", "Down"),
+                     # values = c("#dc322f", "#268bd2"),
+                     guide = 'none') + 
+  scale_size_continuous(range = c(3,9)) + # map size oflolly (set size)
+  
+  # scale_fill_continuous_diverging("Blue-Red 3") + # colorspace
+  scale_fill_continuous_diverging("Blue-Red 2") +
+  
+  ylim(-4,4)+
+  
+  labs(title = 'All KEGG EExAge - 2026_01_21',
+       y = 'NES',
+       x = 'KEGG PATH') +
+  coord_flip() + #fliptheplot
+  facet_wrap(~Label,
+             space = 'free_x', 
+             ) +
+  theme_bw() +
+  theme(
+    axis.text.x = element_text(angle = 90, hjust = 1,
+                               vjust = 0.5, # 90, hj1 t/R, vj.5 cent
+                               size = 10, face = 'italic'), 
+    axis.text.y = element_text(hjust = 1, color = "grey20",
+                               size = 10, face = 'italic'), 
+    axis.title.y = element_blank(),
+    legend.position = "none"
+        ) 
+
+lolly_KEGG_facet
+```
+
+------------------------------------------------------------------------
+
+## Pathview test
 
 -   <https://pathview.r-forge.r-project.org/pathview.pdf>
 
@@ -385,6 +452,77 @@ pv.out <- pathview(gene.data=KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3$geneList_ve
          # same.layer = F #slower & on top (out of bounds?)
          )
 ```
+
+------------------------------------------------------------------------
+
+# GO
+
+```{r}
+# UNNESTED UNESTED - nested map_dfr() inside another
+GO_tibs_df <- purrr::map_dfr(
+  GO_gsea_EExAge_msstats_v3.2.2_t1_cp_v3.4.2_t2$GO_results_tib,
+  ~map_dfr(.x, as_tibble, .id = "GO"),
+  .id = "Label") 
+# YAY THIS WORKS! 
+```
+
+```{r}
+# baseR subsetting checks
+unique(GO_tibs_df$Description[GO_tibs_df$GO == "CC"]) # 226! 
+
+length(unique(GO_tibs_df$Description[GO_tibs_df$GO == "CC"])) # CC - 227
+length(unique(GO_tibs_df$Description[GO_tibs_df$GO == "BP"])) # BP - 368
+length(unique(GO_tibs_df$Description[GO_tibs_df$GO == "MF"])) # MF - 146
+```
+
+```{r}
+# looks kinda horrifc buy honestly a good check! 
+lolly_GO_facet <- GO_tibs_df  %>%
+  
+  filter(GO == "BP") %>%
+  
+  ggplot(aes(x= reorder(Description, NES), 
+             y = NES,
+             fill = NES)) +
+  geom_segment(aes(x = Description,
+                   yend = NES, y = 0,
+                   alpha = p.adjust)) +
+  geom_point(aes(alpha = p.adjust, size = setSize),
+             shape = 21) +
+  scale_alpha(range = c(.9,.3), guide = 'none') + # rev alpha so darker = more sig
+  geom_hline(yintercept = 0, color = 'grey20', linewidth = 0.1) +
+  scale_color_manual(breaks = c("Up", "Down"),
+                     # values = c("#dc322f", "#268bd2"),
+                     guide = 'none') + 
+  scale_size_continuous(range = c(3,9)) + # map size oflolly (set size)
+  
+  # scale_fill_continuous_diverging("Blue-Red 3") + # colorspace
+  scale_fill_continuous_diverging("Blue-Red 2") +
+  
+  ylim(-4,4)+
+  
+  labs(title = 'GO BP EExAge facet - 2026_01_21',
+       y = 'NES',
+       x = 'KEGG PATH') +
+  coord_flip() + #fliptheplot
+  facet_wrap(~Label,
+             space = 'free_x', 
+             ) +
+  theme_bw() +
+  theme(
+    axis.text.x = element_text(angle = 90, hjust = 1,
+                               vjust = 0.5, # 90, hj1 t/R, vj.5 cent
+                               size = 10, face = 'italic'), 
+    axis.text.y = element_text(hjust = 1, color = "grey20",
+                               size = 10, face = 'italic'), 
+    axis.title.y = element_blank(),
+    legend.position = "none"
+        ) 
+
+lolly_GO_facet
+```
+
+### GO simplify 
 
 ------------------------------------------------------------------------
 
