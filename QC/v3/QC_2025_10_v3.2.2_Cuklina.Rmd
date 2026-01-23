@@ -95,7 +95,7 @@ raw_anno <- read_csv("input/anno/TMT_B1-4_lcms_run_info_anno_20250830.csv")
 ```
 
 ```{r}
-sample_anno
+# sample_anno
 
 ```
 
@@ -182,8 +182,9 @@ PD_PSMs_ord_long$acq_order <- as.factor(PD_PSMs_ord_long$acq_order)
 PD_PSMs_ord_long$Fraction <- as.factor(PD_PSMs_ord_long$Fraction)
 
 ord_abund <- PD_PSMs_ord_long %>%
-  # filter(!is.na(Mixture)) %>%
+  filter(!is.na(Mixture)) %>%
   # filter(!is.na(Abundance)) %>%
+  
   ggplot(aes(x = acq_order, 
              y = Abundance,
              fill = Fraction,
@@ -193,7 +194,7 @@ ord_abund <- PD_PSMs_ord_long %>%
   geom_boxplot(width = 0.4,
                outliers = TRUE, outlier.shape = 1, outlier.alpha = 0.1,
                na.rm = FALSE) +
-  labs(y = "TMT Abundance/Intensity",
+  labs(y = "TMT Reporter Ion Abundance/Intensity",
        x = "LC-MS (in Acquisition Order)",
        title = "Abundance/Intensity of LC-MS runs Across Acquisition Order",
        subtitle = "MsstatsTMT v3 t8 1pspg EEvsSH, color = mix, fill = fr, alpha = TR") +
@@ -203,14 +204,21 @@ ord_abund <- PD_PSMs_ord_long %>%
                              '#55a7a7', '#b7b7b7')) + 
   scale_color_manual(values=c("#d5a6bd", "#9fc5e8",
                              "#ea9999", "#f9cb9c")) +
+  
+  scale_alpha(range = c(0.5, 1)) +
   # geom_boxplot()+
   # geom_jitter(shape = 1, alpha = 0.1)+
-  # ylim(0, 3000) +
+  ylim(0, 3000) +
   # facet_wrap(vars(acq_order)) +
   # facet_nested(~ Mixture + TechRepMixture + Fraction)+
   theme_bw() + 
-  theme(legend.position = "none",
-        panel.spacing = unit(0, "cm"))  # Removes space between panel 
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    legend.position = "none",
+        panel.spacing = unit(0, "cm"),  # Removes space between panel 
+        axis.text.x = element_text(angle = 90,
+                                   hjust = 0, vjust = 0.5))  
 
 ord_abund
                        
