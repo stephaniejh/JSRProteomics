@@ -25,6 +25,8 @@ Outputs
 
 2.  <https://yulab-smu.top/biomedical-knowledge-mining-book/02-Enrichment.html#gsea-algorithm>
 
+3.  <https://hbctraining.github.io/Intro-to-R-flipped/lessons/05_introR-data-wrangling.html>
+
 ## Set up
 
 ### Packages
@@ -48,6 +50,7 @@ devtools::install_github("svalvaro/drawCell")
 # Load Packages 
 library(tidyverse) # for dplyr, ggplot, stringr, readr etc 
 library(purrr) # map_dfr()
+library(readxl)
 library(clusterProfiler) #GSEA includes gsea, enrichplot etc.
 library(org.Rn.eg.db) # Rat genome anno pack- incl. AnnotationDbi
 library(msigdbr) # MSigDB gene sets
@@ -55,8 +58,9 @@ library(enrichplot) # for dotplot()
 library(ggridges) # for ridgeplot()
 library(pathview) # pathview() - Kegg pathway visualisation
 
-library(drawCell)
-library(htmlwidgets)
+library(gganatogram) # gganatogram CO GG
+library(drawCell) # drawing GO CC - SwissBioPics 
+library(htmlwidgets) #
 library(webshot2)
 
 library(paletteer) # colors
@@ -160,13 +164,17 @@ protein_comp_entrez <- left_join(protein_comp, bitr_gn_2_entrez,
 ------------------------------------------------------------------------
 
 ```{r}
-load("output/gsea_results/2026_01_12_KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3.rda") # KEGG
+# #READ IN DATA
+# KEGG
+load("output/gsea_results/2026_01_12_KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3.rda") 
 
-load("output/gsea_results/2026_01_12_GO_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t2.rda") # GO
+# GO
+load("output/gsea_results/2026_01_12_GO_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t2.rda") 
 
 # MSIGDB
-load("output/gsea_results/2026_01_12_gsea_msig_Hallmark_EExAge_mssv3.2.2_t1_cpv3.4.2_t2.rda") 
+load("output/gsea_results/2026_01_12_gsea_msig_Hallmark_EExAge_mssv3.2.2_t1_cpv3.4.2_t2.rda")
 
+# C8
 load("output/gsea_results/2026_01_12_gsea_msig_C8_ct_EExAge_mssv3.2.2_t1_cpv3.4.2_t2.rda")
 ```
 
@@ -479,7 +487,7 @@ length(unique(GO_tibs_df$Description[GO_tibs_df$GO == "MF"])) # MF - 146
 # looks kinda horrifc buy honestly a good check! 
 lolly_GO_facet <- GO_tibs_df  %>%
   
-  filter(GO == "BP") %>%
+  filter(GO == "CC") %>% # just comment out accordingly easiest
   
   ggplot(aes(x= reorder(Description, NES), 
              y = NES,
@@ -522,9 +530,52 @@ lolly_GO_facet <- GO_tibs_df  %>%
 lolly_GO_facet
 ```
 
-### GO simplify 
+## GO simplify
+
+## Top Go
+
+-   <https://bioconductor.org/packages/release/bioc/vignettes/topGO/inst/doc/topGO_manual.html>
+-   <https://davidzhao1015.github.io/blog/2024/go-enrichment/#5-comparing-results>
 
 ------------------------------------------------------------------------
+
+## GO CC mapping w gganatogram
+
+<https://github.com/jespermaag/gganatogram/tree/master?tab=readme-ov-file#readme>
+
+Cite Thul <https://www.science.org/doi/10.1126/science.aal3321>
+
+```{r}
+#gganatogram
+cell_key #gganatogram cell structures key
+
+# plot everthing
+gganatogram(data=cell_key[['cell']], outline = T, fillOutline='steelblue', organism="cell", fill="colour")  +theme_void()   + coord_fixed()
+
+gganatogram(data=cell_key[['cell']], outline = T, fillOutline='lightgray', organism="cell", fill="value")  +theme_void() +  coord_fixed() +  scale_fill_viridis()
+```
+
+```{r}
+# eehh terms are kinda hard to automatically mapped maybe just do manual anno based on most affected! 
+# need to have it as cell_key$cell as it is indexed cell_key[['cell']] above
+
+cells_plot <- cell_key$cell %>%
+  filter(organ %in% c("mitochondria", "actin_filaments",
+                      "nuclear_membrane", "microtubule_organizing_center",
+                      "plasma_membrane", "nuclearplasm", "nucleoli")) %>%
+  gganatogram(outline = T, fillOutline='steelblue', organism="cell", fill="colour")  +
+  theme_void()   + 
+  coord_fixed()
+
+cells_plot
+
+```
+
+------------------------------------------------------------------------
+
+## GO CC mapping w drawCell SwissBioPics
+
+2026_01_23 - ehhh honestly would be easier to do manual or maybe looking into API queries myself. Did manage to get a plot but not much mapped so kinda anticlimactic...
 
 drawCell:drawCell
 
@@ -532,37 +583,164 @@ drawCell:drawCell
 
 -   list_sl_colors (subcellular location) - <http://current.geneontology.org/ontology/external2go/uniprotkb_sl2go>
 
+    -   <https://www.uniprot.org/locations?query=>\*
+
 -   Code for neuron is 6072
 
 -   export widget <https://stackoverflow.com/questions/40089207/how-to-arrange-html-widget-plots-in-a-grid-for-export-as-pdf>
 
--   <https://forum.posit.co/t/save-viewer-object-rendered-in-rstudio-as-image/32796/10>
+    -   <https://forum.posit.co/t/save-viewer-object-rendered-in-rstudio-as-image/32796/10>
 
--   <https://github.com/wch/webshot/issues/72>
+    -   <https://github.com/wch/webshot/issues/72>
 
 ```{r}
+# read in mapped subcellelular infor from uniprot
+up_subcell_raw <- read_excel(
+  "input/UP_anno/UP_subcellular_locations_all_2026_01_23.xlsx")
+#   mutate(hashtags = str_split(Keywords, ";")) %>%
+#   tidyr::unnest(hashtags) # 22696
 
-# pdf(file = "output/testing.123")
+# note alot here don't have GOID anyway
+colnames(up_subcell_raw)
+str(up_subcell_raw)
+```
 
-mycell <- drawCell::drawCell(organism_identifier = "6072",
-                   list_sl_colors = list("SL0288" = "orange",
-                                         "SL0191" = "#1F4861",
-                                         "SL0259" = "forestgreen",
-                                         "SL0260" = "#BD88A5"),
-                   # width = 1500,
-                   # height = 500
-                   )
+```{r}
+up_subcell <-up_subcell_raw %>%
+  # tidyr::separate_wider_delim(
+  #   cols = `Gene Ontologies`,
+  #   delim = ":", # split by : nooo has 2 : : so does not work :(
+  #   names = c("GO_ID", "GO_Name"))
+  
+  tidyr::separate_wider_regex( # use this instead! 
+    `Gene Ontologies`,
+    patterns = c(go_id = "GO:\\d+", # matches GO:0002079:
+                 ":",
+                 go_term = ".*"), # matches any char at end of string
+    cols_remove = FALSE) %>%
+  mutate(subcell_ID = str_remove(`Subcellular location ID`, "-"),
+         .after = `Subcellular location ID`) 
+# omg turns out ID frm uniprot was "SL-0181" rather than "SL0181"
+```
 
-saveWidget(mycell, "temp.html")
-webshot(url = "temp.html",
-        file = "temp.pdf",
+```{r}
+GO_tibs_CC_EE <- GO_tibs_df %>%
+  filter(Label == "H_EE_vs_SH" & GO == "CC") %>%
+  left_join(up_subcell,
+            by = join_by(ID == go_id)) %>% # heaps not mapped!
+  filter(!is.na(subcell_ID)) %>%
+  mutate(Direction = if_else(NES <0 , "Down", "Up")) 
+```
+
+```{r}
+down_cols <- paletteer_dynamic("cartography::wine.pal", 15)
+up_cols <- paletteer_dynamic("cartography::turquoise.pal", 15)
+```
+
+```{r}
+# tidyerse AI
+GO_tibs_CC_EE_cols <- GO_tibs_CC_EE %>%
+  arrange(Direction, NES) %>% # sort by direc & then score
+  group_by(Direction) %>% # group by dir
+  mutate( # group wise calcs! so for each group xyz...
+    idx = row_number(),
+    colour = case_when(          
+      Direction == "Up"   ~ down_cols[idx],
+      Direction == "Down" ~ up_cols[idx]
+    )
+  ) %>%
+  ungroup() #%>%
+  # dplyr::select(-idx)
+```
+
+```{r}
+# EE_color_CC_list <- GO_tibs_CC_EE_cols %>%
+#   dplyr::select(subcell_ID, colour) %>%
+#   tibble::deframe() # make named list 
+
+
+# color_map_EE_CC <- GO_tibs_CC_EE_cols$val_4_dc
+# neuron "6072" | "10116", # rat
+
+# works but looks dissapointing...
+my_neuron_EE <- drawCell::drawCell(organism_identifier = "6072", # neuron
+                                   list_sl_colors = EE_color_CC_list,
+                                   width = 1500,
+                                   height = 500)
+
+saveWidget(my_neuron_EE, "my_neuron_EE_v1.html")
+webshot(url = "my_neuron_EE_v1.html",
+        file = "my_neuron_EE_v1.pdf",
         # file = "temp.png",
         vwidth = 600,
         vheight = 300,
         delay = 10 # adding delay fixes problem (slow! otherwise blanks)
         )
+
+
+my_cell_EE <- drawCell::drawCell(organism_identifier = "10116", # rat
+                                   list_sl_colors = EE_color_CC_list,
+                                   width = 1500,
+                                   height = 500)
+
+
+saveWidget(my_cell_EE, "my_cell_EE_v1.html")
+webshot(url = "my_cell_EE_v1.html",
+        file = "my_cell_EE_v1.pdf",
+        # file = "temp.png",
+        vwidth = 600,
+        vheight = 300,
+        delay = 10 # adding delay fixes problem (slow! otherwise blanks)
+        )
+
 ```
 
 ```{r}
-drawCell::drawCellOutput(mycell, width = "100%", height = "400px")
+# mycell <- drawCell::drawCell(organism_identifier = "6072",
+#                    list_sl_colors = list("SL0288" = "orange",
+#                                          "SL0191" = "#1F4861",
+#                                          "SL0259" = "forestgreen",
+#                                          "SL0260" = "#BD88A5"),
+#                    # width = 1500,
+#                    # height = 500
+#                    )
+# 
+# saveWidget(mycell, "temp.html")
+# webshot(url = "temp.html",
+#         file = "temp.pdf",
+#         # file = "temp.png",
+#         vwidth = 600,
+#         vheight = 300,
+#         delay = 10 # adding delay fixes problem (slow! otherwise blanks)
+#         )
+
+# drawCell::drawCellOutput(mycell, width = "100%", height = "400px")
+```
+
+```{r}
+# paleteer
+paletteer_d("nord::aurora")
+
+RColorBrewer::display.brewer.all()
+
+# Paletteer prints hexcode with color in console!!!! 
+paletteer_d("RColorBrewer::RdYlGn")
+paletteer_d("RColorBrewer::Spectral")
+paletteer_d("RColorBrewer::PiYG")
+paletteer_d("RColorBrewer::BrBG")
+paletteer_d("RColorBrewer::Pastel2")
+paletteer_d("RColorBrewer::Dark2")
+paletteer_d("rcartocolor::Temps")
+paletteer_d("rcartocolor::Geyser")
+paletteer_d("rcartocolor::Sunset")
+paletteer_d("rcartocolor::Emrld")
+paletteer_d("rcartocolor::OrYel")
+paletteer_dynamic("cartography::orange.pal", 15)
+paletteer_dynamic("cartography::green.pal", 15)
+paletteer_dynamic("cartography::blue.pal", 15)
+paletteer_dynamic("cartography::red.pal", 15)
+paletteer_dynamic("cartography::wine.pal", 15)
+paletteer_dynamic("cartography::turquoise.pal", 15)
+
+palettes_dynamic_names
 ```
