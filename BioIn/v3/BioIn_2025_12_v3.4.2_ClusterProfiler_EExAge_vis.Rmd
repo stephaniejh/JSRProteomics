@@ -42,16 +42,19 @@ Outputs
 # BiocManager::install("enrichplot")
 # BiocManager::install("pathview")
 
-# draw cell for SwissBioPics 
-devtools::install_github("svalvaro/drawCell")
+# #draw cell for SwissBioPics 
+# devtools::install_github("svalvaro/drawCell")
 ```
 
 ```{r}
+set.seed(123) # for reproducibility
+
 # Load Packages 
 library(tidyverse) # for dplyr, ggplot, stringr, readr etc 
 library(purrr) # map_dfr()
 library(readxl)
 library(clusterProfiler) #GSEA includes gsea, enrichplot etc.
+library(GOSemSim) # needed for simplify or now?
 library(org.Rn.eg.db) # Rat genome anno pack- incl. AnnotationDbi
 library(msigdbr) # MSigDB gene sets
 library(enrichplot) # for dotplot()
@@ -66,6 +69,13 @@ library(webshot2)
 library(paletteer) # colors
 library(colorspace) # colors
 library(cowplot) # plot_grid
+
+# Load required packages
+library(STRINGdb)
+library(igraph)
+library(tidyverse)
+
+library(writexl) # for excel tab export
 ```
 
 ### Import data
@@ -171,11 +181,14 @@ load("output/gsea_results/2026_01_12_KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3.rda
 # GO
 load("output/gsea_results/2026_01_12_GO_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t2.rda") 
 
+# GO simplified (was prev made in this script)
+load("output/gsea_results/2026_01_24_GO_gsea_EExAge_cp_v3.4.2_t2_simplified.rda")
+
 # MSIGDB
 load("output/gsea_results/2026_01_12_gsea_msig_Hallmark_EExAge_mssv3.2.2_t1_cpv3.4.2_t2.rda")
 
-# C8
-load("output/gsea_results/2026_01_12_gsea_msig_C8_ct_EExAge_mssv3.2.2_t1_cpv3.4.2_t2.rda")
+# # C8
+# load("output/gsea_results/2026_01_12_gsea_msig_C8_ct_EExAge_mssv3.2.2_t1_cpv3.4.2_t2.rda")
 ```
 
 ------------------------------------------------------------------------
@@ -205,7 +218,7 @@ print(gsea_msig_Hmrk_EExAge_mss3.2.2_t1_cp3.4.2_t2$dotplots_sign)
 ## print Msigdb C8 CellTypes sign dot plots
 
 ```{r}
-print(gsea_msig_C8_ct_EExAge_cp3.4.2_mss3.2.2_t1$dotplots_sign)
+# print(gsea_msig_C8_ct_EExAge_cp3.4.2_mss3.2.2_t1$dotplots_sign)
 ```
 
 # KEGG
@@ -401,64 +414,64 @@ lolly_KEGG_facet
 -   <https://pathview.r-forge.r-project.org/pathview.pdf>
 
 ```{r}
-data(gse16873.d)
-data(gse16873.d)
+# data(gse16873.d)
+# data(gse16873.d)
 ```
 
 ```{r}
-# oxidative phosphorylation
-# add defailts! png
-pathview(gene.data=KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3$geneList_vec$H_EE_vs_SH,
-                pathway.id="rno00190",
-                species = 'rno',
-         out.suffix = "defaults",
-         kegg.native = T,
-         # same.layer = F #slower & on top (out of bounds?)
-         )
+# # oxidative phosphorylation
+# # add defailts! png
+# pathview(gene.data=KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3$geneList_vec$H_EE_vs_SH,
+#                 pathway.id="rno00190",
+#                 species = 'rno',
+#          out.suffix = "defaults",
+#          kegg.native = T,
+#          # same.layer = F #slower & on top (out of bounds?)
+#          )
 ```
 
 ```{r}
-# neurotrophic signalling
-pathview(gene.data=KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3$geneList_vec$H_EE_vs_SH,
-                pathway.id="rno04722",
-                species = 'rno',
-         out.suffix = "defaults",
-         kegg.native = T,
-         # same.layer = F #slower & on top (out of bounds?)
-         )
+# # neurotrophic signalling
+# pathview(gene.data=KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3$geneList_vec$H_EE_vs_SH,
+#                 pathway.id="rno04722",
+#                 species = 'rno',
+#          out.suffix = "defaults",
+#          kegg.native = T,
+#          # same.layer = F #slower & on top (out of bounds?)
+#          )
 ```
 
 ```{r}
-# graphviz!
-pv.out <- pathview(gene.data=KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3$geneList_vec$H_EE_vs_SH,
-                pathway.id="rno00190",
-                species = 'rno',
-         out.suffix = "graphviz",
-         kegg.native = F,
-         # same.layer = F #slower & on top (out of bounds?)
-         )
+# # graphviz!
+# pv.out <- pathview(gene.data=KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3$geneList_vec$H_EE_vs_SH,
+#                 pathway.id="rno00190",
+#                 species = 'rno',
+#          out.suffix = "graphviz",
+#          kegg.native = F,
+#          # same.layer = F #slower & on top (out of bounds?)
+#          )
 ```
 
 ```{r}
-# graphviz!
-pv.out <- pathview(gene.data=KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3$geneList_vec$H_EE_vs_SH,
-                pathway.id="rno04722",
-                species = 'rno',
-         out.suffix = "graphviz",
-         kegg.native = F,
-         # same.layer = F #slower & on top (out of bounds?)
-         )
+# # graphviz!
+# pv.out <- pathview(gene.data=KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3$geneList_vec$H_EE_vs_SH,
+#                 pathway.id="rno04722",
+#                 species = 'rno',
+#          out.suffix = "graphviz",
+#          kegg.native = F,
+#          # same.layer = F #slower & on top (out of bounds?)
+#          )
 ```
 
 ```{r}
-# graphviz! | neuroactive ligand signalling 
-pv.out <- pathview(gene.data=KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3$geneList_vec$H_EE_vs_SH,
-                pathway.id="rno04082",
-                species = 'rno',
-         out.suffix = "graphviz",
-         kegg.native = F,
-         # same.layer = F #slower & on top (out of bounds?)
-         )
+# # graphviz! | neuroactive ligand signalling 
+# pv.out <- pathview(gene.data=KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3$geneList_vec$H_EE_vs_SH,
+#                 pathway.id="rno04082",
+#                 species = 'rno',
+#          out.suffix = "graphviz",
+#          kegg.native = F,
+#          # same.layer = F #slower & on top (out of bounds?)
+#          )
 ```
 
 ------------------------------------------------------------------------
@@ -532,10 +545,163 @@ lolly_GO_facet
 
 ## GO simplify
 
-## Top Go
+### Top Go (maybe later)
 
 -   <https://bioconductor.org/packages/release/bioc/vignettes/topGO/inst/doc/topGO_manual.html>
 -   <https://davidzhao1015.github.io/blog/2024/go-enrichment/#5-comparing-results>
+
+### **ClusterProfiler Simplify() (from GOSemSim orginally)**
+
+-   <https://yulab-smu.top/biomedical-knowledge-mining-book/utilities.html#reduce-redundancy-of-enriched-go-terms>
+
+```{r}
+
+GO_bp_EE <- pairwise_termsim(GO_gsea_EExAge_msstats_v3.2.2_t1_cp_v3.4.2_t2$GO_results$H_EE_vs_SH$BP)
+
+simGO_bp_EE <- clusterProfiler::simplify(GO_bp_EE,
+                          cutoff = 0.7, # defaults for signatures 'gseaResult' 
+                          by = "p.adjust",
+                          select_fun = min,
+                          measure = "Wang",
+                          semData = NULL)
+                          
+
+p1 <-  enrichplot::emapplot(GO_bp_EE)
+
+p2 <- emapplot(simGO_bp_EE) 
+
+plot_list(p1, p2, ncol = 2, tag_levels = "A")
+
+```
+
+### Run GO simplify as loop
+
+```{r}
+# SET UP FOR LOOP
+GOs <- c("BP", "CC", "MF") # GO terms, make sure order matches! 
+
+label_names <- unique(protein_comp_entrez$Label)
+
+GO_sim_2_append <- vector(mode = "list") # empty vec
+```
+
+```{r eval=FALSE, include=FALSE}
+# # nested conditional for loop for GO simplification & network plot
+# for (lb in label_names) {
+#   for (go in GOs) {
+#     
+#     # 1- PREP
+#     GO_big <- GO_gsea_EExAge_msstats_v3.2.2_t1_cp_v3.4.2_t2$GO_results[[lb]][[go]]
+#     
+#     bps <- enrichplot::pairwise_termsim(GO_big) # prep pairwise term sim
+#     
+#     GO_sim_2_append$pw_sim_GO_terms[[lb]][[go]] <- bps # save term sim  
+#     
+#     
+#     # 2- RUN SIMPLIFY
+#     bps_2 <- clusterProfiler::simplify(bps, 
+#                           cutoff = 0.7, # defaults for signatures 'gseaResult' 
+#                           by = "p.adjust",
+#                           select_fun = min,
+#                           measure = "Wang",
+#                           semData = NULL)
+#     
+#     GO_sim_2_append$sim_GO_res[[lb]][[go]] <- bps_2 #save simplified GO res
+#     GO_sim_2_append$sim_GO_res_tib[[lb]][[go]] <- tibble::as_tibble(bps_2) # tibble
+#     
+#     
+#     # 3 - PLOTS 
+#     p1 <- enrichplot::emapplot(bps) # bps - emapplot 1 (b4 simplification)
+#     p2 <- enrichplot::emapplot(bps_2)  # bps_2 - emapplot 2 (after simplification)
+#     
+#     plot_list(p1, p2, ncol = 2, tag_levels = 2) # doesn't plot??? & doesn't save
+#     
+#     GO_sim_2_append$emapplot_1[[lb]][[go]] <- p1 # save plot 1 bps
+#     GO_sim_2_append$emapplot_2_sim[[lb]][[go]] <- p2  # save plot 2 bps_2
+#     
+#   }
+# }
+```
+
+```{r}
+# #SAVING
+# #GO_gsea_EExAge_mss_v3.2.2_t1_cp_v3.4.2_t2 made from this
+# #the data below is only the simplied (in the future run everything together)
+# GO_gsea_EExAge_cp_v3.4.2_t2_simplified <- GO_sim_2_append
+# 
+# save(GO_gsea_EExAge_cp_v3.4.2_t2_simplified,
+#      file = "output/2026_01_24_GO_gsea_EExAge_cp_v3.4.2_t2_simplified.rda")
+```
+
+```{r}
+# all in 1 DF for facet plotting!!! 
+# UNNESTED UNNESTED FOR NESTED NESTED df! - nested map_dfr() inside another
+GO_sim_res_tibs_df <- purrr::map_dfr(
+  GO_gsea_EExAge_cp_v3.4.2_t2_simplified$sim_GO_res_tib,
+  ~map_dfr(.x, as_tibble, .id = "GO"),
+  .id = "Label")
+```
+
+```{r}
+# baseR subsetting checks | prev CC 227, BP 368, MF 146
+length(unique(GO_sim_res_tibs_df$Description[GO_sim_res_tibs_df$GO == "CC"])) # 130
+length(unique(GO_sim_res_tibs_df$Description[GO_sim_res_tibs_df$GO == "BP"])) # 193
+length(unique(GO_sim_res_tibs_df$Description[GO_sim_res_tibs_df$GO == "MF"])) # 73
+```
+
+```{r}
+# looks kinda horrifc buy honestly a good check! 
+lolly_GO_sim_facet <- GO_sim_res_tibs_df  %>%
+  
+  filter(GO == "MF") %>% # just comment out accordingly easiest
+  
+  ggplot(aes(x= reorder(Description, NES), 
+             y = NES,
+             fill = NES)) +
+  geom_segment(aes(x = Description,
+                   yend = NES, y = 0,
+                   alpha = p.adjust)) +
+  geom_point(aes(alpha = p.adjust, size = setSize),
+             shape = 21) +
+  scale_alpha(range = c(.9,.3), guide = 'none') + # rev alpha so darker = more sig
+  geom_hline(yintercept = 0, color = 'grey20', linewidth = 0.1) +
+  scale_color_manual(breaks = c("Up", "Down"),
+                     # values = c("#dc322f", "#268bd2"),
+                     guide = 'none') + 
+  scale_size_continuous(range = c(3,9)) + # map size oflolly (set size)
+  
+  # scale_fill_continuous_diverging("Blue-Red 3") + # colorspace
+  scale_fill_continuous_diverging("Blue-Red 2") +
+  
+  ylim(-4,4)+
+  
+  labs(title = 'GO simplified MF - EExAge facet - 2026_01_24',
+       y = 'NES',
+       x = 'KEGG PATH') +
+  coord_flip() + #fliptheplot
+  facet_wrap(~Label,
+             space = 'free_x', 
+             ) +
+  theme_bw() +
+  theme(
+    axis.text.x = element_text(angle = 90, hjust = 1,
+                               vjust = 0.5, # 90, hj1 t/R, vj.5 cent
+                               size = 10, face = 'italic'), 
+    axis.text.y = element_text(hjust = 1, color = "grey20",
+                               size = 10, face = 'italic'), 
+    axis.title.y = element_blank(),
+    legend.position = "none"
+        ) 
+
+lolly_GO_sim_facet
+```
+
+```{r}
+# quick checks
+emapplot(GO_gsea_EExAge_cp_v3.4.2_t2_simplified$sim_GO_res$H_EE_vs_SH$BP)
+emapplot(GO_gsea_EExAge_cp_v3.4.2_t2_simplified$sim_GO_res$H_EE_vs_SH$CC)
+emapplot(GO_gsea_EExAge_cp_v3.4.2_t2_simplified$sim_GO_res$H_EE_vs_SH$MF)
+```
 
 ------------------------------------------------------------------------
 
@@ -552,7 +718,6 @@ cell_key #gganatogram cell structures key
 # plot everthing
 gganatogram(data=cell_key[['cell']], outline = T, fillOutline='steelblue', organism="cell", fill="colour")  +theme_void()   + coord_fixed()
 
-gganatogram(data=cell_key[['cell']], outline = T, fillOutline='lightgray', organism="cell", fill="value")  +theme_void() +  coord_fixed() +  scale_fill_viridis()
 ```
 
 ```{r}
@@ -562,8 +727,9 @@ gganatogram(data=cell_key[['cell']], outline = T, fillOutline='lightgray', organ
 cells_plot <- cell_key$cell %>%
   filter(organ %in% c("mitochondria", "actin_filaments",
                       "nuclear_membrane", "microtubule_organizing_center",
-                      "plasma_membrane", "nuclearplasm", "nucleoli")) %>%
-  gganatogram(outline = T, fillOutline='steelblue', organism="cell", fill="colour")  +
+                      "plasma_membrane", "nuclearplasm", 
+                      "nucleoli", "nuclear_bodies")) %>%
+  gganatogram(outline = T, fillOutline='grey95', organism="cell", fill="colour")  +
   theme_void()   + 
   coord_fixed()
 
@@ -743,4 +909,307 @@ paletteer_dynamic("cartography::wine.pal", 15)
 paletteer_dynamic("cartography::turquoise.pal", 15)
 
 palettes_dynamic_names
+```
+
+------------------------------------------------------------------------
+
+# Protein Interactions - w StringDB & igraph
+
+tutorials
+
+-   <https://www.youtube.com/watch?v=JEaNhUq_8rA>
+
+-   <https://almeidasilvaf.github.io/NASB/chapters/04_analysis_of_PPI_networks.html>
+
+-   <https://rpubs.com/HWH/913747>
+
+-   <https://string-db.org/cgi/access?footer_active_subpage=archive>
+
+Running test/tutorial
+
+```{r}
+# EXAMPLE DATA
+data("diff_exp_example1")
+head(diff_exp_example1)
+```
+
+```{r}
+# SET UP
+# human 9606, mice 10090, rat 10116
+string_db <- STRINGdb$new(
+  version = "12.0", # current since 2023
+  species = 10116, # rat
+  score_threshold = 400, # min score (0-1000, def 400)
+  network_type = "full" # full, functional, physical etc
+)
+```
+
+```{r}
+# NICE DOCUMENTATION!!! YAY
+# see all possible args of STRINGdb$nnew()
+STRINGdb$help()
+
+# see list of methods associated with STRINGdb class
+STRINGdb$methods()
+
+STRINGdb$help("get_graph") # get helpd documentation of each method
+```
+
+```{r}
+# RUN 
+example1 <- string_db$map(
+  diff_exp_example1,
+  "gene",
+  removeUnmappedRows = TRUE
+  ) 
+
+head(example1)
+```
+
+```{r}
+# PLOT NETWORK
+top200 <- example1$STRING_id[1:200] 
+
+string_db$plot_network(top200)
+```
+
+### 4.3 - Interacting w the STRING server
+
+-   <https://almeidasilvaf.github.io/NASB/chapters/04_analysis_of_PPI_networks.html#interacting-with-the-string-server>
+
+-   Payload mechism of STRING (adds colored border halo to nodes based on a specified variable) - here send data to STRING serves & use output as
+
+```{r}
+# Remove non-DE genes & add `color` column
+example1_filtered <- string_db$add_diff_exp_color(
+  example1[example1$pvalue < 0.05, ], # filter by sig
+  logFcColStr = "logFC" # coloring by logFC
+)
+
+head(example1_filtered)
+```
+
+```{r}
+# post payload info to STRING server
+pid <- string_db$post_payload(
+  example1_filtered$STRING_id, 
+  colors = example1_filtered$color
+)
+
+pid
+```
+
+```{r}
+# visualise network with borders ("halo")
+string_db$plot_network(top200, # used the top 200 from before
+                       payload_id = pid) # now plot sig ones on top of that! 
+```
+
+###  Find PPI Clusters
+
+-   <https://almeidasilvaf.github.io/NASB/chapters/04_analysis_of_PPI_networks.html#find-ppi-clusters>
+
+-   To detect clusters in the PPI network, use get_clusters() method, which in turn uses the clustering algorithim in cluster\_ in igraph functions - see `??igraph::cluster_` 
+
+```{r}
+# find clusters using only the 1st 600 genes
+clusters <- string_db$get_clusters(example1$STRING_id[1:600])
+
+clusters[1:4]
+```
+
+```{r}
+# plot 1st 4 clusters
+par(mfrow = c(2,2))
+for(x in seq_len(4)) {
+  string_db$plot_network(clusters[[x]])
+}
+
+par(mfrow = c(1,1)) # back to original number of rows and cols
+```
+
+more stuff like extracting info from proteins of interest & extracting homologous proteins (skipped for now)
+
+## Now test with H_EE_vs_SH
+
+```{r}
+example2 <- string_db$map(
+  protein_comp[Label == "H_EE_vs_SH"],
+  "Protein",
+  removeUnmappedRows = TRUE
+  ) %>% 
+  dplyr::arrange(example2$adj.pvalue) # arrange by smallest adj.p at top
+
+head(example2)
+```
+
+```{r}
+# PLOT NETWORK
+top200_EEvsSH <- example2$STRING_id[1:200]
+
+string_db$plot_network(top200_EEvsSH)
+```
+
+```{r}
+# String Payload Mech
+# Remove non-DE genes & add `color` column
+example2_filtered <- string_db$add_diff_exp_color(
+  example2[example2$adj.pvalue < 0.05, ], # filter sig adj.p < 0.05
+  logFcColStr = "log2FC" # map log2FC to color
+)
+
+head(example2_filtered)
+```
+
+```{r}
+# Post payload information to STRING server
+pid2 <- string_db$post_payload(
+  example2_filtered$STRING_id,
+  colors = example2_filtered$color
+ )
+
+pid2
+
+# plot payload infor (halo) with prev network
+string_db$plot_network(top200_EEvsSH, payload_id = pid2)
+```
+
+### Running Overrepresentation analyses (with EE vs SH)
+
+```{r}
+# Using only genes in `example1` as background
+bg <- unique(example2$STRING_id)
+
+# set bg universe to observed genes only before running enrichment 
+string_db$set_background(bg)
+
+
+enrichment2 <- string_db$get_enrichment(top200_EEvsSH)
+head(enrichment2)
+
+# interesting enrichment (no bg from own), has way more sig & many synapse ones
+# whereas enrichment2 (with bg of only observed), has fewer & no synapse
+# so not that many synapse ones observed in actual proteomics sample
+# LOOK INTO THIS
+```
+
+```{r}
+# OR just get functional annotations (without running ORA)
+annot <- string_db$get_annotations(top200_EEvsSH)
+
+head(annot)
+
+# SUPER USEFUL - can inform on bias in proteins observed in samples!
+# e.g. see number of genes / ratio of set columns from result!
+
+
+# although only gets top 2000
+top_2000 <- example2$STRING_id[1:2000]
+
+annot_2000 <- string_db$get_annotations(top_2000)
+
+head(annot_2000) 
+# NVM not that helpful idk, maybe look into later
+```
+
+```{r}
+clusters2 <- string_db$get_clusters(example2$STRING_id[1:600])
+
+clusters2[1:9]
+
+par(mfrow = c(3,3)) 
+for (x in seq_len(9)) {
+  string_db$plot_network(clusters[[x]])
+}
+
+par(mfrow = c(1,1))
+```
+
+### detour to play around with web ver of string-db
+
+note stringdb ranked analysis actually uses full list (e.g. entrez ranked genelist)
+
+-   Permalink to EEvsSH analysis on StringDB - <https://version-12-0.string-db.org/cgi/globalenrichment?networkId=b5VSFSgnPE4Z>
+
+```{r}
+# get 250 most significant (smallest adjp for each label/comparison set)
+protein_comp_entrez_top_250 <- protein_comp_entrez %>%
+  ungroup() %>%
+  group_by(Label) %>%
+  slice_min(adj.pvalue, n = 250, with_ties = FALSE) # need with_ties = FALSE otherwise too many! 
+
+# REMEMBER ENTREZ LIST IS SLIGHTLY SHORTED SINCE SOME WERE NOT MAPPABLE! 
+```
+
+```{r}
+# # export df for web analysis
+# write_excel_csv(protein_comp_entrez_top_250,
+#          "output/2026_01_24_AgexEE_entrez_comps_top_250_sig_4_web_v1.csv")
+```
+
+#### Make & Export as tabs in excel!
+
+-   Actually make a bunch of tab in excel with lists for each label (easier than way!)
+
+-   btw look at differences with Uniprot org vs entrez (possible minor differences) but using the protein_comp_entrez df just to be consistent with other analyses!
+
+```{r}
+# top 250 entrez mapped 
+split_protein_comp_entrez_top_250 <- split(protein_comp_entrez_top_250,
+                                           protein_comp_entrez_top_250$Label)
+
+# # write out excel! 
+# write_xlsx(split_protein_comp_entrez_top_250, 
+#            "output/2026_01_24_AgeXEE_split_protein_comp_entrez_top_250.xlsx")
+```
+
+-   <https://stats.oarc.ucla.edu/r/library/r-library-advanced-functions/>
+
+```{r}
+# TAKING DATA STORED INTHE KEGG .rda 
+# convert the stored genelist vecs in mega lists in 2 lists for export
+
+# only saves values not row name! 
+# genelists_lists <- lapply(KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3$geneList_vec, as.data.frame)
+
+# genelists_lists <- lapply(KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3$geneList_vec, function(x) {
+#                           as.data.frame(row.names = names(x))
+#       }) # NOPE this doesn't work
+
+genelists_lists <- lapply(KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3$geneList_vec, function(x) {
+  tibble::enframe(x)}) # easy way this works!!! yay! 
+
+
+# write_xlsx(genelists_lists,
+#            "output/2026_01_24_AgexEE_cpv3.4.2t3_entrez_ranked_genelists.xlsx")
+```
+
+```{r}
+# adj p<0.05 sig only 
+protein_comp_entrez_sig_adjp05 <- protein_comp_entrez %>%
+  ungroup() %>%
+  group_by(Label) %>%
+  filter(adj.pvalue < 0.05)
+
+split_protein_comp_entrez_sig_adjp05 <- split(protein_comp_entrez_sig_adjp05,
+                                              protein_comp_entrez_sig_adjp05$Label)
+
+#  # write out excel! 
+# write_xlsx(split_protein_comp_entrez_sig_adjp05, 
+#            "output/2026_01_24_AgeXEE_split_protein_comp_entrez_sig_adjp05.xlsx")
+```
+
+```{r}
+# adj p<0.1 sig only 
+protein_comp_entrez_sig_adjp1 <- protein_comp_entrez %>%
+  ungroup() %>%
+  group_by(Label) %>%
+  filter(adj.pvalue < 0.1)
+
+split_protein_comp_entrez_sig_adjp1 <- split(protein_comp_entrez_sig_adjp1,
+                                              protein_comp_entrez_sig_adjp1$Label)
+
+#  # write out excel!
+# write_xlsx(split_protein_comp_entrez_sig_adjp1,
+#            "output/2026_01_24_AgeXEE_split_protein_comp_entrez_sig_adjp1.xlsx")
 ```
