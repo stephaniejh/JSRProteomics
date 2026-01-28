@@ -1,7 +1,7 @@
 ------------------------------------------------------------------------
 
 ---
-title: "BioIn_2026_01_v3.4.2_ClusterProfiler"
+title: "BioIn_2025_12_v3.4.2_ClusterProfiler_EExAge_vis_testing_v1"
 author: "Stephanie Huang"
 date: '`r Sys.Date()`'
 output: html_document
@@ -11,7 +11,13 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-# ClusterProfiler BioIn vis - 1pspg v3.2.2 EE x Age t1
+# ClusterProfiler BioIn vis - 1pspg v3.2.2 EE x Age t1 
+
+[*BioIn_2025_12_v3.4.2_ClusterProfiler_EExAge_vis_testing_v1*]{.underline}
+
+### *2026_01_28 - Got too messy but didn't want to delete, made new v2 instead - [BioIn_2026_01_v3.4.2_ClusterProfiler_EExAge_vis_v2]{.underline}*
+
+ADD NOTES LATER VERY MESSY!
 
 *for MSstatsTMT 1pspg v3.2.2 EE x Age t1 -(defaults) with B1 129N removed (TMT channel with too much loaded)*
 
@@ -920,9 +926,8 @@ paletteer_dynamic("cartography::turquoise.pal", 15)
 palettes_dynamic_names
 ```
 
-
 ```{r}
-neuron_test <- drawCell::drawCell(organism_identifier = "6072",
+neuron_map_2026_01_28 <- drawCell::drawCell(organism_identifier = "6072",
                    list_sl_colors = list("SL0191" = "#586F9AFF", # nucleus
                                          "SL0173" = "#CF597EFF", # mitochondrion
                                          "SL0132" = "#39B185FF", # golgi apparatus
@@ -954,19 +959,20 @@ neuron_test <- drawCell::drawCell(organism_identifier = "6072",
                    width = 2000,
                    height = 500
                    )
-neuron_test
 
-# saveWidget(mycell, "temp.html")
-# webshot(url = "temp.html",
-#         file = "temp.pdf",
+neuron_map_2026_01_28
+
+# saveWidget(neuron_map_2026_01_28, "neuron_map_2026_01_28.html")
+# 
+# webshot(url = "neuron_map_2026_01_28.html",
+#         file = "neuron_map_2026_01_28.pdf",
 #         # file = "temp.png",
-#         vwidth = 600,
-#         vheight = 300,
+#         #vwidth = 600,
+#         #vheight = 300,
 #         delay = 10 # adding delay fixes problem (slow! otherwise blanks)
 #         )
-# 
-# 
-# drawCell::drawCellOutput(mycell, width = "100%", height = "400px")
+
+
 ```
 
 ------------------------------------------------------------------------
@@ -1063,7 +1069,7 @@ string_db$plot_network(top200, # used the top 200 from before
                        payload_id = pid) # now plot sig ones on top of that! 
 ```
 
-###  Find PPI Clusters
+### Find PPI Clusters
 
 -   <https://almeidasilvaf.github.io/NASB/chapters/04_analysis_of_PPI_networks.html#find-ppi-clusters>
 
@@ -1271,7 +1277,3 @@ split_protein_comp_entrez_sig_adjp1 <- split(protein_comp_entrez_sig_adjp1,
 # write_xlsx(split_protein_comp_entrez_sig_adjp1,
 #            "output/2026_01_24_AgeXEE_split_protein_comp_entrez_sig_adjp1.xlsx")
 ```
-
-
-
-
