@@ -11,7 +11,7 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-# ClusterProfiler BioIn vis - 1pspg v3.2.2 EE x Age t1 
+# ClusterProfiler BioIn vis - 1pspg v3.2.2 EE x Age t1
 
 [*BioIn_2025_12_v3.4.2_ClusterProfiler_EExAge_vis_testing_v1*]{.underline}
 
@@ -928,37 +928,38 @@ palettes_dynamic_names
 
 ```{r}
 neuron_map_2026_01_28 <- drawCell::drawCell(organism_identifier = "6072",
-                   list_sl_colors = list("SL0191" = "#586F9AFF", # nucleus
-                                         "SL0173" = "#CF597EFF", # mitochondrion
-                                         "SL0132" = "#39B185FF", # golgi apparatus
-                                         "SL0095" = "#3B738FFF", # Ebdoplasmic reticulum
-                                         "SL0101" = "#E17C05FF", # Endosome
-                                         "SL0197" = "#FEE08BFF", # Perikaryon / soma
-                                         "SL0154" = "#A8DBD9FF", # Lipid Droplet
-                                         "SL0158" = "#7CAF71FF", # Lysosome
-                                         "SL0091" = "#E6F5D0FF", # Cytosol
-                                         "SL0090" = "#E6AB02FF", # Cytoskeleton
-                                         
-                                         "SL0279" = "#D3F2A3FF", # axon
-                                         "SL0288" = "#97E196FF", # growth cone
-                                         "SL0176" = "#F1B6DAFF", #  Myelin membrane
-                                         "SL0284" = "#F9C7B8FF", # dendrite
-                                   "SL0258" = "#F3AD6AFF", # synapse
-                                     "SL0297" = "#586F9AFF", # post synaptic density?
-                                        "SL0219" = "#DB7B80FF", # postsynaptic cell mem 
-                                            "SL0284" = "#EE4D5AFF", # Dendritc Spine
-                                            "SL0285" = "#F46D43FF", # Dendritc Spine mem
-                                            "SL0530" = "#68ABB8FF", # Spine Apparatu mem
+                                            list_sl_colors = list(
+                                              "SL0191" = "#586F9AFF", # nucleus
+                                              "SL0173" = "#CF597EFF", # mitochondrion
+                                              "SL0132" = "#39B185FF", # golgi apparatus
+                                              "SL0095" = "#3B738FFF", # Ebdoplasmic reticulum
+                                              "SL0101" = "#E17C05FF", # Endosome
+                                              "SL0197" = "#FEE08BFF", # Perikaryon / soma
+                                              "SL0154" = "#A8DBD9FF", # Lipid Droplet
+                                              "SL0158" = "#7CAF71FF", # Lysosome
+                                              "SL0091" = "#E6F5D0FF", # Cytosol
+                                              "SL0090" = "#E6AB02FF", # Cytoskeleton
                                               
-                                         "SL0222" = "#D1EEEAFF", # presynaptic cell mem 
-                                            "SL0519" = "#EDAD08FF", # presyn active zone
-                                            "SL0259" = "#4C90B4FF", # Synaptic Vesicle
-                                              "SL0260" = "#8FBFD7FF", # Synap Vesic Mem
-                                      "SL0039" = "#DC3977FF" # Cell membrane
-                                         ),
-                   width = 2000,
-                   height = 500
-                   )
+                                              "SL0279" = "#D3F2A3FF", # axon
+                                              "SL0288" = "#97E196FF", # growth cone
+                                              "SL0176" = "#F1B6DAFF", # Myelin membrane
+                                              "SL0284" = "#F9C7B8FF", # dendrite
+                                                "SL0258" = "#F3AD6AFF", # synapse
+                                                  "SL0297" = "#586F9AFF", # post synaptic density?
+                                                  "SL0219" = "#DB7B80FF", # postsynaptic cell mem 
+                                                  "SL0284" = "#EE4D5AFF", # Dendritc Spine
+                                                  "SL0285" = "#F46D43FF", # Dendritc Spine mem
+                                                  "SL0530" = "#68ABB8FF", # Spine Apparatu mem
+                                              
+                                                "SL0222" = "#D1EEEAFF", # presynaptic cell mem 
+                                                  "SL0519" = "#EDAD08FF", # presyn active zone
+                                                  "SL0259" = "#4C90B4FF", # Synaptic Vesicle
+                                                  "SL0260" = "#8FBFD7FF", # Synap Vesic Mem
+                                              "SL0039" = "#DC3977FF" # Cell membrane
+                                            ),
+                                            width = 2000,
+                                            height = 500
+)
 
 neuron_map_2026_01_28
 
