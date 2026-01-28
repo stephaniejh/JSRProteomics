@@ -760,127 +760,127 @@ drawCell:drawCell
     -   <https://github.com/wch/webshot/issues/72>
 
 ```{r}
-# read in mapped subcellelular infor from uniprot
-up_subcell_raw <- read_excel(
-  "input/UP_anno/UP_subcellular_locations_all_2026_01_23.xlsx")
-#   mutate(hashtags = str_split(Keywords, ";")) %>%
-#   tidyr::unnest(hashtags) # 22696
-
-# note alot here don't have GOID anyway
-colnames(up_subcell_raw)
-str(up_subcell_raw)
-```
-
-```{r}
-up_subcell <-up_subcell_raw %>%
-  # tidyr::separate_wider_delim(
-  #   cols = `Gene Ontologies`,
-  #   delim = ":", # split by : nooo has 2 : : so does not work :(
-  #   names = c("GO_ID", "GO_Name"))
-  
-  tidyr::separate_wider_regex( # use this instead! 
-    `Gene Ontologies`,
-    patterns = c(go_id = "GO:\\d+", # matches GO:0002079:
-                 ":",
-                 go_term = ".*"), # matches any char at end of string
-    cols_remove = FALSE) %>%
-  mutate(subcell_ID = str_remove(`Subcellular location ID`, "-"),
-         .after = `Subcellular location ID`) 
-# omg turns out ID frm uniprot was "SL-0181" rather than "SL0181"
-```
-
-```{r}
-GO_tibs_CC_EE <- GO_tibs_df %>%
-  filter(Label == "H_EE_vs_SH" & GO == "CC") %>%
-  left_join(up_subcell,
-            by = join_by(ID == go_id)) %>% # heaps not mapped!
-  filter(!is.na(subcell_ID)) %>%
-  mutate(Direction = if_else(NES <0 , "Down", "Up")) 
-```
-
-```{r}
-down_cols <- paletteer_dynamic("cartography::wine.pal", 15)
-up_cols <- paletteer_dynamic("cartography::turquoise.pal", 15)
-```
-
-```{r}
-# tidyerse AI
-GO_tibs_CC_EE_cols <- GO_tibs_CC_EE %>%
-  arrange(Direction, NES) %>% # sort by direc & then score
-  group_by(Direction) %>% # group by dir
-  mutate( # group wise calcs! so for each group xyz...
-    idx = row_number(),
-    colour = case_when(          
-      Direction == "Up"   ~ down_cols[idx],
-      Direction == "Down" ~ up_cols[idx]
-    )
-  ) %>%
-  ungroup() #%>%
-  # dplyr::select(-idx)
-```
-
-```{r}
-# EE_color_CC_list <- GO_tibs_CC_EE_cols %>%
-#   dplyr::select(subcell_ID, colour) %>%
-#   tibble::deframe() # make named list 
-
-
-# color_map_EE_CC <- GO_tibs_CC_EE_cols$val_4_dc
-# neuron "6072" | "10116", # rat
-
-# works but looks dissapointing...
-my_neuron_EE <- drawCell::drawCell(organism_identifier = "6072", # neuron
-                                   list_sl_colors = EE_color_CC_list,
-                                   width = 1500,
-                                   height = 500)
-
-saveWidget(my_neuron_EE, "my_neuron_EE_v1.html")
-webshot(url = "my_neuron_EE_v1.html",
-        file = "my_neuron_EE_v1.pdf",
-        # file = "temp.png",
-        vwidth = 600,
-        vheight = 300,
-        delay = 10 # adding delay fixes problem (slow! otherwise blanks)
-        )
-
-
-my_cell_EE <- drawCell::drawCell(organism_identifier = "10116", # rat
-                                   list_sl_colors = EE_color_CC_list,
-                                   width = 1500,
-                                   height = 500)
-
-
-saveWidget(my_cell_EE, "my_cell_EE_v1.html")
-webshot(url = "my_cell_EE_v1.html",
-        file = "my_cell_EE_v1.pdf",
-        # file = "temp.png",
-        vwidth = 600,
-        vheight = 300,
-        delay = 10 # adding delay fixes problem (slow! otherwise blanks)
-        )
-
-```
-
-```{r}
-# mycell <- drawCell::drawCell(organism_identifier = "6072",
-#                    list_sl_colors = list("SL0288" = "orange",
-#                                          "SL0191" = "#1F4861",
-#                                          "SL0259" = "forestgreen",
-#                                          "SL0260" = "#BD88A5"),
-#                    # width = 1500,
-#                    # height = 500
-#                    )
+# # read in mapped subcellelular infor from uniprot
+# up_subcell_raw <- read_excel(
+#   "input/UP_anno/UP_subcellular_locations_all_2026_01_23.xlsx")
+# #   mutate(hashtags = str_split(Keywords, ";")) %>%
+# #   tidyr::unnest(hashtags) # 22696
 # 
-# saveWidget(mycell, "temp.html")
-# webshot(url = "temp.html",
-#         file = "temp.pdf",
+# # note alot here don't have GOID anyway
+# colnames(up_subcell_raw)
+# str(up_subcell_raw)
+```
+
+```{r}
+# up_subcell <-up_subcell_raw %>%
+#   # tidyr::separate_wider_delim(
+#   #   cols = `Gene Ontologies`,
+#   #   delim = ":", # split by : nooo has 2 : : so does not work :(
+#   #   names = c("GO_ID", "GO_Name"))
+#   
+#   tidyr::separate_wider_regex( # use this instead! 
+#     `Gene Ontologies`,
+#     patterns = c(go_id = "GO:\\d+", # matches GO:0002079:
+#                  ":",
+#                  go_term = ".*"), # matches any char at end of string
+#     cols_remove = FALSE) %>%
+#   mutate(subcell_ID = str_remove(`Subcellular location ID`, "-"),
+#          .after = `Subcellular location ID`) 
+# # omg turns out ID frm uniprot was "SL-0181" rather than "SL0181"
+```
+
+```{r}
+# GO_tibs_CC_EE <- GO_tibs_df %>%
+#   filter(Label == "H_EE_vs_SH" & GO == "CC") %>%
+#   left_join(up_subcell,
+#             by = join_by(ID == go_id)) %>% # heaps not mapped!
+#   filter(!is.na(subcell_ID)) %>%
+#   mutate(Direction = if_else(NES <0 , "Down", "Up")) 
+```
+
+```{r}
+# down_cols <- paletteer_dynamic("cartography::wine.pal", 15)
+# up_cols <- paletteer_dynamic("cartography::turquoise.pal", 15)
+```
+
+```{r}
+# # tidyerse AI
+# GO_tibs_CC_EE_cols <- GO_tibs_CC_EE %>%
+#   arrange(Direction, NES) %>% # sort by direc & then score
+#   group_by(Direction) %>% # group by dir
+#   mutate( # group wise calcs! so for each group xyz...
+#     idx = row_number(),
+#     colour = case_when(          
+#       Direction == "Up"   ~ down_cols[idx],
+#       Direction == "Down" ~ up_cols[idx]
+#     )
+#   ) %>%
+#   ungroup() #%>%
+#   # dplyr::select(-idx)
+```
+
+```{r}
+# # EE_color_CC_list <- GO_tibs_CC_EE_cols %>%
+# #   dplyr::select(subcell_ID, colour) %>%
+# #   tibble::deframe() # make named list 
+# 
+# 
+# # color_map_EE_CC <- GO_tibs_CC_EE_cols$val_4_dc
+# # neuron "6072" | "10116", # rat
+# 
+# # works but looks dissapointing...
+# my_neuron_EE <- drawCell::drawCell(organism_identifier = "6072", # neuron
+#                                    list_sl_colors = EE_color_CC_list,
+#                                    width = 1500,
+#                                    height = 500)
+# 
+# saveWidget(my_neuron_EE, "my_neuron_EE_v1.html")
+# webshot(url = "my_neuron_EE_v1.html",
+#         file = "my_neuron_EE_v1.pdf",
+#         # file = "temp.png",
+#         vwidth = 600,
+#         vheight = 300,
+#         delay = 10 # adding delay fixes problem (slow! otherwise blanks)
+#         )
+# 
+# 
+# my_cell_EE <- drawCell::drawCell(organism_identifier = "10116", # rat
+#                                    list_sl_colors = EE_color_CC_list,
+#                                    width = 1500,
+#                                    height = 500)
+# 
+# 
+# saveWidget(my_cell_EE, "my_cell_EE_v1.html")
+# webshot(url = "my_cell_EE_v1.html",
+#         file = "my_cell_EE_v1.pdf",
 #         # file = "temp.png",
 #         vwidth = 600,
 #         vheight = 300,
 #         delay = 10 # adding delay fixes problem (slow! otherwise blanks)
 #         )
 
-# drawCell::drawCellOutput(mycell, width = "100%", height = "400px")
+```
+
+```{r}
+# # mycell <- drawCell::drawCell(organism_identifier = "6072",
+# #                    list_sl_colors = list("SL0288" = "orange",
+# #                                          "SL0191" = "#1F4861",
+# #                                          "SL0259" = "forestgreen",
+# #                                          "SL0260" = "#BD88A5"),
+# #                    # width = 1500,
+# #                    # height = 500
+# #                    )
+# # 
+# # saveWidget(mycell, "temp.html")
+# # webshot(url = "temp.html",
+# #         file = "temp.pdf",
+# #         # file = "temp.png",
+# #         vwidth = 600,
+# #         vheight = 300,
+# #         delay = 10 # adding delay fixes problem (slow! otherwise blanks)
+# #         )
+# 
+# # drawCell::drawCellOutput(mycell, width = "100%", height = "400px")
 ```
 
 ```{r}
@@ -901,6 +901,15 @@ paletteer_d("rcartocolor::Geyser")
 paletteer_d("rcartocolor::Sunset")
 paletteer_d("rcartocolor::Emrld")
 paletteer_d("rcartocolor::OrYel")
+paletteer_d("rcartocolor::TealGrn")
+paletteer_d("rcartocolor::Teal")
+paletteer_d("rcartocolor::SunsetDark")
+paletteer_d("rcartocolor::TealRose")
+paletteer_d("rcartocolor::Prism")
+paletteer_d("rcartocolor::Antique")
+
+
+
 paletteer_dynamic("cartography::orange.pal", 15)
 paletteer_dynamic("cartography::green.pal", 15)
 paletteer_dynamic("cartography::blue.pal", 15)
@@ -909,6 +918,55 @@ paletteer_dynamic("cartography::wine.pal", 15)
 paletteer_dynamic("cartography::turquoise.pal", 15)
 
 palettes_dynamic_names
+```
+
+
+```{r}
+neuron_test <- drawCell::drawCell(organism_identifier = "6072",
+                   list_sl_colors = list("SL0191" = "#586F9AFF", # nucleus
+                                         "SL0173" = "#CF597EFF", # mitochondrion
+                                         "SL0132" = "#39B185FF", # golgi apparatus
+                                         "SL0095" = "#3B738FFF", # Ebdoplasmic reticulum
+                                         "SL0101" = "#E17C05FF", # Endosome
+                                         "SL0197" = "#FEE08BFF", # Perikaryon / soma
+                                         "SL0154" = "#A8DBD9FF", # Lipid Droplet
+                                         "SL0158" = "#7CAF71FF", # Lysosome
+                                         "SL0091" = "#E6F5D0FF", # Cytosol
+                                         "SL0090" = "#E6AB02FF", # Cytoskeleton
+                                         
+                                         "SL0279" = "#D3F2A3FF", # axon
+                                         "SL0288" = "#97E196FF", # growth cone
+                                         "SL0176" = "#F1B6DAFF", #  Myelin membrane
+                                         "SL0284" = "#F9C7B8FF", # dendrite
+                                   "SL0258" = "#F3AD6AFF", # synapse
+                                     "SL0297" = "#586F9AFF", # post synaptic density?
+                                        "SL0219" = "#DB7B80FF", # postsynaptic cell mem 
+                                            "SL0284" = "#EE4D5AFF", # Dendritc Spine
+                                            "SL0285" = "#F46D43FF", # Dendritc Spine mem
+                                            "SL0530" = "#68ABB8FF", # Spine Apparatu mem
+                                              
+                                         "SL0222" = "#D1EEEAFF", # presynaptic cell mem 
+                                            "SL0519" = "#EDAD08FF", # presyn active zone
+                                            "SL0259" = "#4C90B4FF", # Synaptic Vesicle
+                                              "SL0260" = "#8FBFD7FF", # Synap Vesic Mem
+                                      "SL0039" = "#DC3977FF" # Cell membrane
+                                         ),
+                   width = 2000,
+                   height = 500
+                   )
+neuron_test
+
+# saveWidget(mycell, "temp.html")
+# webshot(url = "temp.html",
+#         file = "temp.pdf",
+#         # file = "temp.png",
+#         vwidth = 600,
+#         vheight = 300,
+#         delay = 10 # adding delay fixes problem (slow! otherwise blanks)
+#         )
+# 
+# 
+# drawCell::drawCellOutput(mycell, width = "100%", height = "400px")
 ```
 
 ------------------------------------------------------------------------
@@ -1213,3 +1271,7 @@ split_protein_comp_entrez_sig_adjp1 <- split(protein_comp_entrez_sig_adjp1,
 # write_xlsx(split_protein_comp_entrez_sig_adjp1,
 #            "output/2026_01_24_AgeXEE_split_protein_comp_entrez_sig_adjp1.xlsx")
 ```
+
+
+
+
