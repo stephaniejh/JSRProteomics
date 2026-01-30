@@ -11,7 +11,7 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-# ClusterProfiler BioIn vis - 1pspg v3.2.2 EE x Age t1 
+# ClusterProfiler BioIn vis - 1pspg v3.2.2 EE x Age t1
 
 [*BioIn_2025_12_v3.4.2_ClusterProfiler_EExAge_vis_testing_v1*]{.underline}
 
@@ -1276,4 +1276,40 @@ split_protein_comp_entrez_sig_adjp1 <- split(protein_comp_entrez_sig_adjp1,
 #  # write out excel!
 # write_xlsx(split_protein_comp_entrez_sig_adjp1,
 #            "output/2026_01_24_AgeXEE_split_protein_comp_entrez_sig_adjp1.xlsx")
+```
+
+```{r}
+#USE FOR STRINGDB INPUT! | by uniprot protein accession
+protein_ranked <- protein_comp %>%
+  group_by(Label) %>%
+  mutate(ranking = sign(log2FC)*(-log10(pvalue))) %>%
+  group_by(Label, Protein) %>%
+  summarise(ranking = mean(ranking, na.rm = TRUE)) %>%
+  arrange(Label, -ranking)
+
+# SPLIT
+protein_ranked_split <- split(protein_ranked,
+                              protein_ranked$Label)
+
+#  # write out excel!
+# writexl::write_xlsx(protein_ranked_split,
+#            "output/2026_01_30_AgexEE_split_protein_comp_ranked_by_uniprot_acc.xlsx")
+```
+
+```{r}
+#USE FOR STRINGDB INPUT! | ranked by uniprot primary gene name from FASTA
+gene_ranked <- protein_comp %>%
+  group_by(Label) %>%
+  mutate(ranking = sign(log2FC)*(-log10(pvalue))) %>%
+  group_by(Label, gene) %>%
+  summarise(ranking = mean(ranking, na.rm = TRUE)) %>%
+  arrange(Label, -ranking)
+
+# SPLIT
+gene_ranked_split <- split(gene_ranked,
+                              gene_ranked$Label)
+
+#  # write out excel!
+# writexl::write_xlsx(gene_ranked_split,
+#            "output/2026_01_30_AgexEE_split_protein_comp_ranked_by_gene_name.xlsx")
 ```
