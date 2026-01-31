@@ -177,6 +177,22 @@ protein_comp_entrez <- left_join(protein_comp, bitr_gn_2_entrez,
   filter(!is.na(ENTREZID)) # remove non mapped - 64384 to 61952 
 ```
 
+#### Then map SynGO ids
+
+```{r}
+SynGO_ids <- read_excel("input/db/SynGO_idmap_entrez_2026_02_01.xlsx")
+```
+
+```{r}
+protein_comp_entrez_syngo <- left_join(protein_comp_entrez, SynGO_ids,
+                                       by = join_by(ENTREZID == query))
+```
+
+```{r}
+# write_excel_csv(protein_comp_entrez_syngo,
+#                 "output/2026_02_01_EExAge_protein_comp_entrez_syngo.csv")
+```
+
 ------------------------------------------------------------------------
 
 ```{r}
@@ -1190,7 +1206,7 @@ for (x in seq_len(9)) {
 par(mfrow = c(1,1))
 ```
 
-### detour to play around with web ver of string-db
+## detour to play around with web ver of string-db
 
 note stringdb ranked analysis actually uses full list (e.g. entrez ranked genelist)
 
@@ -1212,11 +1228,13 @@ protein_comp_entrez_top_250 <- protein_comp_entrez %>%
 #          "output/2026_01_24_AgexEE_entrez_comps_top_250_sig_4_web_v1.csv")
 ```
 
-#### Make & Export as tabs in excel!
+## Make & Export as tabs in excel!
 
 -   Actually make a bunch of tab in excel with lists for each label (easier than way!)
 
 -   btw look at differences with Uniprot org vs entrez (possible minor differences) but using the protein_comp_entrez df just to be consistent with other analyses!
+
+#### Export
 
 ```{r}
 # top 250 entrez mapped 
@@ -1226,6 +1244,21 @@ split_protein_comp_entrez_top_250 <- split(protein_comp_entrez_top_250,
 # # write out excel! 
 # write_xlsx(split_protein_comp_entrez_top_250, 
 #            "output/2026_01_24_AgeXEE_split_protein_comp_entrez_top_250.xlsx")
+```
+
+```{r}
+# 2026_02_01 - same as above but with SynGO mapped
+protein_comp_entrez_syngo_top_250 <- protein_comp_entrez_syngo %>%
+  ungroup() %>%
+  group_by(Label) %>%
+  slice_min(adj.pvalue, n = 250, with_ties = FALSE)
+
+split_protein_comp_entrez_syngo_top_250 <- split(protein_comp_entrez_syngo_top_250,
+                                           protein_comp_entrez_syngo_top_250$Label)
+
+# # write out excel!
+# write_xlsx(split_protein_comp_entrez_syngo_top_250,
+#            "output/2026_02_01_AgeXEE_split_protein_comp_entrez_SynGO_top_250.xlsx")
 ```
 
 -   <https://stats.oarc.ucla.edu/r/library/r-library-advanced-functions/>
@@ -1277,4 +1310,40 @@ split_protein_comp_entrez_sig_adjp1 <- split(protein_comp_entrez_sig_adjp1,
 #  # write out excel!
 # write_xlsx(split_protein_comp_entrez_sig_adjp1,
 #            "output/2026_01_24_AgeXEE_split_protein_comp_entrez_sig_adjp1.xlsx")
+```
+
+```{r}
+#USE FOR STRINGDB INPUT! | by uniprot protein accession
+protein_ranked <- protein_comp %>%
+  group_by(Label) %>%
+  mutate(ranking = sign(log2FC)*(-log10(pvalue))) %>%
+  group_by(Label, Protein) %>%
+  summarise(ranking = mean(ranking, na.rm = TRUE)) %>%
+  arrange(Label, -ranking)
+
+# SPLIT
+protein_ranked_split <- split(protein_ranked,
+                              protein_ranked$Label)
+
+#  # write out excel!
+# writexl::write_xlsx(protein_ranked_split,
+#            "output/2026_01_30_AgexEE_split_protein_comp_ranked_by_uniprot_acc.xlsx")
+```
+
+```{r}
+#USE FOR STRINGDB INPUT! | ranked by uniprot primary gene name from FASTA
+gene_ranked <- protein_comp %>%
+  group_by(Label) %>%
+  mutate(ranking = sign(log2FC)*(-log10(pvalue))) %>%
+  group_by(Label, gene) %>%
+  summarise(ranking = mean(ranking, na.rm = TRUE)) %>%
+  arrange(Label, -ranking)
+
+# SPLIT
+gene_ranked_split <- split(gene_ranked,
+                              gene_ranked$Label)
+
+#  # write out excel!
+# writexl::write_xlsx(gene_ranked_split,
+#            "output/2026_01_30_AgexEE_split_protein_comp_ranked_by_gene_name.xlsx")
 ```
