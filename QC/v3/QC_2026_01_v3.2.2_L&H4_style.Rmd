@@ -1,0 +1,133 @@
+---
+title: "QC_2026_01_v3.2.2_L&H4_style"
+author: "Stephanie Huang"
+date: "2026-01-31"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# 2026_01_31 - QC graphs & tables for thesis in L&H4 style 
+
+This uses the 2025_08 1pspg PD data - 96 runs used for thesis write up.
+
+Links
+
+1.  **Reading in Files**
+    1.  [Mastering File Manipulation with R’s list.files() Function](https://www.r-bloggers.com/2023/05/mastering-file-manipulation-with-rs-list-files-function/)
+    2.  [Reading Data from multiple files](https://www.r-bloggers.com/2023/05/mastering-file-manipulation-with-rs-list-files-function/)
+
+## Setup
+
+### Load packages
+
+```{r}
+library(readr) # read csv files read_csv
+library(readxl) # read in excel files read_excel
+library(tidyr) # pivot longer
+library(stringr) # str_detect()
+library(dplyr)
+library(ggh4x) # facet_nested - extensions of facet_grid for nesting
+library(cowplot) # for plot_grid()
+library(gt)
+library(ggridges)
+library(forcats) #fct_rev
+library(purrr) # for map()
+library(ggvenn) #for ggvenn
+library(paletteer) # color palette
+library(ggExtra) # fpr ggMarginal
+```
+
+### Load Data
+
+#### Load Basic Raw File Annotation 
+
+```{r}
+raw_anno <- read_csv("input/anno/TMT_B1-4_lcms_run_info_anno_20250830.csv")
+
+dim(raw_anno) # 96 x 4
+```
+
+```{r}
+# set wd to source file location 
+# input_dif <- "input/PD"
+
+# MS/MS SPECTRUM INFO
+# e.g. match anywhere in file name MSMSSpectrumInfo & ends in .txt
+MSMS_2_read <- list.files(
+  "input/PD/2025_08_Steph_TMTpro_PSMs_MSstatsTMT_EEvsSH_for_PhD/txt_exports", # 1pspg 
+                          pattern = ".*MSMSSpectrumInfo.*\\.txt$",
+                          full.names = TRUE, # get path too to pull other details later
+                          recursive = FALSE # recursive false, don't want extra/
+                          )
+
+PS_MSMS <- read_tsv(MSMS_2_read, id = "file_path") %>%  # binds
+  left_join(raw_anno, by = join_by(`Spectrum File` == Run))
+  
+dim(MSMS_2_read) #3769151 x 20
+# ~ ~ ~
+
+
+# ~ ~ ~ ~ ~ ~ ~ ~ ~
+# PSMs
+PSMs_2_read <- list.files(
+   "input/PD/2025_08_Steph_TMTpro_PSMs_MSstatsTMT_EEvsSH_for_PhD/txt_exports", # 1pspg 
+   pattern = ".*PSM.*\\.txt$", # PSMs
+   full.names = TRUE, 
+   recursive = FALSE )
+
+PD_PSMs <- read_tsv(PSMs_2_read, id = "file_path")  %>%
+  left_join(raw_anno, by = join_by(`Spectrum File` == Run))
+
+dim(PD_PSMs) # 959281 x 55 
+# ~ ~ ~
+```
+
+#### Results File 
+
+```{r}
+# RESULTS FILES | note name is different to file 
+RS_2_read <- list.files(
+  "input/PD/2025_08_Steph_TMTpro_PSMs_MSstatsTMT_EEvsSH_for_PhD/txt_exports",
+                        pattern = ".*ResultStatistics.*\\.txt$",
+                        full.names = TRUE,
+                        recursive = FALSE)
+
+PD_RS <- read_tsv(RS_2_read, id = "file_path") %>%
+  left_join(raw_anno, by = join_by(`Spectrum File` == Run))
+
+dim(PD_RS) # 43392 x 12
+```
+
+#### Proteins File 
+
+error atm as
+
+```{r}
+# # PROTEINS - does not work ATM because of different col names 
+# Proteins_2_read <- list.files(
+#    "input/PD/2025_08_Steph_TMTpro_PSMs_MSstatsTMT_EEvsSH_for_PhD/txt_exports", # 1pspg 
+#    pattern = ".*Proteins.*\\.txt$", # Proteins
+#    full.names = TRUE, 
+#    recursive = FALSE )
+# 
+# PD_Proteins <- read_tsv(Proteins_2_read, id = "file_path") 
+# 
+# dim(PD_Proteins) # 959281 x 55 
+# 
+# # GIVES ERROR - Error: Files must have consistent column names:   
+# # * File 1 column 37 is: Found in Sample in S1 F1 126 Sample one
+# # * File 2 column 37 is: Found in Sample in S2 F2 126 Sample one
+```
+
+```{r}
+
+```
+
+------------------------------------------------------------------------
+
+```{r}
+
+```
