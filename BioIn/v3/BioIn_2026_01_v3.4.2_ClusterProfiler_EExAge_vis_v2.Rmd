@@ -49,6 +49,9 @@ library(writexl) # for excel tab export
 # KEGG
 load("output/gsea_results/2026_01_12_KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3.rda") 
 
+# GO 
+load("output/gsea_results/2026_01_12_GO_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t2.rda") 
+
 # GO simplified (was prev made in this script)
 load("output/gsea_results/2026_01_24_GO_gsea_EExAge_cp_v3.4.2_t2_simplified.rda")
 
@@ -218,9 +221,10 @@ lolliplot <- function(data,
 ```
 
 ```{r}
-HM_lol <- lolliplot(HM_tibs_df_6, subtitle = "MSigDB Hallmarks", legend_pos = "bottom")
+HM_lol <- lolliplot(HM_tibs_df, subtitle = "MSigDB Hallmarks", legend_pos = "bottom")
 HM_lol
 
+# exp 2026_01_31_EExAge_MSigDB_Hallmarks_v1 - 13.5 x 5
 ```
 
 ### KEGG lolliplots
@@ -326,55 +330,115 @@ GO_sim_lol_3_EE
 
 ```
 
-\# exp - 2026_01_31_EE_3_comps_GO_CC_sim_lolli_v1
+### exp - 2026_01_31_EE_3_comps_GO_CC_sim_lolli_v1
+
+-   <https://emilhvitfeldt.github.io/paletteer/>
 
 ```{r}
+# CONTINUOUS
+# scico
+paletteer::paletteer_c("scico::berlin", n = 10)
+paletteer::paletteer_c("scico::roma", n = 10)
+paletteer::paletteer_c("scico::hawaii", n = 10)
+
+
+# DISCRETE 
+# nord
+paletteer::paletteer_d("nord::frost")
+paletteer::paletteer_d("nord::aurora")
+# Rcartocolor
+paletteer::paletteer_d("rcartocolor::Sunset")
+paletteer::paletteer_d("rcartocolor::PinkYl")
+paletteer::paletteer_d("rcartocolor::OrYel")
+paletteer::paletteer_d("rcartocolor::BluYl")
+paletteer::paletteer_d("rcartocolor::Emrld")
+paletteer::paletteer_d("rcartocolor::Teal")
+paletteer::paletteer_d("rcartocolor::Safe")
+paletteer::paletteer_d("rcartocolor::Prism")
+
+
+# DYNAMIC
+# cartography
+paletteer::paletteer_dynamic("cartography::pink.pal", 6)
+paletteer::paletteer_dynamic("cartography::wine.pal", 6)
+paletteer::paletteer_dynamic("cartography::red.pal", 6)
+paletteer::paletteer_dynamic("cartography::orange.pal", 6)
+paletteer::paletteer_dynamic("cartography::sand.pal", 6)
+paletteer::paletteer_dynamic("cartography::brown.pal", 6)
+paletteer::paletteer_dynamic("cartography::kaki.pal", 6)
+paletteer::paletteer_dynamic("cartography::green.pal", 6)
+paletteer::paletteer_dynamic("cartography::turquoise.pal", 6)
+paletteer::paletteer_dynamic("cartography::blue.pal", 6)
+paletteer::paletteer_dynamic("cartography::purple.pal", 6)
+paletteer::paletteer_dynamic("cartography::taupe.pal", 6)
+paletteer::paletteer_dynamic("cartography::harmo.pal", 6)
+```
+
+```{r}
+# JENN
 GO_sim_EE_CC_map <- GO_sim_tibs_df_6 %>%
-  filter(Label %in% c("H_EE_vs_SH","HxA_EE_YNG_vs_SH_YNG","HxA_EE_OLD_vs_SH_OLD")) %>%
-  filter(GO == "CC") %>% 
-  left_join(up_subcell, by = join_by(ID == go_id))
+  filter(Label %in% c("H_EE_vs_SH","HxA_EE_YNG_vs_SH_YNG","HxA_EE_OLD_vs_SH_OLD"))  %>%
+  filter(GO == "CC")  %>%
+left_join(up_subcell, by = join_by(ID == go_id))
+  
 
 #colnames(GO_sim_EE_CC_map)
 unique(GO_sim_EE_CC_map$`Is part of`)
+
+
+# just for checking 
+# write_xlsx(GO_sim_EE_CC_map, path = "output/2026_01_31_EE_cc_map_check_v1.xlsx")
+
+GO_EE_CC <- GO_gsea_EExAge_msstats_v3.2.2_t1_cp_v3.4.2_t2$GO_results_tib$H_EE_vs_SH$CC 
+
+GO_EE_CC_map <- left_join(GO_EE_CC, up_subcell, by = join_by(ID == go_id))
+  
+  
+# write_xlsx(GO_EE_CC_map, path = "output/2026_02_01_EE_cc_longer_map_check_v2.xlsx")
 ```
 
 ```{r}
 neuron_map_EE_cell_comp <- drawCell::drawCell(
   organism_identifier = "6072",
   list_sl_colors = list(
-    "SL0191" = "#586F9AFF", # nucleus
+    "SL0191" = "#83BED9FF", # nucleus
     "SL0173" = "#CF597EFF", # mitochondrion
     "SL0132" = "#39B185FF", # golgi apparatus
-    "SL0095" = "#3B738FFF", # Ebdoplasmic reticulum
-    "SL0101" = "#E17C05FF", # Endosome
-    "SL0197" = "#FEE08BFF", # Perikaryon / soma
-    "SL0154" = "#A8DBD9FF", # Lipid Droplet
-    "SL0158" = "#7CAF71FF", # Lysosome
+    "SL0095" = "#5E81ACFF", # Ebdoplasmic reticulum
+  #   "SL0101" = "#E17C05FF", # Endosome
+    "SL0197" = "#F2B4B7FF", # Perikaryon / so`ma
+  #   "SL0154" = "#A8DBD9FF", # Lipid Droplet
+  #   "SL0158" = "#7CAF71FF", # Lysosome
     "SL0091" = "#E6F5D0FF", # Cytosol
-    "SL0090" = "#E6AB02FF", # Cytoskeleton
-    
-    "SL0279" = "#D3F2A3FF", # axon
-    "SL0288" = "#97E196FF", # growth cone
-    "SL0176" = "#F1B6DAFF", # Myelin membrane
-    "SL0284" = "#F9C7B8FF", # dendrite
-    "SL0258" = "#F3AD6AFF", # synapse
-    "SL0297" = "#586F9AFF", # post synaptic density?
-    "SL0219" = "#DB7B80FF", # postsynaptic cell mem 
-    "SL0284" = "#EE4D5AFF", # Dendritc Spine
-    "SL0285" = "#F46D43FF", # Dendritc Spine mem
-    "SL0530" = "#68ABB8FF", # Spine Apparatu mem
-    
-    "SL0222" = "#D1EEEAFF", # presynaptic cell mem 
-    "SL0519" = "#EDAD08FF", # presyn active zone
-    "SL0259" = "#4C90B4FF", # Synaptic Vesicle
-    "SL0260" = "#8FBFD7FF", # Synap Vesic Mem
-    "SL0039" = "#DC3977FF" # Cell membrane
+  #   "SL0090" = "#E6AB02FF", # Cytoskeleton
+    # "SL0098" = "#d1eeea", # endoplasmic ret- golgi intermediate
+    "SL0279" = "#EB7F86FF", # axon
+  #   "SL0288" = "#97E196FF", # growth cone
+    "SL0176" = "#F7945DFF", # Myelin membrane
+    "SL0192" = "#672044", # Paranodal septate junction
+    "SL0071" = "#d46780", # clathrin-coated vesicle (membrane)
+  #   "SL0284" = "#F9C7B8FF", # dendrite
+  #   "SL0258" = "#F3AD6AFF", # synapse
+  #   "SL0297" = "#586F9AFF", # post synaptic density?
+  #   "SL0219" = "#DB7B80FF", # postsynaptic cell mem 
+  #   "SL0284" = "#EE4D5AFF", # Dendritc Spine
+  #   "SL0285" = "#F46D43FF", # Dendritc Spine mem
+  #   "SL0530" = "#68ABB8FF", # Spine Apparatu mem
+  #   
+    "SL0222" = "#F1B6DAFF", # presynaptic cell mem
+  #   "SL0519" = "#EDAD08FF", # presyn active zone
+    "SL0529" = "#EDAD08FF", # presynap endocytic zone
+    # "SL0259" = "#4C90B4FF", # Synaptic Vesicle
+    "SL0260" = "#C70003FF", # Synap Vesic Mem
+    "SL0039" = "#EB7F86FF" # Cell membrane
+  
   ),
-  width = 2000,
+  # width = 2000,
+  width = 1500,
   height = 500
 )
 
-neuron_map_2026_01_28
+neuron_map_EE_cell_comp
 
 # saveWidget(neuron_map_2026_01_28, "neuron_map_2026_01_28.html")
 # 
@@ -385,6 +449,4 @@ neuron_map_2026_01_28
 #         #vheight = 300,
 #         delay = 10 # adding delay fixes problem (slow! otherwise blanks)
 #         )
-
-
 ```
