@@ -48,7 +48,7 @@ mapped_psum <- left_join(mapped_psum_v3.2.2_EExAge,
                                          BioReplicate == BioReplicate,
                                          Mixture == Mixture,
                                          Channel == Channel)) %>%
-  rename(Condition = Condition.x , Housing_c_anno = Condition.y) %>%
+  dplyr::rename(Condition = Condition.x , Housing_c_anno = Condition.y) %>%
   mutate(Age = ifelse(PND > 100, "OLD", "YNG"))
   
 #Check 
@@ -95,7 +95,7 @@ colnames(mapped_comp)
 dim(mapped_comp) # 64384 x 22
 
 unique_check <- mapped_comp %>% 
-  select(Label, sig_no_down_lab, sig_no_up_lab) %>%
+  dplyr::select(Label, sig_no_down_lab, sig_no_up_lab) %>%
   unique() # yep matches up! 
 ```
 
@@ -237,7 +237,7 @@ ggplot(merged_pca_cc,
 # make new df for the geom_text bit below.
 # prev had from 1 df but over plots repeately & cant index since mapped_comp huge.
 sig_volcano_sum <- mapped_comp %>%
-  select(Label, sig_no_up_lab, sig_no_down_lab) %>%
+  dplyr::select(Label, sig_no_up_lab, sig_no_down_lab) %>%
   unique()
 
 # reoder factor levels for plotting
@@ -373,7 +373,7 @@ EE_Volcano <- mapped_comp %>%
                                 "down_adjp.05",
                                 "up_adjp.1",
                                 "down_adjp.1"),
-                     labels = c("\U2191 (adj.p <.05)",
+                     labels = c("\U2191 (adj.p <.05)", \U2191  \U2193
                                 "\U2193 (adj.p <.05)",
                                 "\U2191 (adj.p <.1)",
                                 "\U2193 (adj.p <.1)")) +
@@ -381,6 +381,7 @@ EE_Volcano <- mapped_comp %>%
   geom_text_repel(max.overlaps = 30, size = 3.5, # gene text on points
                   color = "grey10", alpha = 1 ) + 
   
+
   scale_alpha_continuous(range = c(1, .2), # rev, smaller p = higher
                          guide = 'none') + 
   
@@ -910,7 +911,7 @@ for (p in EE_main_p_sig_list){
   
   bp_labs <- EE_main_sig_df %>% # using the filter mapped_comp list 
     filter(Protein == p) %>%
-    slice(1) 
+    dplyr::slice(1) 
   
   obs_in <- mapped_psum %>% #get no. biorep observed
   filter(Protein == p) %>%
@@ -1093,7 +1094,10 @@ boxplot_function <- function(data, x , y, # function inputs
                shape=4, size = .8, stroke = 0.2, color ="grey10") + #displays mean 
     
     # scale_alpha_discrete(guide = 'none', range = c(0.65, 0.75)) +
-    scale_fill_manual(values = c("#66A61EFF", "#E6AB02FF")) + # housing colors 
+    # scale_fill_manual(values = c("#66A61EFF", "#E6AB02FF")) + # housing colors 
+    
+   scale_fill_manual(
+     values = alpha(c("#B3D38F", "#F3D581"), 0.3)) + # housing colors 
     # scale_shape_manual(values = c(1, 3, 4)) + # techreplicate (3)
     
 
@@ -1468,16 +1472,18 @@ mapped_comp_sig |>
 ```{r}
 gt_1 <- mapped_comp %>%
   
-  #filter(Label %in% c("H_EE_vs_SH",
-                      #"HxA_EE_YNG_vs_SH_YNG", "HxA_EE_OLD_vs_SH_OLD")) %>%
+  # filter(Label %in% c("H_EE_vs_SH",
+  # "HxA_EE_YNG_vs_SH_YNG", "HxA_EE_OLD_vs_SH_OLD")) %>%
   
-  filter(Label == "H_YNG_vs_OLD") %>%
+  filter(Label == "H_EE_vs_SH") %>%
   
   
-  filter(adj.pvalue < 0.05) %>% #
+  # filter(adj.pvalue < 0.05) %>% #
+  filter(adj.pvalue < 0.5) %>% #
+
 
   dplyr::select(c(Label,Direction, gene, Protein, description, 
-                  log2FC, adj.pvalue, pvalue, database)) %>%
+                  log2FC, adj.pvalue, , database, SE, DF, pvalue)) %>%
   
   arrange(adj.pvalue) %>%
   
@@ -1574,4 +1580,270 @@ unique_g <- unique(mapped_comp$gene) %>% as.tibble()
 
 ```{r}
 
+```
+
+------------------------------------------------------------------------
+
+# 1 - Neurotrophic Signalling
+
+one by one comparisons
+
+```{r}
+Housing_top_250 <- mapped_comp %>%
+  # filter(Label %in% c("H_EE_vs_SH",
+  # "HxA_EE_YNG_vs_SH_YNG", "HxA_EE_OLD_vs_SH_OLD")) %>%
+  filter(Label == "H_EE_vs_SH") %>%
+  slice_min(adj.pvalue, n = 250, with_ties = FALSE)
+
+
+EE_main_only <- mapped_comp %>%
+  filter(Label == "H_EE_vs_SH")
+
+EE_main_sig_df_adjp01 <- EE_main_only %>%
+  filter(adj.pvalue < 0.1)
+```
+
+```{r}
+# import 
+mice_lit_re <- read_excel("input/lit_review/2026_01_13_EE_omics_lit_review_mRNA_Proteins.xlsx",
+           sheet = 'mice_proteins_mRNA')
+```
+
+#### Hu et al., 2013 Comparison 
+
+```{r}
+Hu_2013 <- mice_lit_re %>%
+  filter(Author == "Hu") %>%
+  filter(is.na(Mod)) %>%
+  mutate(Study = paste0(Author, " ", Year))
+
+dim(Hu_2013) #15 x 31
+```
+
+```{r}
+# No over lap in significant  
+intersect(Hu_2013$Uniprot_rat_accession, EE_main_sig_df$Protein)
+
+# in top 250 EE 
+intersect(Hu_2013$Uniprot_rat_accession, Housing_top_250$Protein)
+
+# in full 8000 list
+intersect(Hu_2013$Uniprot_rat_accession, EE_main_only$Protein)
+
+EE_Hu_overlap <- intersect(Hu_2013$Uniprot_rat_accession, EE_main_only$Protein)
+
+EE_Hu_overlap_my_df <- left_join(Hu_2013, EE_main_only,
+                            by = join_by(Uniprot_rat_accession == Protein)) 
+
+EE_Hu_overlap_my_df <- EE_Hu_overlap_my_df  %>%
+   mutate(Hu_2013 =  case_when(
+    Significant == "yes" & In_EE == "Up" ~ "\u2191 *",
+    Significant == "yes" & In_EE == "Down" ~ "\u2193 *",
+    Significant == "no" & In_EE == "Up" ~ "\u2191",
+    Significant == "no" & In_EE == "Down" ~ "\u2193",
+    In_EE == "Same" ~ "-",
+    .default = " "
+   )) %>%
+  mutate(EE_vs_SH = case_when(
+    adj.pvalue < 0.05 & log2FC > .05 ~ "\u2191 *", # up sig .05
+    adj.pvalue < 0.05 & log2FC < -.05 ~ "\u2193 *", # down sig .05
+    pvalue.y < 0.05 & log2FC > .05 ~ "\u2191", # up sig .05
+    pvalue.y < 0.05 & log2FC < -.05 ~ "\u2193", # down sig .05
+    .default = "-"
+  ))
+```
+
+```{r}
+me_and_hu_gt <- EE_Hu_overlap_my_df %>%
+  dplyr::ungroup() %>%
+  dplyr::select(c(Animal, Region, Exp_type, Method, Used_name,
+                 Gene_name, Full_name, Label,
+                 Hu_2013, EE_vs_SH, log2FC, adj.pvalue)) %>%
+  
+ gt(
+    groupname_col = "Label",
+    rowname_col = "Gene_name"
+  ) %>%
+
+  
+  fmt_number(decimals = 2)  %>%
+  
+    cols_label(
+    Full_name = "Protein Description",
+  ) %>%
+  
+  
+  tab_style(
+    style = list(
+      # cell_fill(color = "#F9E3D6"),
+      cell_text(style = "italic")
+      ),
+    locations = cells_stub()) %>%
+  
+  
+    tab_options(table.font.size=10) %>%
+    opt_vertical_padding(scale = 0.5) %>% # vert padding
+  
+    tab_style( 
+    style = list(
+      # cell_fill(color = "#F9E3D6"),
+      cell_text(weight = "bold", size = 16)
+      
+      ),
+    locations = list(
+      cells_column_labels(columns = c(Hu_2013, EE_vs_SH)),
+      cells_body(columns = c(Hu_2013, EE_vs_SH))
+      ))
+
+  
+me_and_hu_gt
+  
+me_and_hu_gtg <- as_gtable(me_and_hu_gt, plot = TRUE, text_grob = grid::textGrob)
+```
+
+```{r}
+# Synaptopodin
+TrkB <- mapped_psum %>%
+  filter(Protein %in% c("Q63604")) # 
+
+TrkB_plot <- boxplot_function(TrkB, 
+                       x = Housing, 
+                       y = Abundance,
+                       fill = Housing,  # by default
+                       # color = interaction(BioReplicate, TechRepMixture),
+                       shape_fill = Channel,
+                       shape_color = TechRepMixture,
+                       # alpha = Age,
+                       legend_pos = "none",
+                       title = 'Q63604 - TrkB/Ntrk2 - ',
+                       subtitle = '(TrKB/Ntrk2) - In all 55 Samples')
+
+TrkB_plot
+
+unique(TrkB$BioReplicate)
+unique(TrkB$`Gene Names (primary)`) #Synpo
+length(unique(TrkB$BioReplicate)) # 56 observations! 55
+
+TrkB %>% 
+  group_by(TechRepMixture) %>%
+  count(TechRepMixture)
+
+```
+
+------------------------------------------------------------------------
+
+TO DO LATER!!!
+
+```{r}
+UP_Paban_list <- c('Bdnf', 'Gmfb', 'Gdnf', 'Gfra3',
+                   'Mt3', 'Ngf', 'Tac1', 'Npffr2', 'Fgf2',
+                   'Ptn', 'Cxcr4', 'Myc', 'Stat5a')
+
+Paban_pat <- paste(UP_Paban_list, collapse = "|") # so sep by OR |
+
+me_and_paban <- EE_main_only %>%
+  # match any case insenstitive
+  filter(str_detect(gene, regex(Paban_pat, ignore_case = TRUE)))
+
+# matched 8, all non sig, closest is Protachykinin-1 but mapping weird Tac1?
+# old paper so need to remap genes! 
+# NVM DOUBLE CHECK THIS IM VERY CONFUSED!!! 
+```
+
+------------------------------------------------------------------------
+
+# SYNAPTIC CHANGES
+
+```{r}
+borg <- read_csv("input/lit_review/2025_12_15_Borgmeyer_2021_Hip_SJ_proteomics_lit_re_rats_v1.csv")
+```
+
+```{r}
+borg_trm <- borg %>%
+  group_by(Used_name, Uniprot_rat_accession) %>%
+  dplyr::slice(1) %>%  # rm 3 209 tp 206
+  dplyr::select(Year:misc)
+```
+
+```{r}
+# com 2 sig - 1 protein P85845 - Fascin
+intersect(borg_trm$Uniprot_rat_accession, EE_main_sig_df$Protein)
+
+# 5 proteins - Hcn2 K/NA, Dhrs4, Fascin, neuritin, 	Rho GTPase-act prot 39
+intersect(borg_trm$Uniprot_rat_accession, Housing_top_250$Protein)
+
+
+# 5 proteins - Hcn2 K/NA, Dhrs4, Fascin, neuritin, 	Rho GTPase-act prot 39
+intersect(borg_trm$Uniprot_rat_accession, EE_main_only$Protein)
+```
+
+**AGE CHANGES**
+
+```{r}
+# PErez
+'Tle2',
+'Coro6',
+'Echdc2',
+'Ebf4',
+'Tmsb10',
+'Stmn1',
+'Camk2n2',
+'Sbsn',
+'Arx',
+'Nap1l5',
+'Cdh22',
+'Ccdc136',
+'Gng4',
+'Myoc' ,
+'Dpp10',
+
+'Trpc6',
+'Plk5',
+'Lct',
+'Aldh1a1',
+'Bdnf',
+'Iqgap2',
+'Egr3',
+'Sema5a',
+'Sipa1l3',
+'Pdyn',
+'Lrrc10b',
+'Dagla',
+'Rasd1',
+'Lingo3',
+'Tanc1',
+'Nptx2',
+'Kif17',
+'Klk8',
+'Ptgs2',
+'Bok'.
+'Fosb',
+'Syt12',
+```
+
+```{r}
+# import 
+Perez_prot <- read_csv("input/lit_review/2025_12_27_Perez_2024_proteomics_map_rat_combined_v1.csv")
+```
+
+```{r}
+Perez_prot_sig <- Perez_prot %>%
+  filter(adj.P.Val < 0.05) %>%
+  filter(proteomics_id == "all") # 945 x 57
+
+
+# 945 comp to > 8000 - observe => 8000 present 
+intersect(Perez_prot_sig$Entry, EE_main_only$Protein)
+
+
+# 36 of Perez's EE_all sig adp <0.05 seen in out top 250 
+intersect(Perez_prot_sig$Entry, Housing_top_250$Protein)
+
+
+# 6 of Perez's EE_all sig adp <0.05 seen in our 16 sig adj p<0.05! 
+intersect(Perez_prot_sig$Entry, EE_main_sig_df$Protein)
+
+
+# 7 of Perez's EE_all sig adp <0.05 seen in our 16 sig adj p<0.05! 
+intersect(Perez_prot_sig$Entry, EE_main_sig_df_adjp01$Protein)
 ```
