@@ -26,12 +26,12 @@ library(pcaMethods) # for various pca()
 
 ```{r}
 #psum
-load("input/results/psum/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_psum.rda") # laptop
-# load("input/MSstatsTMT/psum/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_psum.rda") # Jen
+# load("input/results/psum/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_psum.rda") # laptop
+load("input/MSstatsTMT/psum/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_psum.rda") # Jen
 
 #comp
-load("input/results/comp/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_comp.rda") # laptop
-# load("input/MSstatsTMT/comp/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_comp.rda") # Jen
+# load("input/results/comp/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_comp.rda") # laptop
+load("input/MSstatsTMT/comp/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_comp.rda") # Jen
 
 #anno
 anno <- read_csv("input/anno/EEv&SH_F&M_TMT_anno_v3_df_b_check_sorted_2025_12_31.csv") 
@@ -373,7 +373,7 @@ EE_Volcano <- mapped_comp %>%
                                 "down_adjp.05",
                                 "up_adjp.1",
                                 "down_adjp.1"),
-                     labels = c("\U2191 (adj.p <.05)", \U2191  \U2193
+                     labels = c("\U2191 (adj.p <.05)", 
                                 "\U2193 (adj.p <.05)",
                                 "\U2191 (adj.p <.1)",
                                 "\U2193 (adj.p <.1)")) +
@@ -753,7 +753,7 @@ EE vs SH
 
 ```{r}
 colors <- c("#8CB585","#A8D9A0", "#D4C07E", "#FEE697", "#E6AB02FF",
-            "#66A61EFF", )
+            "#66A61EFF" )
 # Banana Mania (#FBE7B2), Sunglow (#FFCC33), 	Dandelion (#FED85D)
 # Maximum Green (#5E8C31)| Asparagus #7BA05B, Middle Green Yellow (#ACBF60)
 ```
@@ -1605,17 +1605,17 @@ EE_main_sig_df_adjp01 <- EE_main_only %>%
 
 ```{r}
 # import 
-mice_lit_re <- read_excel("input/lit_review/2026_01_13_EE_omics_lit_review_mRNA_Proteins.xlsx",
+mice_lit_re <- read_excel("input/lit_review/2026_02_01_EE_omics_lit_review_mRNA_Proteins.xlsx",
            sheet = 'mice_proteins_mRNA')
 ```
 
-#### Hu et al., 2013 Comparison 
+#### Hu et al., 2013 Comparison
 
 ```{r}
 Hu_2013 <- mice_lit_re %>%
   filter(Author == "Hu") %>%
   filter(is.na(Mod)) %>%
-  mutate(Study = paste0(Author, " ", Year))
+  mutate(Study = paste0(Author, " ", Year)) 
 
 dim(Hu_2013) #15 x 31
 ```
@@ -1650,21 +1650,34 @@ EE_Hu_overlap_my_df <- EE_Hu_overlap_my_df  %>%
     pvalue.y < 0.05 & log2FC > .05 ~ "\u2191", # up sig .05
     pvalue.y < 0.05 & log2FC < -.05 ~ "\u2193", # down sig .05
     .default = "-"
-  ))
+  )) 
+
+# %>%
+#   
+#   mutate(custom_label = case_when(
+#     !is.na(Label) & !is.na(Mod) ~ Mod,
+#      is.na(Label) & !is.na(Mod) ~ " ",
+#     !is.na(Label) ~ Label
+#   ))
+#  
+
+
+  # filter(if(any(Reviewed == "reviewed", na.rm = TRUE)) {
+  #    Reviewed == "reviewed" # if reviewed = keep,
 ```
 
 ```{r}
 me_and_hu_gt <- EE_Hu_overlap_my_df %>%
   dplyr::ungroup() %>%
-  dplyr::select(c(Animal, Region, Exp_type, Method, Used_name,
-                 Gene_name, Full_name, Label,
+  dplyr::select(c(Label, Animal, Region, Exp_type,
+                  Method, Used_name,
+                 Gene_name, Full_name, 
                  Hu_2013, EE_vs_SH, log2FC, adj.pvalue)) %>%
   
  gt(
     groupname_col = "Label",
     rowname_col = "Gene_name"
   ) %>%
-
   
   fmt_number(decimals = 2)  %>%
   
@@ -1672,14 +1685,13 @@ me_and_hu_gt <- EE_Hu_overlap_my_df %>%
     Full_name = "Protein Description",
   ) %>%
   
+  tab_source_note(source_note = "Comparison to Hu et al., 2013. Table does not include phosphoproteins.") %>%
   
   tab_style(
     style = list(
-      # cell_fill(color = "#F9E3D6"),
       cell_text(style = "italic")
       ),
     locations = cells_stub()) %>%
-  
   
     tab_options(table.font.size=10) %>%
     opt_vertical_padding(scale = 0.5) %>% # vert padding
@@ -1688,7 +1700,6 @@ me_and_hu_gt <- EE_Hu_overlap_my_df %>%
     style = list(
       # cell_fill(color = "#F9E3D6"),
       cell_text(weight = "bold", size = 16)
-      
       ),
     locations = list(
       cells_column_labels(columns = c(Hu_2013, EE_vs_SH)),
@@ -1727,7 +1738,11 @@ length(unique(TrkB$BioReplicate)) # 56 observations! 55
 TrkB %>% 
   group_by(TechRepMixture) %>%
   count(TechRepMixture)
+```
 
+```{r}
+ribo <- EE_main_only %>%
+  filter(stringr::str_detect(description, pattern = "ribosom|elong"))
 ```
 
 ------------------------------------------------------------------------
