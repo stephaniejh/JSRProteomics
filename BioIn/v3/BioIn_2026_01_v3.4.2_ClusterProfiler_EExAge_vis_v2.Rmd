@@ -355,6 +355,7 @@ paletteer::paletteer_d("rcartocolor::Emrld")
 paletteer::paletteer_d("rcartocolor::Teal")
 paletteer::paletteer_d("rcartocolor::Safe")
 paletteer::paletteer_d("rcartocolor::Prism")
+paletteer::paletteer_d("rcartocolor::Temps")
 
 
 # DYNAMIC
@@ -401,21 +402,21 @@ GO_EE_CC_map <- left_join(GO_EE_CC, up_subcell, by = join_by(ID == go_id))
 neuron_map_EE_cell_comp <- drawCell::drawCell(
   organism_identifier = "6072",
   list_sl_colors = list(
-    "SL0191" = "#83BED9FF", # nucleus
+    "SL0191" = "#4a6fe3", # nucleus
     "SL0173" = "#CF597EFF", # mitochondrion
     "SL0132" = "#39B185FF", # golgi apparatus
     "SL0095" = "#5E81ACFF", # Ebdoplasmic reticulum
   #   "SL0101" = "#E17C05FF", # Endosome
-    "SL0197" = "#F2B4B7FF", # Perikaryon / so`ma
+    "SL0197" = "D33F6A", # Perikaryon / so`ma
   #   "SL0154" = "#A8DBD9FF", # Lipid Droplet
   #   "SL0158" = "#7CAF71FF", # Lysosome
-    "SL0091" = "#E6F5D0FF", # Cytosol
+    # "SL0091" = "#E6F5D0FF", # Cytosol
   #   "SL0090" = "#E6AB02FF", # Cytoskeleton
     # "SL0098" = "#d1eeea", # endoplasmic ret- golgi intermediate
-    "SL0279" = "#EB7F86FF", # axon
+    "SL0279" = "#e07b91", # axon
   #   "SL0288" = "#97E196FF", # growth cone
-    "SL0176" = "#F7945DFF", # Myelin membrane
-    "SL0192" = "#672044", # Paranodal septate junction
+    "SL0176" = "#e6afb9", # Myelin membrane
+    "SL0192" = "#d33f6a", # Paranodal septate junction
     "SL0071" = "#d46780", # clathrin-coated vesicle (membrane)
   #   "SL0284" = "#F9C7B8FF", # dendrite
   #   "SL0258" = "#F3AD6AFF", # synapse
@@ -427,9 +428,9 @@ neuron_map_EE_cell_comp <- drawCell::drawCell(
   #   
     "SL0222" = "#F1B6DAFF", # presynaptic cell mem
   #   "SL0519" = "#EDAD08FF", # presyn active zone
-    "SL0529" = "#EDAD08FF", # presynap endocytic zone
+    "SL0529" = "#d33f6a", # presynap endocytic zone
     # "SL0259" = "#4C90B4FF", # Synaptic Vesicle
-    "SL0260" = "#C70003FF", # Synap Vesic Mem
+    "SL0260" = "#d33f6a", # Synap Vesic Mem
     "SL0039" = "#EB7F86FF" # Cell membrane
   
   ),
@@ -449,4 +450,121 @@ neuron_map_EE_cell_comp
 #         #vheight = 300,
 #         delay = 10 # adding delay fixes problem (slow! otherwise blanks)
 #         )
+```
+
+------------------------------------------------------------------------
+
+-   <https://yulab-smu.top/biomedical-knowledge-mining-book/enrichplot.html#enrichment-map>
+
+-   <https://dshizuka.github.io/networkanalysis/03_plots.html>
+
+```{r}
+# WEIRD MAPPING ?!?!?! 
+p1 <- treeplot(
+  GO_gsea_EExAge_cp_v3.4.2_t2_simplified$pw_sim_GO_terms$H_EE_vs_SH$CC, nCluster = 5) +
+  theme(legend.position = "none")
+
+p2 <- treeplot(
+  GO_gsea_EExAge_cp_v3.4.2_t2_simplified$pw_sim_GO_terms$HxA_EE_YNG_vs_SH_YNG$CC,
+  nCluster = 5) +
+  theme(legend.position = "none")
+
+aplot::plot_list(p1, p2, tag_levels='A', ncol=2)
+```
+
+```{r}
+set.seed(123)
+
+p1_test <- emapplot(
+  GO_gsea_EExAge_cp_v3.4.2_t2_simplified$pw_sim_GO_terms$H_EE_vs_SH$CC, color = "NES",
+  showCategory = 30, min_edge = 0.2, 
+  nWords = 10, # tricks it into not adding extra label! def is 4 btw
+  layout="nicely",
+  node_label = "cateogry", group = TRUE
+  ) +
+  scale_color_continuous_diverging("Blue-Red 2") +
+  scale_fill_discrete_divergingx("Temps") +
+  theme(legend.position = "none")  +
+ geom_cnet_label(node_label = "all", size = 3.5, color = "grey10", fontface = "italic")
+
+p1_Test
+
+
+```
+
+```{r}
+set.seed(123)
+
+p1 <- emapplot(
+  GO_gsea_EExAge_cp_v3.4.2_t2_simplified$pw_sim_GO_terms$H_EE_vs_SH$CC, color = "NES",
+  showCategory = 50, min_edge = 0.3, size_edge = 0.35, size_category = 1.7,
+  layout="with_fr", node_label = "none", label_format = 3) +
+  scale_color_continuous_diverging("Blue-Red 2") +
+  scale_fill_discrete_divergingx("Temps") +
+  theme(legend.position = "none")  +
+ geom_cnet_label(node_label = "all", size = 4, fontface = "italic")
+
+
+p1
+
+p2 <- emapplot(
+  GO_gsea_EExAge_cp_v3.4.2_t2_simplified$pw_sim_GO_terms$H_EE_vs_SH$BP, color = "NES",
+  showCategory = 50, min_edge = 0.3, size_edge = 0.35, size_category = 1.7,
+  layout="with_fr", node_label = "none", label_format = 3) +
+  scale_color_continuous_diverging("Blue-Red 2") +
+  scale_fill_discrete_divergingx("Temps") +
+  theme(legend.position = "none")  +
+ geom_cnet_label(node_label = "all", size = 4, fontface = "italic")
+
+p2
+
+p3 <- emapplot(
+  GO_gsea_EExAge_cp_v3.4.2_t2_simplified$pw_sim_GO_terms$H_EE_vs_SH$MF, color = "NES",
+  showCategory = 50, min_edge = 0.3, size_edge = 0.35, size_category = 1.7,
+  layout="nicely", node_label = "none") +
+  scale_color_continuous_diverging("Blue-Red 2") +
+  scale_fill_discrete_divergingx("Temps") +
+  theme(legend.position = "none")  +
+ geom_cnet_label(node_label = "all", size = 3.5, fontface = "italic")
+
+p3
+```
+
+```{r}
+set.seed(123)
+
+# p4 <- emapplot(
+#   GO_gsea_EExAge_cp_v3.4.2_t2_simplified$pw_sim_GO_terms$A_YNG_vs_OLD$CC, color = "NES",
+#   showCategory = 50, min_edge = 0.3, size_edge = 0.35, size_category = 1.5,
+#   layout="with_fr", node_label = "none", label_format = 3) +
+#   scale_color_continuous_diverging("Blue-Red 2") +
+#   scale_fill_discrete_divergingx("Temps") +
+#   theme(legend.position = "none")  +
+#  geom_cnet_label(node_label = "all", size = 4, fontface = "italic")
+# 
+# p4
+
+
+p5 <- emapplot(
+  GO_gsea_EExAge_cp_v3.4.2_t2_simplified$pw_sim_GO_terms$A_YNG_vs_OLD$BP, color = "NES",
+  showCategory = 50, min_edge = 0.3, size_edge = 0.35, size_category = 1.5,
+  layout="with_fr", node_label = "none", label_format = 3) +
+  scale_color_continuous_diverging("Blue-Red 2") +
+  scale_fill_discrete_divergingx("Temps") +
+  theme(legend.position = "none")  +
+ geom_cnet_label(node_label = "all", size = 3.5, fontface = "italic")
+
+p5
+
+
+p6 <- emapplot(
+  GO_gsea_EExAge_cp_v3.4.2_t2_simplified$pw_sim_GO_terms$A_YNG_vs_OLD$MF, color = "NES",
+  showCategory = 50, min_edge = 0.3, size_edge = 0.35, size_category = 1.5,
+  layout="nicely", node_label = "none") +
+  scale_color_continuous_diverging("Blue-Red 2") +
+  scale_fill_discrete_divergingx("Temps") +
+  theme(legend.position = "none")  +
+ geom_cnet_label(node_label = "all", size = 3.5, fontface = "italic")
+
+p6
 ```
