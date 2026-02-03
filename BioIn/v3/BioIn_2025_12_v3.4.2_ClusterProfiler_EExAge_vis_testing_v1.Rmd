@@ -186,6 +186,7 @@ SynGO_ids <- read_excel("input/db/SynGO_idmap_entrez_2026_02_01.xlsx")
 ```{r}
 protein_comp_entrez_syngo <- left_join(protein_comp_entrez, SynGO_ids,
                                        by = join_by(ENTREZID == query))
+
 ```
 
 ```{r}
@@ -1259,6 +1260,36 @@ split_protein_comp_entrez_syngo_top_250 <- split(protein_comp_entrez_syngo_top_2
 # # write out excel!
 # write_xlsx(split_protein_comp_entrez_syngo_top_250,
 #            "output/2026_02_01_AgeXEE_split_protein_comp_entrez_SynGO_top_250.xlsx")
+
+
+protein_comp_entrez_syngo_top_250_ranked <- protein_comp_entrez_syngo_top_250 %>%
+  mutate(top_250_ranking = sign(log2FC)*(-log10(adj.pvalue)))
+
+protein_comp_entrez_syngo_top_250_ranked_split <-  split(
+  protein_comp_entrez_syngo_top_250_ranked,
+  protein_comp_entrez_syngo_top_250_ranked$Label)
+
+# # write out excel!
+# write_xlsx(protein_comp_entrez_syngo_top_250_ranked_split,
+#            "output/2026_02_03_AgeXEE_split_protein_comp_entrez_SynGO_top_250_ranking.xlsx")
+
+
+
+protein_comp_entrez_syngo_ranked <- protein_comp_entrez_syngo %>%
+  ungroup() %>%
+  mutate(ranking = sign(log2FC)*(-log10(pvalue))) %>%
+  relocate(symbol, .before = ranking)
+
+
+split_protein_comp_entrez_syngo_ranked <- split(
+  protein_comp_entrez_syngo_ranked,
+  protein_comp_entrez_syngo_ranked$Label)
+
+#  # write out excel!
+# write_xlsx(split_protein_comp_entrez_syngo_ranked,
+#  "output/2026_02_03_AgeXEE_split_protein_comp_entrez_SynGO_full_entrez_ranking.xlsx")
+
+
 ```
 
 -   <https://stats.oarc.ucla.edu/r/library/r-library-advanced-functions/>
