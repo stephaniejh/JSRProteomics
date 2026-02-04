@@ -20,18 +20,20 @@ library(paletteer)
 library(ggnewscale) # additional color/fill scale new_scale_fill()
 library(ggvenn) # vennys (old ones)
 library(pcaMethods) # for various pca()
+library(readxl)
 ```
 
 ### Load in data
 
 ```{r}
 #psum
-# load("input/results/psum/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_psum.rda") # laptop
-load("input/MSstatsTMT/psum/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_psum.rda") # Jen
+load("input/results/psum/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_psum.rda") # laptop
+
+#load("input/MSstatsTMT/psum/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_psum.rda") # Jen
 
 #comp
-# load("input/results/comp/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_comp.rda") # laptop
-load("input/MSstatsTMT/comp/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_comp.rda") # Jen
+load("input/results/comp/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_comp.rda") # laptop
+#load("input/MSstatsTMT/comp/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_comp.rda") # Jen
 
 #anno
 anno <- read_csv("input/anno/EEv&SH_F&M_TMT_anno_v3_df_b_check_sorted_2025_12_31.csv") 
@@ -1666,6 +1668,8 @@ EE_Hu_overlap_my_df <- EE_Hu_overlap_my_df  %>%
   #    Reviewed == "reviewed" # if reviewed = keep,
 ```
 
+me_and_hu_gtg \<- as_gtable(me_and_hu_gt, plot = TRUE, text_grob = grid::textGrob)
+
 ```{r}
 me_and_hu_gt <- EE_Hu_overlap_my_df %>%
   dplyr::ungroup() %>%
@@ -1774,22 +1778,138 @@ borg <- read_csv("input/lit_review/2025_12_15_Borgmeyer_2021_Hip_SJ_proteomics_l
 ```
 
 ```{r}
+# NOTE SOME REDUNDANCIES
 borg_trm <- borg %>%
-  group_by(Used_name, Uniprot_rat_accession) %>%
+  group_by(Used_name, Gene_name) %>%
   dplyr::slice(1) %>%  # rm 3 209 tp 206
-  dplyr::select(Year:misc)
+  dplyr::select(adj.pvalue, Year:misc) %>%
+  rename(b_adj.pvalue = adj.pvalue)
 ```
 
 ```{r}
 # com 2 sig - 1 protein P85845 - Fascin
-intersect(borg_trm$Uniprot_rat_accession, EE_main_sig_df$Protein)
+intersect(borg_trm$Uniprot_rat_accession, EE_main_sig_df$Protein) 
+intersect(borg_trm$Gene_name, EE_main_sig_df$gene) # SAME AS ABOVE
 
 # 5 proteins - Hcn2 K/NA, Dhrs4, Fascin, neuritin, 	Rho GTPase-act prot 39
 intersect(borg_trm$Uniprot_rat_accession, Housing_top_250$Protein)
-
+intersect(borg_trm$Gene_name, Housing_top_250$gene)
 
 # 5 proteins - Hcn2 K/NA, Dhrs4, Fascin, neuritin, 	Rho GTPase-act prot 39
-intersect(borg_trm$Uniprot_rat_accession, EE_main_only$Protein)
+borg_list <- intersect(borg_trm$Uniprot_rat_accession, EE_main_only$Protein)
+
+# borg_map <- EE_main_only %>%
+#   filter(Protein %in% borg_list)
+
+borg_map <-mapped_comp %>%
+  filter(Label == "H_EE_vs_SH") %>%
+  filter(Protein %in% borg_list)
+```
+
+```{r}
+
+borg_merge <- left_join(borg_trm, borg_map, 
+                        by = join_by(Uniprot_rat_accession == Protein))
+
+
+borg_merge <- borg_merge  %>%
+   mutate(Borgmeyer_2021 =  case_when(
+    Significant == "yes" & In_EE == "Up" ~ "\u2191 *",
+    Significant == "yes" & In_EE == "Down" ~ "\u2193 *",
+    Significant == "no" & In_EE == "Up" ~ "\u2191",
+    Significant == "no" & In_EE == "Down" ~ "\u2193",
+    In_EE == "Same" ~ "-",
+    .default = " "
+   )) %>%
+  mutate(EE_vs_SH = case_when(
+    adj.pvalue < 0.05 & log2FC > .05 ~ "\u2191 *", # up sig .05
+    adj.pvalue < 0.05 & log2FC < -.05 ~ "\u2193 *", # down sig .05
+    pvalue < 0.05 & log2FC > .05 ~ "\u2191", # up sig .05
+    pvalue < 0.05 & log2FC < -.05 ~ "\u2193", # down sig .05
+    .default = " " # ‐
+  )) %>%
+  mutate(Full_name = str_trunc(Full_name, 80)) %>%
+  filter(!is.na(Label)) %>% 
+  arrange(adj.pvalue, Gene_name) 
+
+```
+
+```{r}
+me_and_borg <- head(borg_merge, 30) %>%
+  dplyr::ungroup() %>%
+  dplyr::select(c(Label, Animal, Region, Exp_type,
+                 Gene_name, Full_name, b_adj.pvalue, Fold_change,
+                 Borgmeyer_2021,
+                 EE_vs_SH,
+                 log2FC, adj.pvalue)) %>%
+  
+ gt(
+    groupname_col = "Label",
+    rowname_col = "Gene_name"
+  ) %>%
+
+  fmt_number(decimals = 2)  %>%
+  
+    cols_label(
+    Full_name = "Protein Description",
+    Fold_change = "log2FC",
+    b_adj.pvalue = "adj.pvalue"
+  ) %>%
+  
+  tab_source_note(source_note = "Comparison to Borgmeyer 2021. Mapped to significant proteins in EE mice (DDA LFQ Proteomics, Hippocampal Synaptic Junctions of Male Mice). Top 30 most significant mapped proteins depicted.") %>%
+
+  tab_style(
+    style = list(
+      cell_text(style = "italic",  size = px(12))
+      ),
+    locations = cells_stub()) %>%
+
+    tab_options(table.font.size=10) %>%
+    opt_vertical_padding(scale = 0.55) %>% # vert padding
+
+    tab_style(
+    style = list(
+      cell_text(weight = "bold", size = px(14), # pass through px to work! 
+                align = "center")  
+      ),
+    locations = list(
+      cells_body(columns = c(Borgmeyer_2021, EE_vs_SH))
+      )) %>%
+  
+  tab_style(
+    style = list(
+      cell_text(weight = "bold", size = px(11))),
+    locations = list(
+      cells_column_labels(columns = c(Borgmeyer_2021, EE_vs_SH))
+      )) %>%
+  tab_style(
+    style = list(
+      cell_text(color = "grey15", size = px(9))),
+    locations = list(
+      cells_body(columns = c(Animal, Region, Exp_type))
+      )) %>%
+  
+  as_gtable(plot = TRUE)
+
+me_and_borg
+
+# me_and_borg_gtg<- as_gtable(me_and_borg, plot = TRUE, text_grob = grid::textGrob)
+```
+
+```{r}
+list_SynDiv <- c("Camk2a", "Dlg4", 'Gphn', 'Gad2')
+```
+
+```{r}
+SynDiv <- mapped_comp %>%
+  # filter(Label == "H_EE_vs_SH") %>%
+    filter(Label == "HxA_EE_YNG_vs_SH_YNG") %>%
+  filter(gene %in% c("Camk2a", "Dlg4", 'Gphn', 'Gad2', 'Mbp', 'Gfap', 'Syp',
+                    'Syn2', 'Gria1', 'Gria2', 'Gria3', 'Gria4' ))
+```
+
+```{r}
+
 ```
 
 **AGE CHANGES**
