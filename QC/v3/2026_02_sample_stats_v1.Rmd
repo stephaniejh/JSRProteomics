@@ -1,0 +1,49 @@
+---
+title: "2026_02_sample_stats_v1"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+```
+
+```{r}
+df_55 <- read_csv("input/anno/EEv&SH_F&M_TMT_anno_v3_df_b_check_sorted_2025_12_31.csv")
+
+df_56 <- read_csv("input/anno/EEv&SH_F&M_TMT_anno_v3_df_b_check_sorted_2025_12_31.csv")
+```
+
+```{r}
+df_55_stats <- df_55 %>%
+  group_by(Condition) %>%
+  mutate(Age = if_else(PND <100, "YNG", "OLD")) %>%
+  dplyr::summarise(mean_age = mean(PND),
+                   median_age = median(PND))
+
+df_55_stats 
+
+df_56_stats <- df_56 %>%
+  group_by(Condition) %>%
+  mutate(Age = if_else(PND <100, "YNG", "OLD")) %>%
+  dplyr::summarise(mean_age = mean(PND),
+                   median_age = median(PND))
+
+df_56_stats 
+```
+
+```{r}
+hist <- ggplot(df_55, aes(x = PND, fill = Condition)) +
+  geom_histogram(binwidth = 1, position = "identity",
+                 alpha = 0.5, color = "grey10") +
+  scale_fill_manual(values = c("#66A61EFF", "#E6AB02FF")) + # housing colors 
+  scale_x_continuous(breaks = seq(75, 130, 5)) +
+  facet_wrap(~Condition, ncol = 1) +
+  theme_bw()  +
+  theme(legend.position = "none")
+
+hist 
+```
+
+```{r}
+
+```

@@ -40,6 +40,7 @@ library(cowplot) # plot_grid
 
 library(readxl)
 library(writexl) # for excel tab export
+library(ggvenn) # vennys (old ones)
 ```
 
 ### Load Data
@@ -568,3 +569,69 @@ p6 <- emapplot(
 
 p6
 ```
+
+------------------------------------------------------------------------
+
+## Vennys for GO
+
+map() function from purrr <https://purrr.tidyverse.org/reference/map.html>
+
+```{r}
+# - Make individual GO  lists
+# break up the df into separatre lists
+GO_CC_up_lists <- GO_sim_tibs_df %>%
+  filter(GO == "CC" & NES > 0) %>% # filter for CC
+  split(.$Label) %>% # filter split by comparison label
+  map(~pull(., Description)) 
+
+
+GO_CC_down_lists <- GO_sim_tibs_df %>%
+  filter(GO == "CC" & NES < 0) %>% # filter for CC
+  split(.$Label) %>% # filter split by comparison label
+  map(~pull(., Description)) 
+```
+
+```{r}
+venny <- function(data, colors = NULL) {
+  v <- ggvenn(data,
+              digits = 0,
+              # show_elements = TRUE,
+              fill_alpha = 0.45,
+              stroke_size = 0.5,
+              set_name_size = 3.5,
+              text_size = 3.2,
+              fill_color = colors
+              )
+}
+```
+
+```{r}
+
+EE_colors <- c('#5A844D', '#4782bf', '#C15574')
+
+EE_CC_up <- GO_CC_up_lists[c(
+  'H_EE_vs_SH', 'HxA_EE_YNG_vs_SH_YNG', 'HxA_EE_OLD_vs_SH_OLD')]
+
+v1 <- venny(data = EE_CC_up, colors = EE_colors)
+
+v1 
+
+
+EE_CC_down <- GO_CC_down_lists[c(
+  'H_EE_vs_SH', 'HxA_EE_YNG_vs_SH_YNG', 'HxA_EE_OLD_vs_SH_OLD')]
+
+v2 <- venny(data = EE_CC_down, colors = EE_colors)
+
+v2
+
+```
+
+```{r}
+
+EExA_CC <- GO_CC_lists[c('H_EE_vs_SH', 'A_YNG_vs_OLD')]
+v2 <- venny(data = EExA_CC, colors = c('#4782bf', '#CEAA33'))
+
+v2
+```
+
+------------------------------------------------------------------------
