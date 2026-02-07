@@ -27,6 +27,7 @@ library(readxl)
 
 ```{r}
 #psum
+<<<<<<< HEAD
 load("input/results/psum/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_psum.rda") # laptop
 
 #load("input/MSstatsTMT/psum/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_psum.rda") # Jen
@@ -34,6 +35,14 @@ load("input/results/psum/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_psum.rda") # l
 #comp
 load("input/results/comp/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_comp.rda") # laptop
 #load("input/MSstatsTMT/comp/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_comp.rda") # Jen
+=======
+#load("input/results/psum/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_psum.rda") # laptop
+load("input/MSstatsTMT/psum/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_psum.rda") # Jen
+
+#comp
+#load("input/results/comp/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_comp.rda") # laptop
+load("input/MSstatsTMT/comp/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_comp.rda") # Jen
+>>>>>>> fba15644f685ef0c8096b113714ff3d9147c96bf
 
 #anno
 anno <- read_csv("input/anno/EEv&SH_F&M_TMT_anno_v3_df_b_check_sorted_2025_12_31.csv") 
@@ -671,36 +680,6 @@ plot_grid(Age_Volcano, Age_Volcano_H, ncol = 2,
 #2026_01_18_Agecomps_3_volcanos_cowplot_v1 exp 9.5 x 6 
 ```
 
-```{r}
-# sig_proteins <- mapped_comp_v3.2.2_EExAge_t1 %>%
-#   filter(adj.pvalue <=0.05) %>%
-#   group_by(Label) %>%
-#   slice_min(adj.pvalue, n = 3)
-# 
-# unique_top_3_genes <- unique(sig_proteins$gene) #10 unique
-```
-
-```{r}
-# top_5_plot <- mapped_psum_v3.2.2_EExAge %>%
-#   filter(gene %in% unique_top_3_genes) %>%
-#   ggplot(aes(x = BioReplicate, y = Abundance, fill = Condition)) +
-#   geom_boxplot() +
-#   geom_point() +
-#   facet_nested(~ gene + Mixture + Cohort) +
-#   theme_bw()
-#   
-# 
-# top_5_plot
-```
-
-```{r}
-
-```
-
-------------------------------------------------------------------------
-
-## Lollipop plot?
-
 ------------------------------------------------------------------------
 
 # psumplots
@@ -786,7 +765,7 @@ boxplot_function <- function(data, x , y, # function inputs
     
     # make box plot
     geom_boxplot(aes(fill = {{fill}}),
-                 width = 0.55, size = 0.7, fatten = 1, linewidth = 0.2,
+                 width = 0.55, size = 0.7, median.linewidth = 1, linewidth = 0.2,
                  position = position_dodge(width = 0.7),
                  outlier.shape = NA,
                  color = "grey10", alpha = 0.7) +
@@ -1071,7 +1050,7 @@ plot_grid(plotlist = Age_main_20_psum_plot_list$Up[6:10], ncol = 1)
 ### EE FACET
 
 ```{r}
-boxplot_function <- function(data, x , y, # function inputs
+boxplot_function_facet <- function(data, x , y, # function inputs
                              fill = Housing,
                              # alpha = NULL,
                              shape_color = TechRepMixture,
@@ -1087,7 +1066,7 @@ boxplot_function <- function(data, x , y, # function inputs
     
     # make box plot
     geom_boxplot(aes(fill = {{fill}}),
-                 width = 0.55, size = 0.7, fatten = 1, linewidth = 0.2,
+                 width = 0.55, size = 0.7, median.linewidth = 0.5, linewidth = 0.2,
                  position = position_dodge(width = 0.7),
                  outlier.shape = NA,
                  color = "grey10", alpha = 0.7) +
@@ -1136,7 +1115,7 @@ boxplot_function <- function(data, x , y, # function inputs
     
     panel.background = element_rect(fill = "white"), #bg of plot (inner)
     
-    panel.border = element_rect(fill = NA, linewidth = .1,
+    panel.border = element_rect(fill = NA, linewidth = .2,
                                 color = "grey10"), #plot borders
     plot.background = element_rect(fill = "white"), # bg of plot (outer)
     panel.grid = element_blank(),
@@ -1152,7 +1131,7 @@ boxplot_function <- function(data, x , y, # function inputs
     legend.direction = "horizontal", 
     legend.key.size = unit(0.5, "cm"), # size of legend key icon
     strip.background = element_rect(color = 'grey10', fill = 'grey90',
-                                    linewidth = .1), 
+                                    linewidth = .2), 
     strip.text.x = element_text(size = 8.5, color = 'grey10',
                                 margin = margin(b = 2, t = 1.5)) #vert spacing
   )
@@ -1181,7 +1160,7 @@ EE_facet_up_plot <- mapped_psum %>%
                              lex.order = TRUE),
              y = Abundance,
              fill = Housing, alpha = Age)) +
-  geom_boxplot(width = 0.45, size = 0.7, fatten = 1, linewidth = 0.2,
+  geom_boxplot(width = 0.45, size = 0.7, median.linewidth = 1, linewidth = 0.2,
                  position = position_dodge(width = 0.7),
                  outlier.shape = NA,
                  color = "grey10") +
@@ -1235,7 +1214,7 @@ EE_facet_down_plot <- mapped_psum %>%
                              lex.order = TRUE),
              y = Abundance,
              fill = Housing, alpha = Age)) +
-  geom_boxplot(width = 0.5, size = 0.6, fatten = 1, linewidth = 0.2,
+  geom_boxplot(width = 0.5, size = 0.6, median.linewidth = 1, linewidth = 0.2,
                  position = position_dodge(width = 0.7),
                  outlier.shape = NA,
                  color = "grey10") +
@@ -1295,7 +1274,7 @@ Age_facet_up_plot <- mapped_psum %>%
                              lex.order = TRUE),
              y = Abundance,
              fill = Housing, alpha = Age)) +
-  geom_boxplot(width = 0.5, size = 0.7, fatten = 1, linewidth = 0.2,
+  geom_boxplot(width = 0.5, size = 0.7, median.linewidth = 1, linewidth = 0.2,
                  position = position_dodge(width = 0.7),
                  outlier.shape = NA,
                  color = "grey10") +
@@ -1350,7 +1329,7 @@ Age_facet_down_plot <- mapped_psum %>%
                              lex.order = TRUE),
              y = Abundance,
              fill = Housing, alpha = Age)) +
-  geom_boxplot(width = 0.5, size = 0.7, fatten = 1, linewidth = 0.2,
+  geom_boxplot(width = 0.5, size = 0.7, median.linewidth = 1, linewidth = 0.2,
                  position = position_dodge(width = 0.7),
                  outlier.shape = NA,
                  color = "grey10") +
@@ -1909,10 +1888,149 @@ SynDiv <- mapped_comp %>%
 ```
 
 ```{r}
+<<<<<<< HEAD
 
+=======
+EE_syn_check <- mapped_psum %>%
+  
+  mutate(Condition = forcats::fct_reorder(Condition, PND)) %>% # reoder by PND (no)
+  filter(gene %in% c("Dlg4", 'Syp', 'Gria1', 'Gria2', 'Gria3', 'Gria4', 'Fscn1', 'Nrn1',
+                     'Shank1', 'Shank2', 'Shank3,', 'Gphn', 'Gad2', 'Mbp', 'Gfap', "Camk2a", 'Syn2',
+                     'Syt12', 'Ntrk2', 'Homer1', 'Syngap1', 'Faah', 'Abhd6', 'Cnr1', 'Synpo', 'Arhgap39')) %>%
+
+  ggplot(aes(x = interaction(Age, Housing,
+                             sep = "\n", # space
+                             lex.order = TRUE),
+             y = Abundance,
+             fill = Housing, alpha = Age)) +
+  geom_boxplot(width = 0.45, size = 0.7, median.linewidth = .2, linewidth = 0.2,
+                 position = position_dodge(width = 0.7),
+                 outlier.shape = NA,
+                 color = "grey10") +
+  stat_summary(fun=mean, geom="point", position = position_dodge(width = 0.7),
+               shape=4, size = .8, stroke = 0.2, color ="grey10") +
+  geom_point(color = "grey10", size = .5, shape = 1, stroke = .5,
+      position = position_jitterdodge(dodge.width = 0.6, jitter.width = 0.3)) +
+
+  scale_fill_manual(values = c("#66A61EFF", "#E6AB02FF")) + # housing colors
+  scale_alpha_manual(values = c(.6,.75)) +
+  scale_color_manual(values = c("#003a6d", "#31135e")) +
+  # guides(y.sec = 'axis') + # adds 2nd y axis (right side)
+  facet_wrap(~gene, ncol = 6, scale = "free_y") +
+  my_theme +
+  theme(
+     axis.text.y = element_text(size = 9, color ="grey10"),
+     axis.text.x = element_text(size = 9, color ="grey10"),
+     axis.title.x = element_blank(),
+     panel.spacing = unit(0.2, "cm"),  # Removes space between panel
+     legend.margin = margin(,0,0,0), # space between plot & legend
+     axis.ticks = element_line(size=0.1, colour = "grey15", linewidth = .2),
+         panel.border = element_rect(fill = NA, linewidth = .2,
+                                color = "grey10"), #plot borders
+         strip.background = element_rect(color = 'grey10', fill = 'grey90',
+                                    linewidth = .2),
+  )
+
+
+EE_syn_check
+>>>>>>> fba15644f685ef0c8096b113714ff3d9147c96bf
 ```
 
 **AGE CHANGES**
+
+```{r}
+EE_check_down <- mapped_psum %>%
+  
+  mutate(Condition = forcats::fct_reorder(Condition, PND)) %>% # reoder by PND (no)
+  filter(gene %in% c('Tle2', 'Coro6', 'Echdc2', 'Ebf4', 'Tmsb10', 'Stmn1',
+                     'Camk2n2', 'Sbsn', 'Arx', 'Nap1l5', 'Cdh22', 'Ccdc136',
+                     'Gng4', 'Myoc' , 'Dpp10')) %>%
+
+  ggplot(aes(x = interaction(Age, Housing,
+                             sep = "\n", # space
+                             lex.order = TRUE),
+             y = Abundance,
+             fill = Housing, alpha = Age)) +
+  geom_boxplot(width = 0.45, size = 0.7, median.linewidth = .2, linewidth = 0.2,
+                 position = position_dodge(width = 0.7),
+                 outlier.shape = NA,
+                 color = "grey10") +
+  stat_summary(fun=mean, geom="point", position = position_dodge(width = 0.7),
+               shape=4, size = .8, stroke = 0.2, color ="grey10") +
+  geom_point(color = "grey10", size = .5, shape = 1, stroke = .5,
+      position = position_jitterdodge(dodge.width = 0.6, jitter.width = 0.3)) +
+
+  scale_fill_manual(values = c("#66A61EFF", "#E6AB02FF")) + # housing colors
+  scale_alpha_manual(values = c(.6,.75)) +
+  scale_color_manual(values = c("#003a6d", "#31135e")) +
+  # guides(y.sec = 'axis') + # adds 2nd y axis (right side)
+  facet_wrap(~gene, ncol = 6, scale = "free_y") +
+  my_theme +
+  theme(
+     axis.text.y = element_text(size = 9, color ="grey10"),
+     axis.text.x = element_text(size = 9, color ="grey10"),
+     axis.title.x = element_blank(),
+     panel.spacing = unit(0.2, "cm"),  # Removes space between panel
+     legend.margin = margin(,0,0,0), # space between plot & legend
+     axis.ticks = element_line(size=0.1, colour = "grey15", linewidth = .2),
+         panel.border = element_rect(fill = NA, linewidth = .2,
+                                color = "grey10"), #plot borders
+         strip.background = element_rect(color = 'grey10', fill = 'grey90',
+                                    linewidth = .2),
+  )
+
+
+EE_check_down
+```
+
+```{r}
+EE_check_down <- mapped_psum %>%
+  
+  mutate(Condition = forcats::fct_reorder(Condition, PND)) %>% # reoder by PND (no)
+  filter(gene %in% c('Trpc6','Plk5','Lct','Aldh1a1','Bdnf','Iqgap2','Egr3',
+                     'Sema5a','Sipa1l3','Pdyn','Lrrc10b','Dagla','Rasd1','Lingo3',
+                     'Tanc1','Nptx2','Kif17','Klk8','Ptgs2','Bok','Fosb','Syt12')) %>%
+
+  ggplot(aes(x = interaction(Age, Housing,
+                             sep = "\n", # space
+                             lex.order = TRUE),
+             y = Abundance,
+             fill = Housing, alpha = Age)) +
+  geom_boxplot(width = 0.45, size = 0.7, median.linewidth = .2, linewidth = 0.2,
+                 position = position_dodge(width = 0.7),
+                 outlier.shape = NA,
+                 color = "grey10") +
+  stat_summary(fun=mean, geom="point", position = position_dodge(width = 0.7),
+               shape=4, size = .8, stroke = 0.2, color ="grey10") +
+  geom_point(color = "grey10", size = .5, shape = 1, stroke = .5,
+      position = position_jitterdodge(dodge.width = 0.6, jitter.width = 0.3)) +
+
+  scale_fill_manual(values = c("#66A61EFF", "#E6AB02FF")) + # housing colors
+  scale_alpha_manual(values = c(.6,.75)) +
+  scale_color_manual(values = c("#003a6d", "#31135e")) +
+  # guides(y.sec = 'axis') + # adds 2nd y axis (right side)
+  facet_wrap(~gene, ncol = 6, scale = "free_y") +
+  my_theme +
+  theme(
+     axis.text.y = element_text(size = 9, color ="grey10"),
+     axis.text.x = element_text(size = 9, color ="grey10"),
+     axis.title.x = element_blank(),
+     panel.spacing = unit(0.2, "cm"),  # Removes space between panel
+     legend.margin = margin(,0,0,0), # space between plot & legend
+     axis.ticks = element_line(size=0.1, colour = "grey15", linewidth = .2),
+         panel.border = element_rect(fill = NA, linewidth = .2,
+                                color = "grey10"), #plot borders
+         strip.background = element_rect(color = 'grey10', fill = 'grey90',
+                                    linewidth = .2),
+  )
+
+
+EE_check_down
+```
+
+```{r}
+plot_grid(EE_check_up, EE_check_down, ncol = 1)
+```
 
 ```{r}
 # PErez
