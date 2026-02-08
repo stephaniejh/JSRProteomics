@@ -21,28 +21,30 @@ library(ggnewscale) # additional color/fill scale new_scale_fill()
 library(ggvenn) # vennys (old ones)
 library(pcaMethods) # for various pca()
 library(readxl)
+library(htmlwidgets) #
+library(webshot2)
 ```
 
 ### Load in data
 
 ```{r}
 #psum
-<<<<<<< HEAD
+
 load("input/results/psum/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_psum.rda") # laptop
 
 #load("input/MSstatsTMT/psum/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_psum.rda") # Jen
 
 #comp
 load("input/results/comp/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_comp.rda") # laptop
-#load("input/MSstatsTMT/comp/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_comp.rda") # Jen
-=======
-#load("input/results/psum/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_psum.rda") # laptop
-load("input/MSstatsTMT/psum/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_psum.rda") # Jen
+# load("input/MSstatsTMT/comp/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_comp.rda") # Jen
+
+load("input/results/psum/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_psum.rda") # laptop
+# load("input/MSstatsTMT/psum/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_psum.rda") # Jen
 
 #comp
-#load("input/results/comp/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_comp.rda") # laptop
-load("input/MSstatsTMT/comp/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_comp.rda") # Jen
->>>>>>> fba15644f685ef0c8096b113714ff3d9147c96bf
+load("input/results/comp/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_comp.rda") # laptop
+# load("input/MSstatsTMT/comp/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_comp.rda") # Jen
+
 
 #anno
 anno <- read_csv("input/anno/EEv&SH_F&M_TMT_anno_v3_df_b_check_sorted_2025_12_31.csv") 
@@ -1586,7 +1588,7 @@ EE_main_sig_df_adjp01 <- EE_main_only %>%
 
 ```{r}
 # import 
-mice_lit_re <- read_excel("input/lit_review/2026_02_01_EE_omics_lit_review_mRNA_Proteins.xlsx",
+mice_lit_re <- read_excel("input/lit_review/2026_01_13_EE_omics_lit_review_mRNA_Proteins.xlsx",
            sheet = 'mice_proteins_mRNA')
 ```
 
@@ -1630,21 +1632,9 @@ EE_Hu_overlap_my_df <- EE_Hu_overlap_my_df  %>%
     adj.pvalue < 0.05 & log2FC < -.05 ~ "\u2193 *", # down sig .05
     pvalue.y < 0.05 & log2FC > .05 ~ "\u2191", # up sig .05
     pvalue.y < 0.05 & log2FC < -.05 ~ "\u2193", # down sig .05
-    .default = "-"
+    .default = " "
   )) 
 
-# %>%
-#   
-#   mutate(custom_label = case_when(
-#     !is.na(Label) & !is.na(Mod) ~ Mod,
-#      is.na(Label) & !is.na(Mod) ~ " ",
-#     !is.na(Label) ~ Label
-#   ))
-#  
-
-
-  # filter(if(any(Reviewed == "reviewed", na.rm = TRUE)) {
-  #    Reviewed == "reviewed" # if reviewed = keep,
 ```
 
 me_and_hu_gtg \<- as_gtable(me_and_hu_gt, plot = TRUE, text_grob = grid::textGrob)
@@ -1682,17 +1672,24 @@ me_and_hu_gt <- EE_Hu_overlap_my_df %>%
     tab_style( 
     style = list(
       # cell_fill(color = "#F9E3D6"),
-      cell_text(weight = "bold", size = 16)
+      cell_text(weight = "bold", size = px(11))
       ),
     locations = list(
-      cells_column_labels(columns = c(Hu_2013, EE_vs_SH)),
+      cells_column_labels(columns = c(Hu_2013, EE_vs_SH))
+      )) %>%
+   tab_style( 
+    style = list(
+      # cell_fill(color = "#F9E3D6"),
+      cell_text(weight = "bold", size = px(14))
+      ),
+    locations = list(
       cells_body(columns = c(Hu_2013, EE_vs_SH))
       ))
 
   
 me_and_hu_gt
   
-me_and_hu_gtg <- as_gtable(me_and_hu_gt, plot = TRUE, text_grob = grid::textGrob)
+# me_and_hu_gtg <- as_gtable(me_and_hu_gt, plot = TRUE, text_grob = grid::textGrob)
 ```
 
 ```{r}
@@ -1844,7 +1841,7 @@ me_and_borg <- head(borg_merge, 30) %>%
     locations = cells_stub()) %>%
 
     tab_options(table.font.size=10) %>%
-    opt_vertical_padding(scale = 0.55) %>% # vert padding
+    opt_vertical_padding(scale = 0.3) %>% # vert padding
 
     tab_style(
     style = list(
@@ -1868,11 +1865,13 @@ me_and_borg <- head(borg_merge, 30) %>%
       cells_body(columns = c(Animal, Region, Exp_type))
       )) %>%
   
-  as_gtable(plot = TRUE)
+  # gtsave("output/me_&_borg.pdf")
+  
+as_gtable(plot = TRUE, text_grob = gridtext::richtext_grob)
 
-me_and_borg
+# me_and_borg
 
-# me_and_borg_gtg<- as_gtable(me_and_borg, plot = TRUE, text_grob = grid::textGrob)
+
 ```
 
 ```{r}
@@ -1888,9 +1887,7 @@ SynDiv <- mapped_comp %>%
 ```
 
 ```{r}
-<<<<<<< HEAD
 
-=======
 EE_syn_check <- mapped_psum %>%
   
   mutate(Condition = forcats::fct_reorder(Condition, PND)) %>% # reoder by PND (no)
@@ -1933,7 +1930,7 @@ EE_syn_check <- mapped_psum %>%
 
 
 EE_syn_check
->>>>>>> fba15644f685ef0c8096b113714ff3d9147c96bf
+
 ```
 
 **AGE CHANGES**
@@ -1965,7 +1962,7 @@ EE_check_down <- mapped_psum %>%
   scale_color_manual(values = c("#003a6d", "#31135e")) +
   # guides(y.sec = 'axis') + # adds 2nd y axis (right side)
   facet_wrap(~gene, ncol = 6, scale = "free_y") +
-  my_theme +
+  # my_theme +
   theme(
      axis.text.y = element_text(size = 9, color ="grey10"),
      axis.text.x = element_text(size = 9, color ="grey10"),

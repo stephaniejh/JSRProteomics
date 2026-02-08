@@ -179,7 +179,7 @@ PSMs <- PD_PSMs %>%
 num_PSMs <- PSMs %>%
   group_by(pick(where(is.factor))) %>%
   mutate(PSMs = n()) %>%
-  select(c(1:4, PSMs)) %>%
+  dplyr::select(c(1:4, PSMs)) %>%
   unique()
 ```
 
@@ -240,7 +240,7 @@ RS <- PD_RS %>%
 ```{r}
 # Check assignment of 
 RS_check <- RS %>%
-  select(1:5, folder, PD_result_file, file_path) %>%
+  dplyr::select(1:5, folder, PD_result_file, file_path) %>%
   unique() 
 
 # dim  - 288 x 8  - 96 x 3 = 288 (got rid of Nov 2024 batch for now)
@@ -501,7 +501,7 @@ seq_by_nop_2_ggmar <- ggMarginal(seq_by_nop_2, type = "density")
 seq_by_nop_2_ggmar
 ```
 
-### Abundance/Intensity plots 
+### Abundance/Intensity plots
 
 ```{r}
 Abundances <- PSMs %>%
@@ -572,6 +572,83 @@ intensity_bp_2 <- Abundances %>%
 intensity_bp_2
 ```
 
+------------------------------------------------------------------------
+
+### 2026_01_26 - AMPA 
+
+```{r}
+EExAge_56_anno <- read_csv("input/anno/2026_01_22_mssTMT_EExAGE_anno_HA_56.csv") %>%
+  mutate(across(c(Year, Mixture, TechRepMixture, Fraction), as.factor)) #%>%
+  #dplyr::select(Mixture:Sex) # rm NAs entries otherwise doesn't join? 
+```
+
+```{r}
+#Gria 1-4 AMPA 1-4 | rat acc
+AMPA_list <- c("P19490", "P19491", "P19492", "P19493")
+
+AMPA_PSMs <- PSMs_calc %>%
+  ungroup() %>%
+  # filter rows with where prot acc has  any of  the items in AMPA list 
+  filter(str_detect(`Protein Accessions`,
+                    str_c(AMPA_list, collapse = "|"))) 
+  
+
+AMPA_PSMs_lm <- AMPA_PSMs %>%
+  pivot_longer(
+    cols = starts_with("Abundance"),
+    names_to = 'TMT_tag',
+    values_to = "intensity",
+    names_prefix = "Abundance " # removes "Abundance " prefix from names value
+    # NOTE : Hidden space " 126" from "Adundance" is what cause non joining! 
+  ) %>% 
+  left_join(EExAge_56_anno,
+            by = join_by("Year" == "Year",
+                         "Mixture" == "Mixture",
+                         "TechRepMixture" == "TechRepMixture",
+                         "Fraction" == "Fraction",
+                         "TMT_tag" == "Channel"),
+            relationship = "many-to-many") 
+
+
+# Checks
+AMPA_PSMs_lm %>%
+  count(Year, Mixture, TechRepMixture, Fraction, TMT_tag)  # 1536 x 6
+
+EExAge_56_anno %>%
+  count(Year, Mixture, TechRepMixture, Fraction, Channel) # 1536 x 6"
+
+# also use antijoin() to check!!! (sees what was left behind in X & not joined)
+```
+
+\
+\#### Return to late try with normalised data.
+
+```{r}
+AMPA_pep_plot <- ggplot(AMPA_PSMs_lm,
+                        aes(x = Condition, y = intensity)) +
+  
+  geom_boxplot(aes(fill = Condition)) +
+  scale_fill_manual(values = c("#8CB585", "#66A61EFF", 
+                               "grey50",
+                               "#D4C07E", "#E6AB02FF")) + # housing colors
+  ylim(0,1000) +
+  facet_nested(~ shared_peptide + Year + Mixture) +
+  theme_bw() +
+  theme(legend.position = "bottom")
+
+AMPA_pep_plot
+
+```
+
+```{r}
+AMPA_PSMs_seq_sum <- AMPA_PSMs_lm %>%
+  group_by(shared_peptide, Mixture, Condition) %>%
+  summarise(mean_abund = mean(intensity, na.rm = TRUE),
+            med_abund = median(intensity, na.rm = TRUE))
+
+print(AMPA_PSMs_seq_sum)
+```
+
 # Result Statistics
 
 #### Random plot
@@ -587,3 +664,7 @@ tmt_in <- c(124,122,90,116.1,
             114.6,57.3,79.5,137,
             99.5,91.7,85.4,89.2)
 ```
+
+------------------------------------------------------------------------
+
+## 
