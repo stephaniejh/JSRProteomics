@@ -707,3 +707,100 @@ Try ReactomeGSA instead (R client directly recommended by Reactome)
 ```{r}
 # Reactome_EEvsSH_tibble <- tibble::as_tibble(Reactome_EEvsSH)
 ```
+
+------------------------------------------------------------------------
+
+## Rampon msigdbr
+
+-   <https://www.gsea-msigdb.org/gsea/msigdb/mouse/geneset/RAMPON_ENRICHED_LEARNING_ENVIRONMENT_EARLY_DN.html>
+
+```{r}
+# NONE SIG!!! even with lower min size!  - ignore
+msig_Rampon_EE <- msig_rat_df %>% 
+  filter(gs_collection == "C2") %>%
+  filter(str_detect(gs_name, "RAMPON")) %>%
+  # filter(str_detect(gs_name, "NEURON")) %>%
+  dplyr::select(gs_name, ncbi_gene)
+```
+
+## Reactome via msigdbr
+
+```{r}
+msig_c2_reactome <- msig_rat_df %>% 
+  filter(gs_collection == "C2") %>%
+  filter(str_detect(gs_name, "REACTOME")) %>%
+  dplyr::select(gs_name, ncbi_gene)
+```
+
+```{r}
+# # VECTOR for labels (contrasts from MSstatsTMT analysis)
+# label_names  -> already made above 
+
+# Container - Emty Vector
+gsea_msig_c2_reactome_res_list <- vector(mode = "list")
+```
+
+```{r}
+#GSEA msigdb cell types 
+for (lb in label_names) {
+  # operation 
+  # PART 1 - calc ranked gene list
+  geneList_working_df <- protein_comp_entrez %>%   # calc ranked gene list
+    filter(Label == lb) %>%
+    mutate(ranking = sign(log2FC)*(-log10(pvalue))) %>%
+    group_by(ENTREZID) %>%
+    summarise(ranking = mean(ranking, na.rm = TRUE)) %>%
+    arrange(-ranking)
+  
+  gsea_msig_c2_reactome_res_list$geneList[[lb]] <- geneList_working_df
+  
+  
+  geneList_vec_working <- tibble::deframe(geneList_working_df) # deframe in 2 vec
+  
+  
+  # PART 2 - run gsea
+  msig_res_working <- clusterProfiler::GSEA(geneList = geneList_vec_working,
+                                              TERM2GENE = msig_c2_reactome,
+                                              exponent = 1,
+                                              minGSSize = 10,
+                                              maxGSSize = 500,
+                                              eps = 1e-10,
+                                              pvalueCutoff = 0.05,
+                                              pAdjustMethod = "BH",
+                                              by = "fgsea") # defaults 
+  
+  #save gsea results 
+  gsea_msig_c2_reactome_res_list$gsea_results[[lb]] <- msig_res_working
+  gsea_msig_c2_reactome_res_list$gsea_results_tib[[lb]] <- tibble::as_tibble(msig_res_working)
+  
+
+  
+  # PART 3 - if else for dot plot to deal with any nas
+  if (nrow(msig_res_working@result) > 0 ) {
+    
+  # PART 3 - PLOTS 
+  # sign dot plots 
+  # 3.1 - dot plot split by sign
+  dp_sign <- enrichplot::dotplot(msig_res_working,
+                            split = '.sign',
+                            showCategory = 30,
+                            font.size = 11,
+                            title = paste0(stringr::str_glue(
+                              'Housing x Age - {lb} - msigdbr C2 reactome - 2026_02_09 - via cp_gsea dotplot by sign  - 1pspg MssTMT (v3.2.2)'))) +
+    facet_grid(.~.sign)
+  
+  print(dp_sign) # print dot plots 
+  gsea_msig_c2_reactome_res_list$dotplots_sign[[lb]] <- dp_sign # save to list
+  
+  } else{print(paste0("No gsea result for dot plot in ", lb,  " :("))}
+  
+}
+```
+
+```{r}
+# horrific name but at least clear...
+gsea_msig_c2_reactome_EExAge_mss3.2.2_t1_cp3.4.2  <- gsea_msig_c2_reactome_res_list
+
+# save(gsea_msig_c2_reactome_EExAge_mss3.2.2_t1_cp3.4.2,
+#      file = "output/2026_02_09_gsea_msig_c2_reactome_EExAge_mss3.2.2_t1_cp3.4.2.rda")
+```
