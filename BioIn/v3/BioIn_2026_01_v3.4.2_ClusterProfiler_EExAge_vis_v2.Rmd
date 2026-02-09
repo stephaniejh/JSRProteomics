@@ -48,21 +48,24 @@ library(ggvenn) # vennys (old ones)
 ```{r}
 # #READ IN DATA
 # KEGG
-load("output/gsea_results/2026_01_12_KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3.rda") 
+load("output/gsea_results/2026_01_12_KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3.rda")
 
-# GO 
-load("output/gsea_results/2026_01_12_GO_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t2.rda") 
+# GO
+load("output/gsea_results/2026_01_12_GO_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t2.rda")
 
 # GO simplified (was prev made in this script)
 load("output/gsea_results/2026_01_24_GO_gsea_EExAge_cp_v3.4.2_t2_simplified.rda")
 
 # MSIGDB
 load("output/gsea_results/2026_01_12_gsea_msig_Hallmark_EExAge_mssv3.2.2_t1_cpv3.4.2_t2.rda")
+
+# MSIGDB C2 Reactome 
+load("output/gsea_results/2026_02_09_gsea_msig_c2_reactome_EExAge_mss3.2.2_t1_cp3.4.2.rda")
 ```
 
 ```{r}
 up_subcell_raw <- read_excel(
-  "input/UP_anno/UP_subcellular_locations_all_2026_01_23.xlsx")
+  "input/db/UP_subcellular_locations_all_2026_01_23.xlsx")
 ```
 
 ------------------------------------------------------------------------
@@ -88,6 +91,13 @@ GO_sim_tibs_df <- map_dfr(
   GO_gsea_EExAge_cp_v3.4.2_t2_simplified$sim_GO_res_tib,
   ~map_dfr(.x, as_tibble, .id = "GO"),
   .id = "Label")
+
+# MAP MSIG c2 REACTOME 
+REACT_tibs_df <- map_dfr(
+  gsea_msig_c2_reactome_EExAge_mss3.2.2_t1_cp3.4.2$gsea_results_tib,
+  as.data.frame,
+  .id = "Label")
+
 ```
 
 ```{r}
@@ -112,6 +122,15 @@ GO_sim_tibs_df_6 <- GO_sim_tibs_df  %>%
   filter(!(Label %in% c("HxA_EE_OLD_vs_SH_YNG", "HxA_EE_YNG_vs_SH_OLD"))) 
 
 GO_sim_tibs_df_6$Label <- factor(GO_sim_tibs_df_6$Label,
+          
+                        levels = my_levels)
+
+
+# REACTOME 
+REACT_tibs_df_6 <- REACT_tibs_df %>%
+   filter(!(Label %in% c("HxA_EE_OLD_vs_SH_YNG", "HxA_EE_YNG_vs_SH_OLD"))) 
+
+REACT_tibs_df_6$Label <- factor(REACT_tibs_df_6$Label,
                                   levels = my_levels)
 
 
@@ -213,13 +232,15 @@ lolliplot <- function(data,
                                vjust = 0.5, # 90, hj1 t/R, vj.5 cent
                                size = 9.5, face = 'italic'), 
     axis.text.y = element_text(hjust = 1, color = "grey20",
-                               size = 9.5, face = 'italic'), 
+                               size = 9, face = 'italic'), 
     axis.title.y = element_blank(),
     strip.text = element_text(size = 8.5),
     legend.position = legend_pos) 
     
 }
 ```
+
+## Msigdb Hallmarks 8
 
 ```{r}
 HM_lol <- lolliplot(HM_tibs_df, subtitle = "MSigDB Hallmarks", legend_pos = "bottom")
@@ -228,14 +249,46 @@ HM_lol
 # exp 2026_01_31_EExAge_MSigDB_Hallmarks_v1 - 13.5 x 5
 ```
 
-### KEGG lolliplots
+### KEGG lolliplots (6)
 
 ```{r}
 # KEGG ALL 6
 KEGG_lol_f6 <- lolliplot(KEGG_tibs_df_6,
-                      title = "KEGG", legend_pos = "bottom")
+                      subtitle = "KEGG", legend_pos = "bottom")
 KEGG_lol_f6 
 # exp - 2026_01_31_EExAge_6_comps_KEGG_lolli_v1 12 x 12 
+```
+
+### GO lolliplots (6)
+
+```{r}
+GO_sim_lol_6 <-   GO_sim_tibs_df_6 %>%
+  filter(GO == "MF") %>% # Swi
+  lolliplot(subtitle = "GO MF")
+
+
+GO_sim_lol_6
+```
+
+## Msigdb C2 Reactome
+
+```{r}
+REACT_lol_6 <- lolliplot(REACT_tibs_df_6,
+                         subtitle = "REACTOME (via Msigdbr C2)",
+                         legend_pos = "bottom")
+
+REACT_lol_6
+```
+
+### Reactome EE
+
+```{r}
+REACT_lol_EE_3 <- REACT_tibs_df_6 %>%
+  filter(Label %in% c("H_EE_vs_SH","HxA_EE_YNG_vs_SH_YNG","HxA_EE_OLD_vs_SH_OLD")) %>%
+  # filter(Label == "H_EE_vs_SH") %>%
+  lolliplot(subtitle = "REACTOME GSEA (via msigdbr) - Housing", legend_pos = "right")
+
+REACT_lol_EE_3
 ```
 
 #### EE KEGG lolli
@@ -488,7 +541,7 @@ p1_test <- emapplot(
   theme(legend.position = "none")  +
  geom_cnet_label(node_label = "all", size = 3.5, color = "grey10", fontface = "italic")
 
-p1_Test
+p1_test
 
 
 ```
