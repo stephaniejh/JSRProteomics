@@ -30,20 +30,19 @@ library(webshot2)
 ```{r}
 #psum
 
-load("input/results/psum/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_psum.rda") # laptop
-
-#load("input/MSstatsTMT/psum/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_psum.rda") # Jen
-
-#comp
-load("input/results/comp/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_comp.rda") # laptop
-# load("input/MSstatsTMT/comp/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_comp.rda") # Jen
-
-load("input/results/psum/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_psum.rda") # laptop
-# load("input/MSstatsTMT/psum/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_psum.rda") # Jen
+# load("input/results/psum/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_psum.rda") # laptop
+load("input/MSstatsTMT/psum/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_psum.rda") # Jen
 
 #comp
-load("input/results/comp/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_comp.rda") # laptop
-# load("input/MSstatsTMT/comp/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_comp.rda") # Jen
+#load("input/results/comp/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_comp.rda") # laptop
+load("input/MSstatsTMT/comp/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_comp.rda") # Jen
+
+#load("input/results/psum/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_psum.rda") # laptop
+load("input/MSstatsTMT/psum/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_psum.rda") # Jen
+
+#comp
+#load("input/results/comp/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_comp.rda") # laptop
+load("input/MSstatsTMT/comp/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_comp.rda") # Jen
 
 
 #anno
@@ -1457,12 +1456,15 @@ gt_1 <- mapped_comp %>%
   
   # filter(Label %in% c("H_EE_vs_SH",
   # "HxA_EE_YNG_vs_SH_YNG", "HxA_EE_OLD_vs_SH_OLD")) %>%
-  
-  filter(Label == "H_EE_vs_SH") %>%
-  
+  # 
+  filter(Label %in% c("A_YNG_vs_OLD",
+  "HxA_EE_YNG_vs_EE_OLD", "HxA_SH_YNG_vs_SH_OLD")) %>%
+  # 
+  # filter(Label == "H_EE_vs_SH") %>%
+  # filter(Label == "A_YNG_vs_OLD") %>%
   
   # filter(adj.pvalue < 0.05) %>% #
-  filter(adj.pvalue < 0.5) %>% #
+  filter(adj.pvalue < 0.05) %>% #
 
 
   dplyr::select(c(Label,Direction, gene, Protein, description, 
@@ -1505,13 +1507,30 @@ gt_1 <- mapped_comp %>%
   tab_style( 
     style = list(
       # cell_fill(color = "#F9E3D6"),
-      cell_text(size = 8)
+      cell_text(size = 9)
       ),
     locations = cells_body(
       columns = c(description)
       # rows = currency < 100
     )
   ) %>%
+  
+  tab_style( 
+    style = list(
+      cell_fill(color = "#fddde6"),
+      cell_text(color = "#d33682")
+      ),
+    locations = cells_body(
+                 rows = log2FC > 0 )) %>%
+    tab_style( 
+    style = list(
+      cell_fill(color = "#e1eefb"),
+      cell_text(color = "#2380c1")
+      ),
+    locations = cells_body(
+                 rows = log2FC < 0 )) %>%
+  
+  
   
   tab_options(
     #heading.title.font.size = 16.5,
@@ -1526,6 +1545,7 @@ gt_1 <- mapped_comp %>%
               ) #|>
 
 gt_1
+# gt_1 <- as_gtable(gt_1, plot = TRUE, text_grob = grid::textGrob)
 ```
 
 ```{r}
@@ -1888,32 +1908,40 @@ SynDiv <- mapped_comp %>%
 
 ```{r}
 
+#  'Slc17a7' - vGlut1, 'Slc32a1' - vGat
+
 EE_syn_check <- mapped_psum %>%
   
   mutate(Condition = forcats::fct_reorder(Condition, PND)) %>% # reoder by PND (no)
   filter(gene %in% c("Dlg4", 'Syp', 'Gria1', 'Gria2', 'Gria3', 'Gria4', 'Fscn1', 'Nrn1',
-                     'Shank1', 'Shank2', 'Shank3,', 'Gphn', 'Gad2', 'Mbp', 'Gfap', "Camk2a", 'Syn2',
-                     'Syt12', 'Ntrk2', 'Homer1', 'Syngap1', 'Faah', 'Abhd6', 'Cnr1', 'Synpo', 'Arhgap39')) %>%
+                     'Shank1', 'Shank2', 'Shank3', 'Gphn', 'Gad2', 'Mbp', 'Gfap',
+                     "Camk2a", 'Syn2', 'Syn1',
+                     'Syt12', 'Ntrk2', 'Homer1', 'Syngap1', 'Faah', 'Abhd6',
+                     'Cnr1', 'Synpo', 'Arhgap39', 'Cck', 'Pvalb', 'Vip',
+                     'Slc17a7', 'Slc32a1', 'Syt2', 'Syngap1' , 'Grin1', 'Gkap1',
+                     'Mecp2', 'Nptx2' ,'Arc'
+                     )) %>%
 
-  ggplot(aes(x = interaction(Age, Housing,
+  ggplot(aes(x = interaction(Age, Housing, 
                              sep = "\n", # space
                              lex.order = TRUE),
              y = Abundance,
-             fill = Housing, alpha = Age)) +
-  geom_boxplot(width = 0.45, size = 0.7, median.linewidth = .2, linewidth = 0.2,
+             fill = Housing, alpha = Age, color = Sex)) +
+  geom_boxplot(width = 0.45, size = 0.7, median.linewidth = .4, linewidth = 0.2,
                  position = position_dodge(width = 0.7),
                  outlier.shape = NA,
                  color = "grey10") +
   stat_summary(fun=mean, geom="point", position = position_dodge(width = 0.7),
-               shape=4, size = .8, stroke = 0.2, color ="grey10") +
-  geom_point(color = "grey10", size = .5, shape = 1, stroke = .5,
-      position = position_jitterdodge(dodge.width = 0.6, jitter.width = 0.3)) +
+               shape=4, size = 1, stroke = 0.2, color ="grey10") +
+  geom_point(size = .2, shape = 1, stroke = .5,
+      position = position_jitterdodge(dodge.width = 0.6, jitter.width = 0.15), 
+      alpha =0.5) +
 
   scale_fill_manual(values = c("#66A61EFF", "#E6AB02FF")) + # housing colors
   scale_alpha_manual(values = c(.6,.75)) +
-  scale_color_manual(values = c("#003a6d", "#31135e")) +
+  scale_color_manual(values = c("#d33682", "#268bd2")) +
   # guides(y.sec = 'axis') + # adds 2nd y axis (right side)
-  facet_wrap(~gene, ncol = 6, scale = "free_y") +
+  facet_wrap(~gene, ncol = 7, scale = "free_y") +
   my_theme +
   theme(
      axis.text.y = element_text(size = 9, color ="grey10"),
