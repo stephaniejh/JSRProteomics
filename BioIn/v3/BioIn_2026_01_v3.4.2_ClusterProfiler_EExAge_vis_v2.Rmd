@@ -303,9 +303,202 @@ KEGG_tibs_EE_3
 # exp - 2026_01_31_EE_3_comps_KEGG_lolli_v1 - 9 x 12
 ```
 
-#### Pathview EE - nvm ignore for now. just use old
+#### 
+
+------------------------------------------------------------------------
+
+## Pathview for loops (14 02 2026)
+
+Done a nooby lazy way maybe clean up later.
 
 -   <https://www.bioconductor.org/packages/devel/bioc/vignettes/pathview/inst/doc/pathview.pdf>
+-   rat kegg pathways - <https://www.kegg.jp/kegg-bin/show_organism?menu_type=pathway_maps&org=rno>
+-   <https://igordot.github.io/msigdbr/articles/msigdbr-intro.html>
+
+#### Aes test
+
+```{r}
+## Ribosome - rno03010 
+pathview(gene.data=KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3$geneList_vec$H_EE_vs_SH,
+                pathway.id="rno03010",
+                species = 'rno',
+         out.suffix = "2026_02_14__H_EE_vs_SH_testing",
+         kegg.native = T,
+         same.layer = T, #slower & on top (out of bounds?)
+         res = 600, #400 dpi (def 300 dpi for png) # not sure if changes anything..
+         low = list(gene = "#3E76E8", cpd = "#A054A3"), # purple unused 
+         mid = list(gene= "grey85", cpd = "grey85"), 
+         high = list(gene = "#DA3558", cpd ="#F3AD6AFF"), # org unused
+         new.signature = FALSE)
+
+# my_colors <- c("#E22A47", "#DA3558", "#D33F6A", "#317DEC", "#3E76E8", "#4A6FE3" )
+```
+
+### Set up master gene vec lists
+
+```{r}
+# # get msigdbr kegg pathways into data 
+# KEGG_rats_msig <- msigdbr(species = "Rattus norvegicus",
+#                           collection = "C2", subcollection = "CP:KEGG_MEDICUS")
+# nvm maybe return to later 
+```
+
+```{r}
+length(unique(KEGG_tibs_df_6$ID)) # 67 
+
+KEGG_multi <- KEGG_tibs_df_6 %>%
+  group_by(Description) %>%
+  count() %>%
+  filter(n > 1)
+
+KEGG_multi_list <- KEGG_multi$Description
+
+# note - & - different?
+KEGG_multi_df <- KEGG_tibs_df_6 %>% 
+  filter(Description %in% KEGG_multi_list) %>%
+  mutate(trm_des = str_replace_all(Description, "[- -()]", "")) %>%  # rm spaces, - & () 
+  mutate(trm_desc = str_trunc(trm_des, 15, side = "right", ellipsis = "")) %>%
+  filter(!(ID == "rno04723")) # rm reterograde endocannbinoid - not found pathbiew err 
+```
+
+```{r}
+# Map KEGG to a MASTER genelist DF 
+geneLists_df <- map_dfr(KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3$geneList_vec,
+                        ~enframe(.x),
+                        .id = "Label")
+```
+
+```{r}
+# iterate over... 
+labels <- unique(KEGG_tibs_df_6$Label)
+
+kegg_pathways <- unique(KEGG_multi_df$ID)
+```
+
+#### Extra Pathways
+
+```{r}
+# rm errors - metabolic pathways, fatty acid metabolism (rno01212) - too long
+kegg_pathways_2_df <- data.frame("ID" = c("rno00010", # 1
+                                          "rno04130", # 
+                                          "rno04514", # 
+                                          "rno04518", #
+                                          "rno04722",
+                                          "rno04024",
+                                          "rno04151",
+                                          "rno04010",
+                                          "rno04014",
+                                          "rno04020",
+                                          "rno04022",
+                                          "rno04081",
+                                          "rno04150",
+                                          "rno04080",
+                                          "rno04512",
+                                          "rno04060",
+                                          "rno04517",
+                                          "rno04210",
+                                          "rno04110",
+                                          "rno04810",
+                                          "rno05022",
+                                          "rno04211",
+                                          "rno04724",
+                                          "rno04726",
+                                          "rno04720",
+                                          "rno04730",
+                                          "rno04725",
+                                          "rno04728",
+                                          "rno04120",
+                                          "rno03008",
+                                          "rno00970",
+                                          "rno04141",
+                                          "rno04144",
+                                          "rno04145",
+                                          "rno04146",
+                                          "rno04142"
+                                          ),
+                                 
+                                 "trm_desc" = c("glycolysis_gluc",
+                                              "SNARE_int_vt",
+                                              "CAM_interac",
+                                              "Intergrin_sig",
+                                              "Neurotrophic_sig",
+                                              "cAMP_sig_path",
+                                              "PI3K_Akt_sig_path",
+                                              "MAPK_sig_path",
+                                              "Ras_sig_path",
+                                              "Calcium_sig_path",
+                                              "cGMP_PKG_sig_path",
+                                              "Hormone_sig",
+                                              "mTOR_sig_path",
+                                              "Neuract_lig_rep_i",
+                                              "ECM_receptor_int",
+                                              "Cytokine_rec_int",
+                                              "IgSF_CAM_sig",
+                                              "Apoptosis",
+                                              "Cell_cycle",
+                                              "Reg_actin_cytosk",
+                                              "Paths_neurodegen",
+                                              "longeivity_reg",
+                                              "glutamaterg_synp",
+                                              "serotonergic_syn",
+                                              "LTP",
+                                              "LTD",
+                                              "cholinergic_syn",
+                                              "dopaminergic_syn",
+                                              "ubiquit_med_prtly",
+                                              "ribosome_biogen",
+                                              "Aminoacyl_tRNA_bi",
+                                              "prot_proces_in_ER",
+                                              "endocytosis",
+                                              "phagosome",
+                                              "peroxisome",
+                                              "lysosome"
+                                              ))
+
+kegg_pathways_2 <- unique(kegg_pathways_2_df$ID)
+```
+
+#### for loop for KEGG pathviews
+
+```{r}
+# PATHVIEW FOR LOOP 
+for (lb in labels) {
+  
+  wdf <- geneLists_df %>%
+    filter(Label == lb) %>%
+    dplyr::select(name, value)
+    
+  wgL <- tibble::deframe(wdf)
+  
+  #for (kp in kegg_pathways) {  # 1 kegg pathways from gsea
+  for (kp in kegg_pathways_2) { # 2 extra kegg paths of interest 
+    
+    # c_desc <- KEGG_multi_df %>%  # 1 kegg pathways from gsea
+     c_desc <- kegg_pathways_2_df %>%  # 2 extra kegg paths of interest 
+      filter(ID == kp) %>%
+      dplyr::select(trm_desc) %>%
+      slice_head(n = 1)
+    
+    
+    pathview(gene.data = wgL,
+                pathway.id = kp,
+                species = 'rno',
+         out.suffix = paste0(lb, "_", c_desc[1]),
+         kegg.native = T,
+         same.layer = T, #slower & on top (out of bounds?)
+         res = 600, #400 dpi (def 300 dpi for png) # nvm doesn't change drawings idk
+         low = list(gene = "#317DEC", cpd = "#A054A3"), # purple unused 
+         mid = list(gene= "grey85", cpd = "grey85"), 
+         high = list(gene = "#E22A47", cpd ="#F3AD6AFF"), # org unused
+         new.signature = FALSE
+         )
+  }
+}
+
+#noob way manually set working directory as folder you want to output
+```
+
+------------------------------------------------------------------------
 
 #### Running Scores
 
