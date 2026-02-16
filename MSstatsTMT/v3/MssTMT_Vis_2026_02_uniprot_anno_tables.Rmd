@@ -1,0 +1,320 @@
+---
+title: "MssTMT_Vis_2026_02_uniprot_anno_tables"
+author: "Stephanie Huang"
+date: "2026-02-15"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r}
+#load packages
+library(tidyverse)
+library(gt)
+library(readxl)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r}
+#psum
+
+load("input/results/psum/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_psum.rda") # laptop
+# load("input/MSstatsTMT/psum/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_psum.rda") # Jen
+
+#comp
+load("input/results/comp/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_comp.rda") # laptop
+# load("input/MSstatsTMT/comp/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_comp.rda") # Jen
+
+# uniprot rat ref proteome anno
+load("input/rat_ref_proteome_2025_12_13_51872x295.rda")
+
+#anno
+anno <- read_csv("input/anno/EEv&SH_F&M_TMT_anno_v3_df_b_check_sorted_2025_12_31.csv") 
+# double check later!
+
+# import 
+mice_lit_re <- read_excel("input/lit_review/2026_01_13_EE_omics_lit_review_mRNA_Proteins.xlsx",
+           sheet = 'mice_proteins_mRNA')
+
+rat_lit_re <- read_excel("input/lit_review/2026_01_13_EE_omics_lit_review_mRNA_Proteins.xlsx",
+           sheet = 'rat_proteins_mRNA')
+```
+
+```{r}
+# trim uniprot ann
+colnames(rat_ref_proteome_2025_12_13)
+
+rat_ref_trm <- rat_ref_proteome_2025_12_13 %>%
+  select(Entry, Protein.families, Keywords, Tissue.specificity, Subcellular.location..CC.,
+         Activity.regulation, Catalytic.activity, Cofactor, Developmental.stage:Pathway,
+         Gene.Names)
+```
+
+```{r}
+# see lil checks in other vis folder - 
+# shorten name & clean up! 
+mapped_comp <- mapped_comp_v3.2.2_EExAge_t1 %>%
+  
+  filter(is.na(issue)) %>% # keeps rows with issue == na (so comps that are ok)
+  filter(!str_detect(log2FC, "Inf")) %>% # remove infinity/missing FC values
+  
+  # make gene label for significant! 
+  mutate(sig_g_label = if_else(adj.pvalue <= .1, gene, NA)) %>%
+  
+  # make one for no of sig up & down for each comaprison group/label
+  group_by(Label) %>%
+  mutate(sig_no_up_lab = sum(adj.pvalue < 0.05 & log2FC > 0), # up
+         sig_no_down_lab = sum(adj.pvalue < 0.05 & log2FC < 0)) %>%  #  down
+  
+  mutate(Direction = ifelse(log2FC > 0, "Up", "Down"))
+
+# # check 
+# head(mapped_comp) 
+# colnames(mapped_comp)
+# dim(mapped_comp) # 64384 x 22
+# 
+# unique_check <- mapped_comp %>% 
+#   dplyr::select(Label, sig_no_down_lab, sig_no_up_lab) %>%
+#   unique() # yep matches up! 
+```
+
+```{r}
+mappped_comp_2 <- mapped_comp %>%
+  left_join(rat_ref_trm,
+             by = join_by(Protein == Entry))
+```
+
+```{r}
+mappped_comp_2 %>%
+  
+  # filter(Label %in% c("H_EE_vs_SH",
+  # "HxA_EE_YNG_vs_SH_YNG", "HxA_EE_OLD_vs_SH_OLD")) %>%
+  
+  # filter(Label %in% c("A_YNG_vs_OLD",
+  # "HxA_EE_YNG_vs_EE_OLD", "HxA_SH_YNG_vs_SH_OLD")) %>%
+  
+  filter(Label == "A_YNG_vs_OLD") %>%
+  slice_min(adj.pvalue, n = 250) %>%
+  
+  select(c(Label, Direction, gene, Protein, description,log2FC, adj.pvalue,
+           Protein.families, Pathway, Keywords,
+           Function..CC., Subcellular.location..CC., Domain..CC.,
+           Developmental.stage, Involvement.in.disease, Induction, Interacts.with,
+           
+                  database, SE, DF, pvalue, Gene.Names, protein_existence)) %>%
+  
+  # select(!c(Mass.spectrometry, issue, feature, uniprot_acc, organism, sequence_version,sig_g_label,
+  #           sig_no_up_lab, sig_no_down_lab)) %>%
+
+  
+  arrange(adj.pvalue) %>%
+  
+  # slice_min(adj.pvalue,n=20) %>%
+  
+  gt(
+    groupname_col = "Label",
+    rowname_col = "Direction"
+  ) %>%
+  
+  cols_label(
+    gene = "Gene",
+    # Uniprot_entry_name = "Name",
+    description = "Protein Description",
+    database = "db",
+    Involvement.in.disease = "in.disease",
+    Gene.Names = "gns",
+    protein_existence = "existence"
+  ) %>%
+  
+  fmt_number(decimals = 3) %>%
+  
+  # tab_header(
+  #   # title = "Proteins Differentially Regulated by Housing Condition",
+  #   # subtitle = "This table is arranged from the smallest adj. p-value and is split by comparison label. For the main effect of housing, the 16 significant proteins (adj.p <.05) are shown, followed by an additional 9 (adj p <.05).",
+  # ) %>%
+  # 
+  tab_style( 
+    style = list(
+      # cell_fill(color = "#F9E3D6"),
+      cell_text(style = "italic")
+      ),
+    locations = cells_body(
+      columns = gene,
+      # rows = currency < 100
+    )
+  ) %>%
+  
+  tab_style( 
+    style = list(
+      # cell_fill(color = "#F9E3D6"),
+      cell_text(size = px(10))
+      ),
+    locations = cells_body(
+      columns = c(Function..CC., Subcellular.location..CC., Domain..CC.)
+      # rows = currency < 100
+    )
+  ) %>%
+  
+  tab_style( 
+    style = list(
+      cell_fill(color = "#fddde6"),
+      cell_text(color = "#d33682")
+      ),
+    locations = cells_body(
+                 rows = log2FC > 0 )) %>%
+    tab_style( 
+    style = list(
+      cell_fill(color = "#e1eefb"),
+      cell_text(color = "#2380c1")
+      ),
+    locations = cells_body(
+                 rows = log2FC < 0 )) %>%
+  
+  
+  
+  tab_options(
+    #heading.title.font.size = 16.5,
+              table.font.size=11,
+              # table.font.style = "lighter",
+              # stub.font.weight = "bold",
+              # stub.font.size = 13,
+              # row_group.font.weight = "italic",
+              #row_group.font.size = 14,
+              #column_labels.font.size = 12.5,
+              # column_labels.font.weight = "bold"
+              ) #|>
+
+# gt_1
+# gt_1 <- as_gtable(gt_1, plot = TRUE, text_grob = grid::textGrob)
+```
+
+------------------------------------------------------------------------
+
+#### Lit tables
+
+```{r}
+EE_mapped_comp <- mapped_comp %>%
+  filter(Label == "H_EE_vs_SH")
+```
+
+#### Kang et al., 2016 
+
+```{r}
+Kang_2016 <- rat_lit_re %>%
+  filter(Author == "Kang") %>%
+  filter(is.na(Mod)) %>%
+  mutate(Study = paste0(Author, " ", Year)) %>%
+  left_join(rat_ref_trm,
+            by  = join_by(Uniprot_rat_accession == Entry)) 
+
+dim(Kang_2016) #15 x 31
+```
+
+```{r}
+intersect(Kang_2016$Uniprot_rat_accession, EE_mapped_comp$Protein) # 11 found
+```
+
+```{r}
+me_and_Kang <- left_join(Kang_2016, EE_mapped_comp,
+                         by = join_by(Uniprot_rat_accession == Protein))
+
+colnames(me_and_Kang)
+```
+
+```{r}
+me_kang_gt <- me_and_Kang %>%
+  
+  select(!c(Uniprot_link:misc,issue, Cofactor, Mass.spectrometry,
+            Induction, organism_id, organism, feature,
+            sequence_version:sig_no_down_lab, Mod, Mod_type, Year,
+            Comparison, Condition, Catalytic.activity)) %>%
+  
+  arrange(adj.pvalue) %>%
+
+  
+  gt(
+    groupname_col = "Label",
+    rowname_col = "Direction"
+  ) %>%
+  
+  cols_label(
+    gene = "Gene",
+    # Uniprot_entry_name = "Name",
+    description = "Protein Description",
+    database = "db",
+    Involvement.in.disease = "in.disease",
+    Gene.Names = "gns",
+    protein_existence = "existence"
+  ) %>%
+  
+  fmt_number(decimals = 3) %>%
+  
+  tab_style( 
+    style = list(
+      cell_text(style = "italic")
+      ),
+    locations = cells_body(
+      columns = gene,
+    )
+  ) %>%
+  
+  tab_style( 
+    style = list(
+      cell_text(size = px(10))
+      ),
+    locations = cells_body(
+      columns = c(Function..CC., Subcellular.location..CC., Domain..CC.)
+    )
+  ) %>%
+  
+  tab_style( 
+    style = list(
+      cell_fill(color = "#fddde6"),
+      cell_text(color = "#d33682")
+      ),
+    locations = cells_body(
+                 rows = log2FC > 0 )) %>%
+    tab_style( 
+    style = list(
+      cell_fill(color = "#e1eefb"),
+      cell_text(color = "#2380c1")
+      ),
+    locations = cells_body(
+                 rows = log2FC < 0 )) %>%
+
+  tab_options(
+    #heading.title.font.size = 16.5,
+              table.font.size=11,
+              ) #|>
+me_kang_gt
+```
+
+#### Zhang et al., 2024
+
+```{r}
+Zhang_2024 <- mice_lit_re %>%
+  filter(Author == "Zhang" & Year == "2024") %>%
+  filter(is.na(Mod)) %>%
+  mutate(Study = paste0(Author, " ", Year)) %>%
+  left_join(rat_ref_trm,
+            by  = join_by(Uniprot_rat_accession == Entry)) 
+```
+
+```{r}
+intersect(Zhang_2024$Uniprot_rat_accession, EE_mapped_comp$Protein) # 22
+```
+
+```{r}
+
+```
