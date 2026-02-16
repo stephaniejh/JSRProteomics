@@ -35,6 +35,8 @@ library(UniProt.ws) # 1st test -  uniprot api
 library(org.Rn.eg.db) # Rat genome annotation package - incl. AnnotationDbi
 library(clusterProfiler) #gsea
 library(enrichplot) # for dotplot()
+library(pathview) # KEGG pathview 
+library(colorspace) # loliplot colors
 
 # library(pathview) # commented out atm | (but for visual kegg mapping)
 # library(msigdbr) # commented out atm | MSigDB gene sets 
@@ -653,7 +655,7 @@ tail(diff_check, 13)
 
 ------------------------------------------------------------------------
 
-# Bioinformatics resumed 
+# Bioinformatics resumed
 
 *2025_12_25/26 onwards*
 
@@ -813,4 +815,166 @@ geneList_vec_working <- geneList_vec_working_go[!is.na(names(geneList_vec_workin
 
 ```{r}
 sessionInfo()
+```
+
+------------------------------------------------------------------------
+
+## Part 2 -  read in & comp
+
+2026_02_16 - read in results & process for
+
+```{r}
+# GO 
+load("output/2025_12_26_Lichti_2014_gsea_GO_results_rats_NAc_v1.rda")
+
+# KEGG 
+load("output/2025_12_12_Lichti_2014_gsea_results_rats_NAc_v1.rda")
+
+# lit re tab
+lit_re <- read_csv("output/2025_12_12_Lichti_2014_rats_NAc_data_lit_review_v1.csv")
+```
+
+```{r}
+# MAP KEGG into single 
+KEGG_res_lichti_sep <- map_dfr(
+  Lichti_2014_gsea_results_2025_12_12_v1$kegg_results_tib,
+  as_tibble, .id = "fraction")
+
+```
+
+```{r}
+#lichti gene lists
+lichti_genelist_sep <- map_dfr(Lichti_2014_gsea_results_2025_12_12_v1$geneList_vec,
+                           ~enframe(.x),
+                           .id = "fraction")
+```
+
+### Combined KEGG 
+
+```{r}
+lichti_genelist_com <- lit_re %>%
+  mutate(ranking = sign(`EC log2 fold`)*(-log10(`EC p value`))) %>%
+   group_by(Entry) %>%
+    summarise(ranking = mean(ranking, na.rm = TRUE)) %>%
+    arrange(-ranking)
+
+# working gL for gsea
+lichti_genelist_com_wr <- deframe(lichti_genelist_com)
+```
+
+```{r}
+plot(lichti_genelist_com$ranking)
+plot(lichti_genelist_sep$value)
+```
+
+```{r}
+Lichti_kegg_res_com <- clusterProfiler::gseKEGG(geneList = lichti_genelist_com_wr,
+                              organism = 'rno',
+                              keyType = 'uniprot',
+                              by = 'fgsea',
+                              pvalueCutoff = 0.05,
+                              pAdjustMethod = 'BH', #BejaminiHoc Correciton
+                              )
+```
+
+```{r}
+Lichti_kegg_res_com_tib <- as_tibble(Lichti_kegg_res_com)
+```
+
+```{r}
+# save(Lichti_kegg_res_com, file = "output/2026_02_16_Lichti_2014_combined_gL_KEGG_gsea_res.rda")
+```
+
+```{r}
+# lichti_loli_c <- Lichti_kegg_res_com_tib %>%
+lichti_loli_f <- KEGG_res_lichti_sep %>%  
+  
+  
+  ggplot(aes(x= reorder(Description, NES), 
+             y = NES,
+             fill = NES)) +
+  geom_segment(aes(x = Description,
+                   yend = NES, y = 0,
+                   alpha = p.adjust)) +
+  geom_point(aes(alpha = p.adjust, size = setSize),
+             shape = 21) +
+  scale_alpha(range = c(.9,.3), guide = 'none') + # rev alpha so darker = more sig
+  geom_hline(yintercept = 0, color = 'grey20', linewidth = 0.1) +
+  scale_color_manual(breaks = c("Up", "Down"),
+                     guide = 'none') + 
+  scale_size_continuous(range = c(3,9)) + # map size oflolly (set size)
+  
+  scale_fill_continuous_diverging("Blue-Red 2") +
+  
+  labs(title = 'EE vs IC - KEGG GSEA (Lichti et al., 2014 - NAc rats)',
+       # subtitle = 'Combined fractions into one ranked gene list', # combined
+       subtitle = 'Fractions kept separate', # left as separate
+       y = 'NES',
+       x = 'KEGG PATH') +
+  coord_flip() + #fliptheplot
+  facet_wrap(~fraction, space = 'free_x', scale = 'free_x') +
+  theme_bw() +
+  theme(
+    axis.text.x = element_text(angle = 90, hjust = 1,
+                               vjust = 0.5, # 90, hj1 t/R, vj.5 cent
+                               size = 9, face = 'italic'), 
+    axis.text.y = element_text(hjust = 1, color = "grey20",
+                               size = 9, face = 'italic'), 
+    axis.title.y = element_blank(),
+    legend.position = "none",
+    title = element_text(size = 10)
+        ) 
+
+lichti_loli_c
+lichti_loli_f
+```
+
+```{r}
+# side by side - shows that fraction = sig but not when combined
+cowplot::plot_grid(lichti_loli_f, lichti_loli_c, ncol =1,
+                   rel_widths = c(1, 0.15), rel_heights = c(1, 0.15))
+```
+
+#### Pathview - using a separate gene list with nuclear is fraction (where the significant differences are)
+
+-   rno00190 = oxidative phosphorylation
+-   rno00020 - TCA cycle
+-   rno00010 - Glycolysis/Gluconeogenesis
+-   rno05022 - pathways of neurodegeneration - multiple diseases
+-   rno03010 - ribosome
+-   rno05012 - parkinsons
+
+```{r}
+# entrez_gl <- bitr(lichti_genelist_sep$name, 
+#      fromType="UNIPROT", toType="ENTREZID", OrgDb="org.Rn.eg.db")
+# 
+# entrez_gl_map <- left_join(lichti_genelist_sep, entrez_gl, 
+#                            by =join_by(name == UNIPROT))
+
+entrez_gl_map_n <- entrez_gl_map %>%
+  filter(fraction == "nuclear") %>%
+  select(ENTREZID, value) %>%
+  deframe()
+```
+
+```{r}
+pathview(gene.data=entrez_gl_map_n,
+                # pathway.id="rno00190", # OP
+                # pathway.id="rno00020", # TCA
+                # pathway.id="rno00010", # glycolysis
+                # pathway.id="rno05022", # path of neurodege
+                # pathway.id="rno05022", # path of neurodege
+                # pathway.id="rno03010", # ribosome
+                pathway.id="rno05012", # parkinsons
+                species = 'rno',
+         out.suffix = "Lichti_nucl_parkinsons",
+         kegg.native = T,
+         same.layer = T, #slower & on top (out of bounds?)
+         res = 600, #400 dpi (def 300 dpi for png) # not sure if changes anything..
+         low = list(gene = "#3E76E8", cpd = "#A054A3"), # purple unused 
+         mid = list(gene= "grey85", cpd = "grey85"), 
+         high = list(gene = "#DA3558", cpd ="#F3AD6AFF"), # org unused
+         new.signature = FALSE)
+
+# my_colors <- c("#E22A47", "#DA3558", "#D33F6A", "#317DEC", "#3E76E8", "#4A6FE3" )
 ```
