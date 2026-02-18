@@ -1,0 +1,340 @@
+---
+title: "2026_02_mss_3.1.2_sp_pairwise_vis"
+author: "Stephanie Huang"
+date: "2026-02-17"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 2026_02_18
+
+### Quick graphs for pairwise counts & pairwise volcano plots  - a little messy clean up later!
+
+```{r}
+library(tidyverse)
+library(readr)
+library(ggrepel) #  for geom_text_repel()
+library(colorspace)
+library(cowplot)
+```
+
+```{r}
+# fasta used to search (includes sp)
+up_fasta <- read_csv("input/db/UP000002494_10116_Rat_Ref_Proteome_22403_1pspg_2025_04_UPfastadf.csv")
+```
+
+```{r}
+# full uniprot 295 cols data
+load("input/db/rat_ref_proteome_2025_12_13_51872x295.rda")
+```
+
+```{r}
+rat_ref_trm <- rat_ref_proteome_2025_12_13 %>%
+  select(Entry,
+         Protein.families, Pathway, Keywords, Developmental.stage,
+         Induction, Function..CC., Subcellular.location..CC.)
+```
+
+```{r}
+pw_litter <- read_csv("output/MSstatsTMT/comp/2025_12_31_sp_test_pairwise_msstats_v3.1.2_t6_litter.csv")
+pw_sex <- read_csv("output/MSstatsTMT/comp/2025_12_31_sp_test_pairwise_msstats_v3.1.2_t5_sex.csv")
+pw_beh <- read_csv("output/MSstatsTMT/comp/2025_12_31_sp_test_pairwise_msstats_v3.1.2_t4_behaviour.csv")
+pw_cohort <- read_csv("output/MSstatsTMT/comp/2025_12_31_sp_test_pairwise_msstats_v3.1.2_t3_cohort.csv")
+pw_housing <- read_csv("output/MSstatsTMT/comp/2025_12_31_sp_test_pairwise_msstats_v3.1.2_t1_housing.csv")
+```
+
+```{r}
+com_df <- bind_rows(list(house = pw_housing,
+                         sex = pw_sex,
+                         cohort = pw_cohort,
+                         behav = pw_beh,
+                         litter = pw_litter),
+                    .id = "pairwise_comp")
+```
+
+### A bit messy... 
+
+```{r}
+com_df_mapped <- left_join(com_df, up_fasta,
+                           by = join_by(Protein == uniprot_acc)) %>%
+  
+  filter(is.na(issue)) %>% # no issues  
+  filter(is.numeric(adj.pvalue)) %>% 
+  filter(!is.na(adj.pvalue)) %>% # fixes NA issue?
+    # make gene label for significant! 
+  mutate(sig_g_label = if_else(adj.pvalue <= .1, gene, NA)) %>%
+  
+  # make one for no of sig up & down for each comaprison group/label
+  group_by(Label) %>%
+  mutate(sig_no_up_lab = sum(adj.pvalue < 0.05 & log2FC > 0), # up
+         sig_no_down_lab = sum(adj.pvalue < 0.05 & log2FC < 0)) %>%  #  down
+  
+  mutate(Direction = if_else(log2FC > 0, "Up", "Down"))
+```
+
+```{r}
+com_df_mapped_fam <- com_df_mapped %>%
+  left_join(rat_ref_trm, by = join_by(Protein == Entry))
+```
+
+```{r}
+com_df_mapped_sig <- com_df_mapped_fam  %>%
+  filter(is.na(issue)) %>% # no issues  
+  select(!c(...1, issue)) %>%
+  filter(adj.pvalue  < 0.05) 
+```
+
+```{r}
+# abit messy?
+sig_counts <- com_df_mapped_fam %>%
+  mutate(sig = if_else(adj.pvalue < 0.05, 1, 0, missing = 0)) %>%
+  #count(sig) # yes matches sig
+  group_by(pairwise_comp, Label) %>%
+  count(sig) %>%
+  ungroup() 
+
+sig_counts_fil <- sig_counts %>%
+  group_by(pairwise_comp, Label) %>%
+  filter(if(any(sig == 1)){
+    sig == 1 
+  } else {TRUE}) %>%
+  mutate(n = if_else(sig == 0, 0, n))
+
+sig_counts
+```
+
+### Count of Significant proteins by pairwise comparison
+
+```{r}
+# hcl_palettes(plot = TRUE)
+
+count_plot <- sig_counts_fil %>%
+  # filter(sig == 1) %>%
+  ggplot(aes(x = reorder(Label, n), y = n, fill = pairwise_comp)) +
+   geom_col(stat = "identity", # so col sam wid
+    width = .7, alpha = 0.7, color = "grey15") +
+  scale_fill_discrete_qualitative(palette = "Set 2") +
+  facet_wrap(~pairwise_comp, nrow = 1, scales = 'free_x', space = 'free_x') +
+  theme_bw() +
+  labs(y = "no. of significant proteins by pairwise comparison \n (adj.pvalue <.05) (sp db)") +
+  theme(legend.position = "none",
+        axis.text.x = element_text(angle = 90, hjust =1, vjust = 0.5, face = "italic"),
+        axis.title.x = element_blank(),
+        axis.title.y = element_text(color ="grey15", size = 10),
+        strip.text = element_text(size = 7.5))
+
+count_plot
+```
+
+```{r}
+top_5 <- com_df_mapped_fam %>% 
+  group_by(pairwise_comp, Label) %>%
+  slice_min(adj.pvalue, n = 10, with_ties = FALSE)
+```
+
+## 
+
+------------------------------------------------------------------------
+
+No Litter volcano plots
+
+```{r}
+# make new df for the geom_text bit below.
+# prev had from 1 df but over plots repeately & cant index since mapped_comp huge.
+sig_volcano_sum_no_litter <- com_df_mapped %>%
+  filter(pairwise_comp != "litter") %>%
+  dplyr::select(Label, sig_no_up_lab, sig_no_down_lab) %>%
+  unique() 
+  
+
+```
+
+```{r}
+big_volcano_no_lit <- com_df_mapped %>%
+  
+  
+   filter(pairwise_comp != "litter") %>%
+
+  
+  ggplot(aes(x = log2FC, y = -log10(adj.pvalue), label = sig_g_label)) +
+  
+  
+  # POINTS
+  geom_point(aes(color = case_when( # conditional ass for color mapping
+    adj.pvalue < 0.05 & log2FC > 0 ~ "up_adjp.05", # up sig .05
+    adj.pvalue < 0.05 & log2FC < 0 ~ "down_adjp.05", # down sig .05
+    adj.pvalue < 0.1 & log2FC > 0 ~ "up_adjp.1", # up 0.1
+    adj.pvalue < 0.1 & log2FC < 0 ~ "down_adjp.1", # down .1
+    TRUE ~ "ns" )), # catch the rest
+    alpha = .9, size = 1, shape = 1) +
+  
+  scale_color_manual(values = c("firebrick", # coloring
+                                "royalblue3",
+                                "lightpink",
+                                "lightblue3",
+                                "grey80"),
+                     breaks = c("up_adjp.05",
+                                "down_adjp.05",
+                                "up_adjp.1",
+                                "down_adjp.1"),
+                     labels = c("\U2191 (adj.p <.05)",
+                                "\U2193 (adj.p <.05)",
+                                "\U2191 (adj.p <.1)",
+                                "\U2193 (adj.p <.1)")) +
+  
+  geom_text_repel(max.overlaps = 27, size = 2.5, # gene text on points
+                  color = "grey10") + 
+  
+  
+  # NUM SIG UP & DOWN! | use sep df, overwise overplots
+  geom_text(data = sig_volcano_sum_no_litter, # up 
+            aes(label = paste0(sig_no_up_lab, " \U2191")),
+            x = 1.8, y = 9.4, size = 3.5, color = "firebrick"
+            ) + 
+  geom_text(data = sig_volcano_sum_no_litter, # down
+            aes(label = paste0(sig_no_down_lab, " \U2193")),
+            x = -1.8, y = 9.4, size = 3.5, color = "royalblue3"
+            ) + 
+
+  xlim(-2,2) +
+  ylim(0,10) +
+  facet_wrap(~Label, ncol = 3) + 
+  facet_wrap(~Label, ncol = 3) + 
+  
+  labs(x = "log2FC",
+       y = "-Log10(adj.p value)",
+       color = "Protein Regulation") +
+  
+  geom_hline(yintercept = -log10(0.05),
+             linetype = "dotted", linewidth = 0.1,
+             color = "grey30") +
+  # annotate("text", x = 1.95, y = -log10(0.05),
+  #          label = "adj.p <.05 \n",
+  #          fontface = 'italic', size = 1.5, color = "grey10") +
+  
+  geom_hline(yintercept = -log10(0.1),linetype = "dotted",
+             linewidth = 0.1, color = "grey50") +
+  # annotate("text", x = 1.95, y = -log10(0.1),
+  #          label = " adj.p <.1 \n",
+  #          fontface = 'italic', size = 1.5, color = "grey30") +
+  
+  geom_vline(xintercept = c(0),linetype = "solid",
+             linewidth = 0.1, color = "grey80") +
+  
+  guides(color=guide_legend(nrow=1, byrow=TRUE)) +
+  
+  theme_bw() +
+  theme(legend.position = "bottom",
+        axis.title = element_text(color = "grey10", size = 10),
+        legend.title = element_text(color = "grey10", size = 10),
+        strip.text = element_text(size = 10, color = "grey10"),
+        panel.grid.major = element_line(color = "grey90"),
+        panel.grid.minor = element_line(color = "grey95"),
+        legend.margin = margin(-10,0,0,0),  # space between plot & legend
+        legend.key.size = unit(1, "cm"), # size of legend key icon
+        )
+
+big_volcano_no_lit
+```
+
+### Lit
+
+```{r}
+# make new df for the geom_text bit below.
+# prev had from 1 df but over plots repeately & cant index since mapped_comp huge.
+sig_volcano_sum_lit <- com_df_mapped %>%
+  # filter(pairwise_comp == "litter") %>%
+  filter(Label %in% c("S328 vs S329", "S328 vs S324", "S324 vs S422", "S426 vs S420",
+                     "S422 vs S423", "S329 vs S423", "S426 vs S423", "S420 vs S422")) %>%
+  dplyr::select(Label, sig_no_up_lab, sig_no_down_lab) %>%
+  unique() 
+  
+```
+
+```{r}
+big_volcano_lit <- com_df_mapped %>%
+    # filter(pairwise_comp == "litter") %>%
+  
+   filter(Label %in% c("S328 vs S329", "S328 vs S324", "S324 vs S422", "S426 vs S420",
+                     "S422 vs S423", "S329 vs S423", "S426 vs S423", "S420 vs S422")) %>%
+
+  ggplot(aes(x = log2FC, y = -log10(adj.pvalue), label = sig_g_label)) +
+  
+  # POINTS
+  geom_point(aes(color = case_when( # conditional ass for color mapping
+    adj.pvalue < 0.05 & log2FC > 0 ~ "up_adjp.05", # up sig .05
+    adj.pvalue < 0.05 & log2FC < 0 ~ "down_adjp.05", # down sig .05
+    adj.pvalue < 0.1 & log2FC > 0 ~ "up_adjp.1", # up 0.1
+    adj.pvalue < 0.1 & log2FC < 0 ~ "down_adjp.1", # down .1
+    TRUE ~ "ns" )), # catch the rest
+    alpha = .9, size = 1, shape = 1) +
+  
+  scale_color_manual(values = c("firebrick", # coloring
+                                "royalblue3",
+                                "lightpink",
+                                "lightblue3",
+                                "grey80"),
+                     breaks = c("up_adjp.05",
+                                "down_adjp.05",
+                                "up_adjp.1",
+                                "down_adjp.1"),
+                     labels = c("\U2191 (adj.p <.05)",
+                                "\U2193 (adj.p <.05)",
+                                "\U2191 (adj.p <.1)",
+                                "\U2193 (adj.p <.1)")) +
+  
+  geom_text_repel(max.overlaps = 27, size = 2.5, # gene text on points
+                  color = "grey10") + 
+  
+  
+  # NUM SIG UP & DOWN! | use sep df, overwise overplots
+  geom_text(data = sig_volcano_sum_lit, # up 
+            aes(label = paste0(sig_no_up_lab, " \U2191")),
+            x = 1.78, y = 9.4, size = 3.4, color = "firebrick"
+            ) + 
+  geom_text(data = sig_volcano_sum_lit, # down
+            aes(label = paste0(sig_no_down_lab, " \U2193")),
+            x = -1.78, y = 9.4, size = 3.4, color = "royalblue3"
+            ) + 
+
+  xlim(-2,2) +
+  ylim(0,10) +
+  facet_wrap(~Label, ncol = 4) + 
+  facet_wrap(~Label, ncol = 4) + 
+  
+  labs(x = "log2FC",
+       y = "-Log10(adj.p value)",
+       color = "Protein Regulation") +
+  
+  geom_hline(yintercept = -log10(0.05),
+             linetype = "dotted", linewidth = 0.1,
+             color = "grey30") +
+  
+  geom_hline(yintercept = -log10(0.1),linetype = "dotted",
+             linewidth = 0.1, color = "grey50") +
+  
+  geom_vline(xintercept = c(0),linetype = "solid",
+             linewidth = 0.1, color = "grey80") +
+  
+  guides(color=guide_legend(nrow=1, byrow=TRUE)) +
+  
+  theme_bw() +
+  theme(legend.position = "none",
+        axis.title = element_text(color = "grey10", size = 10),
+        legend.title = element_text(color = "grey10", size = 10),
+        strip.text = element_text(size = 9, color = "grey10"),
+        panel.grid.major = element_line(color = "grey90"),
+        panel.grid.minor = element_line(color = "grey95"),
+        legend.margin = margin(-10,0,0,0),  # space between plot & legend
+        legend.key.size = unit(1, "cm"), # size of legend key icon
+        )
+
+big_volcano_lit
+```
+
+```{r}
+plot_grid(big_volcano_lit, big_volcano_no_lit, ncol = 1, rel_heights = c(0.75,1))
+```
