@@ -11,7 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## 2026_02_18
 
-### Quick graphs for pairwise counts & pairwise volcano plots  - a little messy clean up later!
+### Quick graphs for pairwise counts & pairwise volcano plots - a little messy clean up later!
 
 ```{r}
 library(tidyverse)
@@ -55,7 +55,7 @@ com_df <- bind_rows(list(house = pw_housing,
                     .id = "pairwise_comp")
 ```
 
-### A bit messy... 
+### A bit messy...
 
 ```{r}
 com_df_mapped <- left_join(com_df, up_fasta,
@@ -155,12 +155,9 @@ sig_volcano_sum_no_litter <- com_df_mapped %>%
 ```{r}
 big_volcano_no_lit <- com_df_mapped %>%
   
-  
    filter(pairwise_comp != "litter") %>%
-
   
   ggplot(aes(x = log2FC, y = -log10(adj.pvalue), label = sig_g_label)) +
-  
   
   # POINTS
   geom_point(aes(color = case_when( # conditional ass for color mapping
@@ -169,7 +166,7 @@ big_volcano_no_lit <- com_df_mapped %>%
     adj.pvalue < 0.1 & log2FC > 0 ~ "up_adjp.1", # up 0.1
     adj.pvalue < 0.1 & log2FC < 0 ~ "down_adjp.1", # down .1
     TRUE ~ "ns" )), # catch the rest
-    alpha = .9, size = 1, shape = 1) +
+    alpha = .9, size = 1.5, shape = 1) +
   
   scale_color_manual(values = c("firebrick", # coloring
                                 "royalblue3",
@@ -185,19 +182,16 @@ big_volcano_no_lit <- com_df_mapped %>%
                                 "\U2191 (adj.p <.1)",
                                 "\U2193 (adj.p <.1)")) +
   
-  geom_text_repel(max.overlaps = 27, size = 2.5, # gene text on points
+  geom_text_repel(max.overlaps = 27, size = 3, # gene text on points
                   color = "grey10") + 
-  
   
   # NUM SIG UP & DOWN! | use sep df, overwise overplots
   geom_text(data = sig_volcano_sum_no_litter, # up 
             aes(label = paste0(sig_no_up_lab, " \U2191")),
-            x = 1.8, y = 9.4, size = 3.5, color = "firebrick"
-            ) + 
+            x = 1.78, y = 9.7, size = 4, color = "firebrick") + 
   geom_text(data = sig_volcano_sum_no_litter, # down
             aes(label = paste0(sig_no_down_lab, " \U2193")),
-            x = -1.8, y = 9.4, size = 3.5, color = "royalblue3"
-            ) + 
+            x = -1.78, y = 9.7, size = 4, color = "royalblue3") + 
 
   xlim(-2,2) +
   ylim(0,10) +
@@ -211,16 +205,10 @@ big_volcano_no_lit <- com_df_mapped %>%
   geom_hline(yintercept = -log10(0.05),
              linetype = "dotted", linewidth = 0.1,
              color = "grey30") +
-  # annotate("text", x = 1.95, y = -log10(0.05),
-  #          label = "adj.p <.05 \n",
-  #          fontface = 'italic', size = 1.5, color = "grey10") +
   
   geom_hline(yintercept = -log10(0.1),linetype = "dotted",
              linewidth = 0.1, color = "grey50") +
-  # annotate("text", x = 1.95, y = -log10(0.1),
-  #          label = " adj.p <.1 \n",
-  #          fontface = 'italic', size = 1.5, color = "grey30") +
-  
+
   geom_vline(xintercept = c(0),linetype = "solid",
              linewidth = 0.1, color = "grey80") +
   
@@ -228,12 +216,13 @@ big_volcano_no_lit <- com_df_mapped %>%
   
   theme_bw() +
   theme(legend.position = "bottom",
-        axis.title = element_text(color = "grey10", size = 10),
-        legend.title = element_text(color = "grey10", size = 10),
-        strip.text = element_text(size = 10, color = "grey10"),
+        axis.title = element_text(color = "grey10", size = 10.5),
+        legend.title = element_text(color = "grey10", size = 10.5),
+        strip.text = element_text(size = 11.5, color = "grey10"),
         panel.grid.major = element_line(color = "grey90"),
         panel.grid.minor = element_line(color = "grey95"),
-        legend.margin = margin(-10,0,0,0),  # space between plot & legend
+        panel.spacing.y = unit(0.75, "cm"), # vert spacing
+        legend.margin = margin(-10,0,-10,0),  # space between plot & legend
         legend.key.size = unit(1, "cm"), # size of legend key icon
         )
 
@@ -248,21 +237,16 @@ big_volcano_no_lit
 sig_volcano_sum_lit <- com_df_mapped %>%
   # filter(pairwise_comp == "litter") %>%
   filter(Label %in% c("S328 vs S329", "S328 vs S324", "S324 vs S422", "S426 vs S420",
-                     "S422 vs S423", "S329 vs S423", "S426 vs S423", "S420 vs S422")) %>%
+               "S422 vs S423", "S329 vs S423", "S426 vs S423", "S420 vs S422")) %>%
   dplyr::select(Label, sig_no_up_lab, sig_no_down_lab) %>%
   unique() 
-  
 ```
 
 ```{r}
 big_volcano_lit <- com_df_mapped %>%
-    # filter(pairwise_comp == "litter") %>%
-  
    filter(Label %in% c("S328 vs S329", "S328 vs S324", "S324 vs S422", "S426 vs S420",
-                     "S422 vs S423", "S329 vs S423", "S426 vs S423", "S420 vs S422")) %>%
-
+                   "S422 vs S423", "S329 vs S423", "S426 vs S423", "S420 vs S422")) %>%
   ggplot(aes(x = log2FC, y = -log10(adj.pvalue), label = sig_g_label)) +
-  
   # POINTS
   geom_point(aes(color = case_when( # conditional ass for color mapping
     adj.pvalue < 0.05 & log2FC > 0 ~ "up_adjp.05", # up sig .05
@@ -270,7 +254,7 @@ big_volcano_lit <- com_df_mapped %>%
     adj.pvalue < 0.1 & log2FC > 0 ~ "up_adjp.1", # up 0.1
     adj.pvalue < 0.1 & log2FC < 0 ~ "down_adjp.1", # down .1
     TRUE ~ "ns" )), # catch the rest
-    alpha = .9, size = 1, shape = 1) +
+    alpha = .9, size = 1.3, shape = 1) +
   
   scale_color_manual(values = c("firebrick", # coloring
                                 "royalblue3",
@@ -285,47 +269,35 @@ big_volcano_lit <- com_df_mapped %>%
                                 "\U2193 (adj.p <.05)",
                                 "\U2191 (adj.p <.1)",
                                 "\U2193 (adj.p <.1)")) +
-  
-  geom_text_repel(max.overlaps = 27, size = 2.5, # gene text on points
-                  color = "grey10") + 
-  
-  
+  geom_text_repel(max.overlaps = 25, size = 2.8, # gene text on points
+                  color = "grey15", min.segment.length = 1) + 
   # NUM SIG UP & DOWN! | use sep df, overwise overplots
   geom_text(data = sig_volcano_sum_lit, # up 
             aes(label = paste0(sig_no_up_lab, " \U2191")),
-            x = 1.78, y = 9.4, size = 3.4, color = "firebrick"
-            ) + 
+            x = 1.75, y = 9.6, size = 3.7, color = "firebrick") + 
   geom_text(data = sig_volcano_sum_lit, # down
             aes(label = paste0(sig_no_down_lab, " \U2193")),
-            x = -1.78, y = 9.4, size = 3.4, color = "royalblue3"
-            ) + 
-
+            x = -1.75, y = 9.6, size = 3.7, color = "royalblue3") + 
   xlim(-2,2) +
   ylim(0,10) +
   facet_wrap(~Label, ncol = 4) + 
   facet_wrap(~Label, ncol = 4) + 
-  
   labs(x = "log2FC",
        y = "-Log10(adj.p value)",
        color = "Protein Regulation") +
-  
   geom_hline(yintercept = -log10(0.05),
              linetype = "dotted", linewidth = 0.1,
              color = "grey30") +
-  
   geom_hline(yintercept = -log10(0.1),linetype = "dotted",
              linewidth = 0.1, color = "grey50") +
-  
   geom_vline(xintercept = c(0),linetype = "solid",
              linewidth = 0.1, color = "grey80") +
-  
   guides(color=guide_legend(nrow=1, byrow=TRUE)) +
-  
   theme_bw() +
   theme(legend.position = "none",
-        axis.title = element_text(color = "grey10", size = 10),
-        legend.title = element_text(color = "grey10", size = 10),
-        strip.text = element_text(size = 9, color = "grey10"),
+        axis.title = element_text(color = "grey10", size = 10.5),
+        legend.title = element_text(color = "grey10", size = 10.5),
+        strip.text = element_text(size = 10, color = "grey10"),
         panel.grid.major = element_line(color = "grey90"),
         panel.grid.minor = element_line(color = "grey95"),
         legend.margin = margin(-10,0,0,0),  # space between plot & legend
@@ -336,5 +308,28 @@ big_volcano_lit
 ```
 
 ```{r}
-plot_grid(big_volcano_lit, big_volcano_no_lit, ncol = 1, rel_heights = c(0.75,1))
+plot_grid(big_volcano_lit, big_volcano_no_lit, ncol = 1, rel_heights = c(0.7,1))
+
+# DOES NOT WORK - MANULA EXPORT WITH DEVICE PIXEL RATIO OFF WORKS BEST SO FAR. 
+
+# ggsave("output/2026_02_20_mss_sp_v3.1.2_volcanos_p5_cowplot_600dpi.png",
+#        width = 900, height = 1000, units = "px",
+#        dpi = 600)
+
+# png("output/2026_02_20_mss_sp_v3.1.2_volcanos_p5_cowplot_600dpi.png",
+#     # width = 700, height = 850, units = "px",
+#     type = "cairo-png",
+#     res = 300)
+# 
+# print(p)
+# dev.off()
+
+
+# 2026_02_20 - final version happy with NVM
+# 2026_02_20_mss_sp_v3.1.2_volcanos_p8_cowplot_redo_925x1150
+# eehhh stil kinda blurry....
+
+
+# OMG ACTUALLY This works. just set size in viewer... | OK FINAL one acutally...
+ggsave("2026_02_20_mss_sp_v3.1.2_volcanos_p9_cowplot_devoff_200dpi.png", dpi = 200)
 ```
