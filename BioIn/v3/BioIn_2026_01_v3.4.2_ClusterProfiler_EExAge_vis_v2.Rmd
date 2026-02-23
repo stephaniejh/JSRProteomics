@@ -68,9 +68,64 @@ up_subcell_raw <- read_excel(
   "input/db/UP_subcellular_locations_all_2026_01_23.xlsx")
 ```
 
+```{r}
+# mapped_comp_v3.2.2_EExAge_t1
+load("input/protein_lists/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_comp.rda")
+
+df <- mapped_comp_v3.2.2_EExAge_t1
+```
+
 ------------------------------------------------------------------------
 
 # Wrangling
+
+### Protein Comparisons with ENTREZ & GENENAME
+
+```{r}
+# see BioIn_2025_12_v3.4.2_ClusterProfiler_EExAge_vis_testing_v1.Rmd for more info
+
+protein_comp <- df %>%
+  filter(is.na(issue)) %>% # keeps rows with issue == na (so comparisons that are ok)
+  filter(!str_detect(log2FC, "Inf")) # remove infinity/missing fold change values
+
+# check 
+head(protein_comp) 
+colnames(protein_comp)
+
+
+# ENTREZ
+protein_comp_uni_gene <- unique(protein_comp$gene) # 8014
+
+bitr_gn_2_entrez <- bitr(protein_comp_uni_gene,
+                         fromType = "SYMBOL",
+                         toType = "ENTREZID",
+                         OrgDb = "org.Rn.eg.db") #3.39% failed to map... better
+
+
+
+
+# SEE MY LEVELS BELOW 
+my_comp_levels = c("H_EE_vs_SH",
+              "HxA_EE_YNG_vs_SH_YNG",
+              "HxA_EE_OLD_vs_SH_OLD",
+              "A_YNG_vs_OLD", 
+              "HxA_EE_YNG_vs_EE_OLD",
+              "HxA_SH_YNG_vs_SH_OLD",
+              
+              "HxA_EE_OLD_vs_SH_YNG", "HxA_EE_YNG_vs_SH_OLD"
+)
+
+
+# MAP ENTREZ TO UNIPROT PROT COMPS
+protein_comp_entrez <- left_join(protein_comp, bitr_gn_2_entrez,
+                                 by = join_by(gene == SYMBOL)) %>%
+  filter(!is.na(ENTREZID))  # remove non mapped - 64384 to 61952 
+
+
+protein_comp_entrez$Label <- factor(protein_comp_entrez$Label,
+                                  levels = my_comp_levels)
+
+```
 
 ### Map nested .rda to master dfs
 
@@ -174,6 +229,10 @@ up_subcell <- up_subcell_raw %>%
 ```{r}
 KEGG_counts <- KEGG_tibs_df %>%
   count(Label)
+```
+
+```{r}
+
 ```
 
 ------------------------------------------------------------------------
@@ -461,41 +520,41 @@ kegg_pathways_2 <- unique(kegg_pathways_2_df$ID)
 #### for loop for KEGG pathviews
 
 ```{r}
-# PATHVIEW FOR LOOP 
-for (lb in labels) {
-  
-  wdf <- geneLists_df %>%
-    filter(Label == lb) %>%
-    dplyr::select(name, value)
-    
-  wgL <- tibble::deframe(wdf)
-  
-  #for (kp in kegg_pathways) {  # 1 kegg pathways from gsea
-  for (kp in kegg_pathways_2) { # 2 extra kegg paths of interest 
-    
-    # c_desc <- KEGG_multi_df %>%  # 1 kegg pathways from gsea
-     c_desc <- kegg_pathways_2_df %>%  # 2 extra kegg paths of interest 
-      filter(ID == kp) %>%
-      dplyr::select(trm_desc) %>%
-      slice_head(n = 1)
-    
-    
-    pathview(gene.data = wgL,
-                pathway.id = kp,
-                species = 'rno',
-         out.suffix = paste0(lb, "_", c_desc[1]),
-         kegg.native = T,
-         same.layer = T, #slower & on top (out of bounds?)
-         res = 600, #400 dpi (def 300 dpi for png) # nvm doesn't change drawings idk
-         low = list(gene = "#317DEC", cpd = "#A054A3"), # purple unused 
-         mid = list(gene= "grey85", cpd = "grey85"), 
-         high = list(gene = "#E22A47", cpd ="#F3AD6AFF"), # org unused
-         new.signature = FALSE
-         )
-  }
-}
-
-#noob way manually set working directory as folder you want to output
+# # PATHVIEW FOR LOOP 
+# for (lb in labels) {
+#   
+#   wdf <- geneLists_df %>%
+#     filter(Label == lb) %>%
+#     dplyr::select(name, value)
+#     
+#   wgL <- tibble::deframe(wdf)
+#   
+#   #for (kp in kegg_pathways) {  # 1 kegg pathways from gsea
+#   for (kp in kegg_pathways_2) { # 2 extra kegg paths of interest 
+#     
+#     # c_desc <- KEGG_multi_df %>%  # 1 kegg pathways from gsea
+#      c_desc <- kegg_pathways_2_df %>%  # 2 extra kegg paths of interest 
+#       filter(ID == kp) %>%
+#       dplyr::select(trm_desc) %>%
+#       slice_head(n = 1)
+#     
+#     
+#     pathview(gene.data = wgL,
+#                 pathway.id = kp,
+#                 species = 'rno',
+#          out.suffix = paste0(lb, "_", c_desc[1]),
+#          kegg.native = T,
+#          same.layer = T, #slower & on top (out of bounds?)
+#          res = 600, #400 dpi (def 300 dpi for png) # nvm doesn't change drawings idk
+#          low = list(gene = "#317DEC", cpd = "#A054A3"), # purple unused 
+#          mid = list(gene= "grey85", cpd = "grey85"), 
+#          high = list(gene = "#E22A47", cpd ="#F3AD6AFF"), # org unused
+#          new.signature = FALSE
+#          )
+#   }
+# }
+# 
+# #noob way manually set working directory as folder you want to output
 ```
 
 ------------------------------------------------------------------------
@@ -881,3 +940,140 @@ v2
 ```
 
 ------------------------------------------------------------------------
+
+------------------------------------------------------------------------
+
+## Plot back GSEA volcanos
+
+-   <https://www.kegg.jp/kegg-bin/show_organism?menu_type=pathway_maps&org=rno>
+-   <https://en.wikipedia.org/wiki/Shades_of_orange>
+
+KEGG_tibs_df_6_split
+
+```{r}
+str(KEGG_tibs_df_6) # lil check
+#unique(KEGG_tibs_df_6$core_enrichment) 
+  
+
+KEGG_tibs_df_6_entrez_split <- KEGG_tibs_df_6 %>%  # 104 x 12s
+  mutate(core_enrich_split = str_split(core_enrichment, "/")) %>% # split by /
+  tidyr::unnest(core_enrich_split) %>% # unnest | to  3816 x 13
+  left_join(bitr_gn_2_entrez, by = join_by(core_enrich_split == ENTREZID))  # map 2 gene name
+
+```
+
+```{r}
+# iterate over... 
+#labels <- unique(KEGG_tibs_df_6$Label)
+
+# GET KEGG PATHVWAYS OF INTEREST 
+kegg_POI  <- c(
+  # "rno04722", "rno04724", # neurotrophin signalling,  GLUTsyn,
+  "rno04721", "rno04082", "rno04723", # syanp_ves, neuroa_lig, ret_endoca
+  "rno04360",  "rno04727", # axon_guid, GLUTsyn, GABAsyn
+  "rno00900", # terpenoid backbone synthesis
+  "rno00190", "rno00020",  # oxidati phos, TCA, 
+  "rno03040", "rno03082", "rno03050", # spliceo, ATPchromatre, proteasom
+  "rno03010") # ribosome
+
+
+# EMPTY PLOT LIST 
+kegg_volcano_list <-  vector(mode = "list")
+```
+
+```{r}
+for(kp in kegg_POI) {
+
+  my_kpg <- KEGG_tibs_df_6_entrez_split %>%
+    filter(ID == kp) %>%
+    dplyr::distinct(SYMBOL) %>%
+    tibble::deframe()
+  
+  my_title <- KEGG_tibs_df_6_entrez_split %>%
+    filter(ID == kp) %>%
+    dplyr::distinct(Description) %>%
+    tibble::deframe()
+    
+  my_kp_prot <- protein_comp_entrez %>%
+    # filter(!(Label %in% c("HxA_EE_OLD_vs_SH_YNG", "HxA_EE_YNG_vs_SH_OLD"))) %>%
+    filter(!(Label %in% c("HxA_EE_OLD_vs_SH_YNG", "HxA_EE_YNG_vs_SH_OLD"))) %>%
+    filter(gene %in% my_kpg)
+  
+  
+  vol_plot <- protein_comp_entrez %>%
+       filter(!(Label %in% c("HxA_EE_OLD_vs_SH_YNG", "HxA_EE_YNG_vs_SH_OLD"))) %>%
+    
+   ggplot(aes(x = log2FC, y = -log10(adj.pvalue))) +
+    
+    geom_point(aes(color = case_when( # conditional ass for color mapping
+    adj.pvalue < 0.05 & log2FC > 0 ~ "up_adjp.05", # up sig .05
+    adj.pvalue < 0.05 & log2FC < 0 ~ "down_adjp.05", # down sig .05
+    adj.pvalue < 0.1 & log2FC > 0 ~ "up_adjp.1", # up 0.1
+    adj.pvalue < 0.1 & log2FC < 0 ~ "down_adjp.1", # down .1
+    TRUE ~ "ns" )), # catch the rest
+    alpha = .15, size = 1.5, shape = 1) +
+
+  scale_color_manual(values = c("firebrick", # coloring
+                                "royalblue3",
+                                "lightpink",
+                                "lightblue3",
+                                "grey90"),
+                     breaks = c("up_adjp.05",
+                                "down_adjp.05",
+                                "up_adjp.1",
+                                "down_adjp.1"),
+                     labels = c("\U2191 (adj.p <.05)",
+                                "\U2193 (adj.p <.05)",
+                                "\U2191 (adj.p <.1)",
+                                "\U2193 (adj.p <.1)")) +
+    
+     geom_point(data = my_kp_prot,
+                aes(x = log2FC, y = -log10(adj.pvalue)),
+                alpha = .25, size = 1.5, shape = 19, color = "#E09540") + # butterscotch 
+
+    
+     # geom_text_repel(data = my_kp_prot,
+     #            aes(label = gene),
+     #            alpha = .3, size = 1, shape = 19, color = "orange") +
+    
+    xlim(-2,2) +
+    ylim(0,5) +
+    
+    geom_hline(yintercept = -log10(0.05),
+             linetype = "dotted", linewidth = 0.1,
+             color = "grey30") +
+    geom_hline(yintercept = -log10(0.1),linetype = "dotted",
+             linewidth = 0.1, color = "grey50") +
+    geom_vline(xintercept = c(0),linetype = "solid",
+             linewidth = 0.1, color = "#74025FFF") +
+
+    
+    labs(subtitle = my_title) +
+     
+
+    facet_wrap(~Label) + 
+     
+    theme_bw() +
+    theme(legend.position = "none",
+          plot.subtitle = element_text(size =10),
+          axis.title = element_text(size =8),
+           axis.text = element_text(size =7.5),
+          strip.text = element_text(size = 8),
+          panel.grid = element_blank()
+        )
+    
+    
+    print(vol_plot)
+    
+    
+    kegg_volcano_list[[kp]] <- vol_plot
+  
+}
+
+```
+
+```{r}
+plot_grid(plotlist = kegg_volcano_list[1:6], ncol = 2)
+
+# ggsave("2026_02_23_KEGG_brain_volcanos_4_cowplot_200dpi.png", dpi = 200)
+```
