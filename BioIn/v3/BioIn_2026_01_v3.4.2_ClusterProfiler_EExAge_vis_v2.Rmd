@@ -41,6 +41,7 @@ library(cowplot) # plot_grid
 library(readxl)
 library(writexl) # for excel tab export
 library(ggvenn) # vennys (old ones)
+library(scales) #label_wrap text break in lolliplots
 ```
 
 ### Load Data
@@ -130,28 +131,36 @@ protein_comp_entrez$Label <- factor(protein_comp_entrez$Label,
 ### Map nested .rda to master dfs
 
 ```{r}
-# Map KEGG to a MASTER DF 
-KEGG_tibs_df <- map_dfr(KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3$kegg_results_tib,
-                        as.data.frame,
-                        .id = "Label") 
+# # Map KEGG to a MASTER DF 
+# KEGG_tibs_df <- map_dfr(KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3$kegg_results_tib,
+#                         as.data.frame,
+#                         .id = "Label")  %>%
+#   mutate(Description_2 = str_replace_all(Description, " and ", " & "), # & instead of and
+#          .after = Description)
+# 
+# # MAP Msigdb Hallmarks to masterdf 
+# HM_tibs_df <- map_dfr(gsea_msig_Hmrk_EExAge_mss3.2.2_t1_cp3.4.2_t2$gsea_results_tib,
+#                         as.data.frame,
+#                         .id = "Label")
+# 
+# 
+# # MAP GO Simplified (nested nested) to single df
+# GO_sim_tibs_df <- map_dfr(
+#   GO_gsea_EExAge_cp_v3.4.2_t2_simplified$sim_GO_res_tib,
+#   ~map_dfr(.x, as_tibble, .id = "GO"),
+#   .id = "Label") 
 
-# MAP Msigdb Hallmarks to masterdf 
-HM_tibs_df <- map_dfr(gsea_msig_Hmrk_EExAge_mss3.2.2_t1_cp3.4.2_t2$gsea_results_tib,
-                        as.data.frame,
-                        .id = "Label")
-
-
-# MAP GO Simplified (nested nested) to single df
-GO_sim_tibs_df <- map_dfr(
-  GO_gsea_EExAge_cp_v3.4.2_t2_simplified$sim_GO_res_tib,
-  ~map_dfr(.x, as_tibble, .id = "GO"),
-  .id = "Label")
 
 # MAP MSIG c2 REACTOME 
 REACT_tibs_df <- map_dfr(
   gsea_msig_c2_reactome_EExAge_mss3.2.2_t1_cp3.4.2$gsea_results_tib,
   as.data.frame,
-  .id = "Label")
+  .id = "Label") %>%
+  mutate(Description_2 = str_replace_all(Description, "REACTOME_", ""), 
+         .after = Description)  %>%
+  mutate(Description_3 = str_replace_all(Description_2, "_AND_", "_&_"), # needs 2 work
+         .after = Description_2)  
+
 
 ```
 
@@ -264,18 +273,22 @@ lolliplot <- function(data,
                      alpha = {{alpha}}
                      )) +
     
-   geom_point(aes(alpha = {{alpha}},
+    geom_point(aes(alpha = {{alpha}},
                   size = {{size}}),
              shape = 21) +
-    scale_alpha(range = c(.9,.3)) + # rev alpha so darker = more sig
+    # scale_alpha(range = c(.95,.3)) + # rev alpha so darker = more sig | all
+    scale_alpha(range = c(.95,.45)) + #  GO TRIM VERSION so matches others
     geom_hline(yintercept = 0, color = 'grey20', linewidth = 0.1) +
     scale_color_manual(breaks = c("Up", "Down"),
                      # values = c("#dc322f", "#268bd2"),
                      guide = 'none') + 
-   scale_size_continuous(range = c(3,9)) + # map size oflolly (set size)
+    # scale_size_continuous(range = c(3,9)) + # map size oflolly (set size)
+    scale_size_continuous(range = c(2,8)) + # map size oflolly (set size) | GO BP
     
     # scale_fill_continuous_diverging("Blue-Red 3") + # colorspace
     scale_fill_continuous_diverging("Blue-Red 2") +
+    
+    scale_x_discrete(labels = scales::label_wrap(width = 50)) + # break text |
   
     ylim(-4,4)+
   
@@ -288,12 +301,25 @@ lolliplot <- function(data,
     theme_bw() +
     theme(
     axis.text.x = element_text(angle = 90, hjust = 1, color = "grey15",
-                               vjust = 0.5, # 90, hj1 t/R, vj.5 cent
+                               vjust = 0, # 90, hj1 t/R, vj.5 cent
                                size = 9.5, face = 'italic'), 
-    axis.text.y = element_text(hjust = 1, color = "grey20",
-                               size = 9, face = 'italic'), 
+    axis.text.y = element_text(hjust = 1, color = "grey15",
+                               size = 8.5, face = 'italic',
+                               lineheight = .7), # <1 smaller distances breaks
     axis.title.y = element_blank(),
     strip.text = element_text(size = 8.5),
+    
+    # legend.margin = margin(-10,-1,-5,-1), # (top, right, bot, left) | bottom ver
+    legend.title = element_text(face = 'italic', size =8,
+                                hjust = 1),
+    legend.key.size = grid::unit(0.4, "cm"), # posit answer to same height
+    legend.text = element_text(margin = margin(l = 0)), # marg text & key
+    legend.box.just = "right", # right justify legend box
+    
+    # FOR RIGHT LEGEND
+    legend.margin = margin(0,0,0,-5), # (top, right, bot, left) | right ver
+    legend.justification = "top", # for right ver
+    
     legend.position = legend_pos) 
     
 }
@@ -313,30 +339,42 @@ HM_lol
 ```{r}
 # KEGG ALL 6
 KEGG_lol_f6 <- lolliplot(KEGG_tibs_df_6,
-                      subtitle = "KEGG", legend_pos = "bottom")
+                         x_1 = Description_2,
+                         subtitle = "KEGG", legend_pos = "bottom")
 KEGG_lol_f6 
 # exp - 2026_01_31_EExAge_6_comps_KEGG_lolli_v1 12 x 12 
+
+ggsave("testest.png", dpi = 200)
 ```
 
 ### GO lolliplots (6)
 
 ```{r}
 GO_sim_lol_6 <-   GO_sim_tibs_df_6 %>%
-  filter(GO == "MF") %>% # Swi
-  lolliplot(subtitle = "GO MF")
+  filter(GO == "BP") %>% # Swi
+  lolliplot(subtitle = "GO BP GSEA - Housing & Age", legend_pos = "right")
 
 
 GO_sim_lol_6
+# 2026_02_25_GO_MF_sim_lol_6_v2 - MF v2 - 11.5 x 17
+# 2026_02_25_GO_CC_sim_lol_6_v2 - 12 x 18
+# 2026_02_25_GO_BP_sim_lol_6_v2 -14 x 21.5
 ```
 
 ## Msigdb C2 Reactome
 
 ```{r}
-REACT_lol_6 <- lolliplot(REACT_tibs_df_6,
-                         subtitle = "REACTOME (via Msigdbr C2)",
-                         legend_pos = "bottom")
+# REACTOME GSEA - 770 adjp<0.05(all 6) |  p.adjust <0.02 (550 obs) |p.01 405
+REACT_lol_6 <- REACT_tibs_df_6 %>%
+  filter(p.adjust <=0.01) %>%
+  
+  lolliplot(subtitle = "REACTOME (via Msigdbr C2)",
+            x_1 = Description_2, legend_pos = "bottom")
 
 REACT_lol_6
+
+
+# ggsave("2026_02_25_REACTOME_via_Msigdbr_C2_EExAge_6.png", dpi = 200)
 ```
 
 ### Reactome EE
@@ -344,10 +382,15 @@ REACT_lol_6
 ```{r}
 REACT_lol_EE_3 <- REACT_tibs_df_6 %>%
   filter(Label %in% c("H_EE_vs_SH","HxA_EE_YNG_vs_SH_YNG","HxA_EE_OLD_vs_SH_OLD")) %>%
-  # filter(Label == "H_EE_vs_SH") %>%
-  lolliplot(subtitle = "REACTOME GSEA (via msigdbr) - Housing", legend_pos = "right")
+  filter(p.adjust <=0.011) %>%
+  lolliplot(subtitle = "REACTOME GSEA (via msigdbr) - Housing",
+            x_1 = Description_3,
+            legend_pos = "right")
 
 REACT_lol_EE_3
+
+# 4 - 2026_02_25_REACTOME_via_Msigdbr_C2_EExAge4_trm_adjp01 - 14 x 23
+# 3 - 2026_02_25_REACTOME_via_Msigdbr_C2_EE_3_trm_adjp011 - 13.5 x 20
 ```
 
 #### EE KEGG lolli
@@ -356,10 +399,14 @@ REACT_lol_EE_3
 # KEGG 3 EE
 KEGG_tibs_EE_3 <- KEGG_tibs_df_6 %>%
   filter(Label %in% c("H_EE_vs_SH","HxA_EE_YNG_vs_SH_YNG","HxA_EE_OLD_vs_SH_OLD")) %>%
-  lolliplot(subtitle = "KEGG GSEA - Housing")
+  lolliplot(subtitle = "KEGG GSEA - Housing",
+            x_1 = Description_2,
+            legend_pos = "bottom")
 
 KEGG_tibs_EE_3 
 # exp - 2026_01_31_EE_3_comps_KEGG_lolli_v1 - 9 x 12
+# exp - 2026_02_25_EE_3_comps_KEGG_lolli_v2.pdf = 9 x 12 - 40.7kb 
+# ggsave("2026_02_23_EE_3_comps_KEGG_lolli_v2.png", dpi = 200) # 496kb 
 ```
 
 #### 
@@ -620,20 +667,23 @@ GO_sim_lol_6_CC
 GO_sim_lol_3_EE <-   GO_sim_tibs_df_6 %>%
   filter(Label %in% c("H_EE_vs_SH","HxA_EE_YNG_vs_SH_YNG","HxA_EE_OLD_vs_SH_OLD")) %>%
   # filter(GO == "CC") %>% # Swi
-  filter(p.adjust < 0.03) %>% # cut of for BP so ~136 
+  filter(p.adjust <= 0.031) %>% # cut of for BP so ~136
   filter(GO == "BP") %>% # Swi
-  lolliplot(subtitle = "GO BP - Housing")
+  lolliplot(subtitle = "GO BP GSEA - Housing",
+            legend_pos = "right")
 
 
 GO_sim_lol_3_EE
 
-
 # exp - 2026_01_31_EE_3_comps_GO_CC_sim_lolli_v1 - 9 x 12.75
 # exp - 2026_01_31_EE_3_comps_GO_MF_sim_lolli_v1 - 9.25 x 10 | font 
+# BP  2026_01_31_EE_3_comps_GO_BP_sim_lolli_adjp_03_trim_v1 - 9 x 13 |BP too long! 
 
-# BP too long! 
-# BP  2026_01_31_EE_3_comps_GO_BP_sim_lolli_adjp_03_trim_v1 - 9 x 13
-
+#NEW VERSION
+#CC - 2026_02_25_EE_3_comps_GO_CC_sim_lolli_v2 9.5 x 14
+#MF 2026_02_25_EE_3_comps_GO_MF_sim_lolli_v2 - 9.5 x 13.5
+#BP - 2026_02_25_EE_3_comps_GO_BP_sim_lolli_v2 - 10.25 x 16
+#BP - 2026_02_25_EE_3_comps_GO_BP_sim_lolli_adjp03_v2 - 10 x 14.75
 ```
 
 ### exp - 2026_01_31_EE_3_comps_GO_CC_sim_lolli_v1
@@ -995,13 +1045,16 @@ for(kp in kegg_POI) {
     tibble::deframe()
     
   my_kp_prot <- protein_comp_entrez %>%
+    filter(Label %in% c("H_EE_vs_SH","HxA_EE_YNG_vs_SH_YNG","HxA_EE_OLD_vs_SH_OLD",
+                        "A_YNG_vs_OLD")) %>%
     # filter(!(Label %in% c("HxA_EE_OLD_vs_SH_YNG", "HxA_EE_YNG_vs_SH_OLD"))) %>%
-    filter(!(Label %in% c("HxA_EE_OLD_vs_SH_YNG", "HxA_EE_YNG_vs_SH_OLD"))) %>%
     filter(gene %in% my_kpg)
   
   
   vol_plot <- protein_comp_entrez %>%
-       filter(!(Label %in% c("HxA_EE_OLD_vs_SH_YNG", "HxA_EE_YNG_vs_SH_OLD"))) %>%
+        filter(Label %in% c("H_EE_vs_SH","HxA_EE_YNG_vs_SH_YNG","HxA_EE_OLD_vs_SH_OLD",
+                        "A_YNG_vs_OLD")) %>%
+       # filter(!(Label %in% c("HxA_EE_OLD_vs_SH_YNG", "HxA_EE_YNG_vs_SH_OLD"))) %>%
     
    ggplot(aes(x = log2FC, y = -log10(adj.pvalue))) +
     
@@ -1011,13 +1064,13 @@ for(kp in kegg_POI) {
     adj.pvalue < 0.1 & log2FC > 0 ~ "up_adjp.1", # up 0.1
     adj.pvalue < 0.1 & log2FC < 0 ~ "down_adjp.1", # down .1
     TRUE ~ "ns" )), # catch the rest
-    alpha = .15, size = 1.5, shape = 1) +
+    alpha = .35, size = 1.6, shape = 1) +
 
   scale_color_manual(values = c("firebrick", # coloring
                                 "royalblue3",
                                 "lightpink",
                                 "lightblue3",
-                                "grey90"),
+                                "grey100"),
                      breaks = c("up_adjp.05",
                                 "down_adjp.05",
                                 "up_adjp.1",
@@ -1029,15 +1082,22 @@ for(kp in kegg_POI) {
     
      geom_point(data = my_kp_prot,
                 aes(x = log2FC, y = -log10(adj.pvalue)),
-                alpha = .25, size = 1.5, shape = 19, color = "#E09540") + # butterscotch 
+                alpha = .35, size = 1.5, shape = 21,
+                fill = "#E17C05FF", color = "#FCA842FF") + 
 
     
      # geom_text_repel(data = my_kp_prot,
      #            aes(label = gene),
      #            alpha = .3, size = 1, shape = 19, color = "orange") +
     
-    xlim(-2,2) +
-    ylim(0,5) +
+    # xlim(-1.5,1.5) +
+    # ylim(0,5) +
+    
+    
+    scale_x_continuous(limits = c(-2,2),
+                       expand = c(0, 0)) +
+    scale_y_continuous(limits = c(0,6),
+                       expand = c(.04, 0)) + 
     
     geom_hline(yintercept = -log10(0.05),
              linetype = "dotted", linewidth = 0.1,
@@ -1051,14 +1111,14 @@ for(kp in kegg_POI) {
     labs(subtitle = my_title) +
      
 
-    facet_wrap(~Label) + 
+    facet_wrap(~Label, nrow = 1) + 
      
     theme_bw() +
     theme(legend.position = "none",
           plot.subtitle = element_text(size =10),
           axis.title = element_text(size =8),
            axis.text = element_text(size =7.5),
-          strip.text = element_text(size = 8),
+          strip.text = element_text(size = 7.5),
           panel.grid = element_blank()
         )
     
@@ -1073,7 +1133,173 @@ for(kp in kegg_POI) {
 ```
 
 ```{r}
-plot_grid(plotlist = kegg_volcano_list[1:6], ncol = 2)
+plot_grid(plotlist = kegg_volcano_list[c(1:3,5)], ncol = 2)
 
-# ggsave("2026_02_23_KEGG_brain_volcanos_4_cowplot_200dpi.png", dpi = 200)
+ggsave("2026_02_25_KEGG_EE_syn_volcanos_200dpi.png", dpi = 200)
+```
+
+REACTOME
+
+```{r}
+REACT_tibs_df_6_entrez_split <- REACT_tibs_df_6 %>%
+  mutate(core_enrich_split = str_split(core_enrichment, "/")) %>% # split by /
+  tidyr::unnest(core_enrich_split) %>% # unnest | to  3816 x 13
+  left_join(bitr_gn_2_entrez, by = join_by(core_enrich_split == ENTREZID)) %>% #map2gene
+  mutate()
+```
+
+```{r}
+check_REACT_paths <- REACT_tibs_df_6 %>%
+  filter(Label %in% c("H_EE_vs_SH","HxA_EE_YNG_vs_SH_YNG","HxA_EE_OLD_vs_SH_OLD")) %>%
+  filter(p.adjust < 0.011) %>%
+  arrange(p.ajust) %>%
+  distinct(ID)
+
+check_REACT_paths
+```
+
+```{r}
+# GET REACTOME PATHVWAYS OF INTEREST 
+REACT_POI  <- c(
+  "REACTOME_PROLONGED_ERK_ACTIVATION_EVENTS",
+  "REACTOME_DISEASES_OF_SIGNAL_TRANSDUCTION_BY_GROWTH_FACTOR_RECEPTORS_AND_SECOND_MESSENGERS",
+  "REACTOME_INTRACELLULAR_SIGNALING_BY_SECOND_MESSENGERS",
+  "REACTOME_REGULATION_OF_RAS_BY_GAPS",
+    # "REACTOME_PTEN_REGULATION",
+   'REACTOME_NEUROTRANSMITTER_RELEASE_CYCLE',
+   "REACTOME_GABA_SYNTHESIS_RELEASE_REUPTAKE_AND_DEGRADATION",
+   "REACTOME_TRANSMISSION_ACROSS_CHEMICAL_SYNAPSES",
+   "REACTOME_LGI_ADAM_INTERACTIONS",
+   "REACTOME_GLUTAMATE_NEUROTRANSMITTER_RELEASE_CYCLE",
+   "REACTOME_INTERACTION_BETWEEN_L1_AND_ANKYRINS",
+   "REACTOME_TRAFFICKING_OF_AMPA_RECEPTORS",
+   "REACTOME_NEURONAL_SYSTEM",
+   "REACTOME_L1CAM_INTERACTIONS",
+   "REACTOME_NERVOUS_SYSTEM_DEVELOPMENT",
+   "REACTOME_ECM_PROTEOGLYCANS",
+   
+   # "REACTOME_AXON_GUIDANCE", #not in herte
+   "REACTOME_AGGREPHAGY",
+   "REACTOME_SELECTIVE_AUTOPHAGY",
+  
+   "REACTOME_CHOLESTEROL_BIOSYNTHESIS"
+  
+  )
+
+# EMPTY PLOT LIST 
+reactome_volcano_list <-  vector(mode = "list")
+```
+
+```{r}
+for(rct in REACT_POI) {
+
+  my_rct <- REACT_tibs_df_6_entrez_split %>%
+    filter(ID == rct) %>%
+    dplyr::distinct(SYMBOL) %>%
+    tibble::deframe()
+  
+  my_title <- REACT_tibs_df_6_entrez_split %>%
+    filter(ID == rct) %>%
+    dplyr::distinct(Description) %>%
+    tibble::deframe()
+    
+  my_rct_prot <- protein_comp_entrez %>%
+    filter(Label %in% c("H_EE_vs_SH","HxA_EE_YNG_vs_SH_YNG","HxA_EE_OLD_vs_SH_OLD",
+                        "A_YNG_vs_OLD")) %>%
+    # filter(!(Label %in% c("HxA_EE_OLD_vs_SH_YNG", "HxA_EE_YNG_vs_SH_OLD"))) %>%
+    filter(gene %in% my_rct) %>%
+    dplyr::group_by(Label) %>%
+    mutate(rct_up = sum(log2FC > 0), # up
+          rct_down = sum(log2FC < 0)) 
+
+    
+  my_rct_prot_sums <- my_rct_prot %>%
+    dplyr::select(Label, rct_up, rct_down) %>%
+    unique() # use for anno (this is to avoid overplottting)
+
+  
+  
+  vol_plot <- protein_comp_entrez %>%
+        filter(Label %in% c("H_EE_vs_SH","HxA_EE_YNG_vs_SH_YNG","HxA_EE_OLD_vs_SH_OLD",
+                        "A_YNG_vs_OLD")) %>%
+       # filter(!(Label %in% c("HxA_EE_OLD_vs_SH_YNG", "HxA_EE_YNG_vs_SH_OLD"))) %>%
+    
+   ggplot(aes(x = log2FC, y = -log10(adj.pvalue))) +
+    
+    geom_point(aes(color = case_when( # conditional ass for color mapping
+    adj.pvalue < 0.05 & log2FC > 0 ~ "up_adjp.05", # up sig .05
+    adj.pvalue < 0.05 & log2FC < 0 ~ "down_adjp.05", # down sig .05
+    adj.pvalue < 0.1 & log2FC > 0 ~ "up_adjp.1", # up 0.1
+    adj.pvalue < 0.1 & log2FC < 0 ~ "down_adjp.1", # down .1
+    TRUE ~ "ns" )), # catch the rest
+    alpha = .35, size = 1.6, shape = 1) +
+
+  scale_color_manual(values = c("firebrick", # coloring
+                                "royalblue3",
+                                "lightpink",
+                                "lightblue3",
+                                "grey100"),
+                     breaks = c("up_adjp.05",
+                                "down_adjp.05",
+                                "up_adjp.1",
+                                "down_adjp.1"),
+                     labels = c("\U2191 (adj.p <.05)",
+                                "\U2193 (adj.p <.05)",
+                                "\U2191 (adj.p <.1)",
+                                "\U2193 (adj.p <.1)")) +
+    
+     geom_point(data = my_rct_prot,
+                aes(x = log2FC, y = -log10(adj.pvalue)),
+                alpha = .35, size = 1.5, shape = 21,
+                fill = "#E17C05FF", color = "#FCA842FF") + 
+
+  # geom_text_repel(max.overlaps = 27, size = 3, # gene text on points
+  #                 color = "grey10") +
+  
+  # NUM SIG UP & DOWN! | use sep df, overwise overplots
+  geom_text(data = my_rct_prot_sums, # up 
+            aes(label = paste0(rct_up, " \U2191")),
+            x = 1.5, y = 5.7, size = 2.7, color = "firebrick") + 
+  geom_text(data = my_rct_prot_sums, # down
+            aes(label = paste0(rct_down, " \U2193")),
+            x = -1.5, y = 5.7, size = 2.7, color = "royalblue3") + 
+
+
+    scale_x_continuous(limits = c(-2,2), expand = c(0, 0)) +
+    scale_y_continuous(limits = c(0,6), expand = c(.04, 0)) + 
+    
+    geom_hline(yintercept = -log10(0.05),
+             linetype = "dotted", linewidth = 0.1,
+             color = "grey30") +
+    geom_hline(yintercept = -log10(0.1),linetype = "dotted",
+             linewidth = 0.1, color = "grey50") +
+    geom_vline(xintercept = c(0),linetype = "solid",
+             linewidth = 0.1, color = "#74025FFF") +
+    
+    labs(subtitle = my_title) +
+     
+    facet_wrap(~Label, nrow = 1) + 
+     
+    theme_bw() +
+    theme(legend.position = "none",
+          plot.subtitle = element_text(size =8.5, vjust = 0),
+          axis.title = element_text(size =7.5),
+           axis.text = element_text(size =7),
+          axis.ticks = element_blank(),
+          strip.text = element_text(size = 7.5),
+          panel.grid = element_blank()
+        )
+    
+    print(vol_plot)
+    
+    reactome_volcano_list[[rct]] <- vol_plot
+  
+}
+
+```
+
+```{r}
+plot_grid(plotlist = reactome_volcano_list[1:18], ncol = 3)
+
+# ggsave("2026_02_25_REACT_volcanos_200dpi_18_test.png", dpi = 200)
 ```
