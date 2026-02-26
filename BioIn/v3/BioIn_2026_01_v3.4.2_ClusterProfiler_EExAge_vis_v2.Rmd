@@ -993,7 +993,9 @@ v2
 
 ------------------------------------------------------------------------
 
-## Plot back GSEA volcanos
+## MAPPED GSEA VOLCANO PLOTS
+
+### KEGG
 
 -   <https://www.kegg.jp/kegg-bin/show_organism?menu_type=pathway_maps&org=rno>
 -   <https://en.wikipedia.org/wiki/Shades_of_orange>
@@ -1207,6 +1209,8 @@ plot_grid(plotlist = kegg_volcano_list[1:14], ncol = 2)
 # ggsave("2026_02_26_KEGG_14_mapped_volcanos_300dpi.png", dpi = 300) # 11.4 x 1.96 in or 11.4 x 13.4
 ```
 
+------------------------------------------------------------------------
+
 ### REACTOME
 
 ```{r}
@@ -1221,7 +1225,7 @@ REACT_tibs_df_6_entrez_split <- REACT_tibs_df_6 %>%
 check_REACT_paths <- REACT_tibs_df_6 %>%
   filter(Label %in% c("H_EE_vs_SH","HxA_EE_YNG_vs_SH_YNG","HxA_EE_OLD_vs_SH_OLD")) %>%
   filter(p.adjust < 0.011) %>%
-  arrange(p.ajust) %>%
+  arrange(p.adjust) %>%
   distinct(ID)
 
 check_REACT_paths
@@ -1234,24 +1238,30 @@ REACT_POI  <- c(
   "REACTOME_DISEASES_OF_SIGNAL_TRANSDUCTION_BY_GROWTH_FACTOR_RECEPTORS_AND_SECOND_MESSENGERS",
   "REACTOME_INTRACELLULAR_SIGNALING_BY_SECOND_MESSENGERS",
   "REACTOME_REGULATION_OF_RAS_BY_GAPS",
-    "REACTOME_PTEN_REGULATION",
-   'REACTOME_NEUROTRANSMITTER_RELEASE_CYCLE',
-   "REACTOME_GABA_SYNTHESIS_RELEASE_REUPTAKE_AND_DEGRADATION",
-   "REACTOME_TRANSMISSION_ACROSS_CHEMICAL_SYNAPSES",
-   "REACTOME_LGI_ADAM_INTERACTIONS",
-   "REACTOME_GLUTAMATE_NEUROTRANSMITTER_RELEASE_CYCLE",
-   "REACTOME_INTERACTION_BETWEEN_L1_AND_ANKYRINS",
-   "REACTOME_TRAFFICKING_OF_AMPA_RECEPTORS",
-   "REACTOME_NEURONAL_SYSTEM",
-   "REACTOME_L1CAM_INTERACTIONS",
-   "REACTOME_NERVOUS_SYSTEM_DEVELOPMENT",
-   "REACTOME_ECM_PROTEOGLYCANS",
-   
-   # "REACTOME_AXON_GUIDANCE", #not in herte
-   "REACTOME_AGGREPHAGY",
-   "REACTOME_SELECTIVE_AUTOPHAGY",
+  "REACTOME_PTEN_REGULATION",
   
-   "REACTOME_CHOLESTEROL_BIOSYNTHESIS"
+  'REACTOME_NEUROTRANSMITTER_RELEASE_CYCLE',
+  "REACTOME_TRANSMISSION_ACROSS_CHEMICAL_SYNAPSES",
+  "REACTOME_GABA_SYNTHESIS_RELEASE_REUPTAKE_AND_DEGRADATION",
+  "REACTOME_GLUTAMATE_NEUROTRANSMITTER_RELEASE_CYCLE",
+  "REACTOME_TRAFFICKING_OF_AMPA_RECEPTORS",
+  "REACTOME_UNBLOCKING_OF_NMDA_RECEPTORS_GLUTAMATE_BINDING_AND_ACTIVATION",
+  "REACTOME_INTERACTION_BETWEEN_L1_AND_ANKYRINS",
+  "REACTOME_LGI_ADAM_INTERACTIONS",
+  "REACTOME_L1CAM_INTERACTIONS",
+  "REACTOME_ECM_PROTEOGLYCANS",
+  "REACTOME_NEURONAL_SYSTEM",
+  "REACTOME_NERVOUS_SYSTEM_DEVELOPMENT",
+  
+
+  
+  
+
+  "REACTOME_AGGREPHAGY",
+  "REACTOME_SELECTIVE_AUTOPHAGY",
+  
+  "REACTOME_MRNA_SPLICING",
+  "REACTOME_CHOLESTEROL_BIOSYNTHESIS"
   
   )
 
@@ -1285,9 +1295,29 @@ for(rct in REACT_POI) {
   my_rct_prot_sums <- my_rct_prot %>%
     dplyr::select(Label, rct_up, rct_down) %>%
     unique() # use for anno (this is to avoid overplottting)
+  
+  # GSEA significance
+  path_sig <- REACT_tibs_df_6 %>% # GET DETAILS FOR ANNOTATING SIG 
+    filter(Label %in% c("H_EE_vs_SH","HxA_EE_YNG_vs_SH_YNG","HxA_EE_OLD_vs_SH_OLD",
+                        "A_YNG_vs_OLD"
+    )) %>%
+    # filter(!(Label %in% c("HxA_EE_OLD_vs_SH_YNG", "HxA_EE_YNG_vs_SH_OLD"))) %>%
+    filter(ID == rct) %>%
+    dplyr::group_by(Label) %>% 
+    mutate(sig_val = case_when(
+      p.adjust <= 0.001 ~ "***",
+      p.adjust <= 0.01 ~ "**",
+      p.adjust <= 0.05 ~ "*",
+      .default = "NA" )) # if bit there then NA (ns)
+  
+  # interesting... this step needed for some reason...
+  path_sig_lab <-  path_sig %>% 
+    dplyr::select(ID, Label, sig_val, NES) %>%
+    unique() 
 
   
-  
+  # ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
+  # 2 - MAKE THE VOLCANO PLOTS!!!
   vol_plot <- protein_comp_entrez %>%
         filter(Label %in% c("H_EE_vs_SH","HxA_EE_YNG_vs_SH_YNG","HxA_EE_OLD_vs_SH_OLD",
                         "A_YNG_vs_OLD")) %>%
@@ -1295,31 +1325,49 @@ for(rct in REACT_POI) {
     
    ggplot(aes(x = log2FC, y = -log10(adj.pvalue))) +
     
-    geom_point(aes(color = case_when( # conditional ass for color mapping
-    adj.pvalue < 0.05 & log2FC > 0 ~ "up_adjp.05", # up sig .05
-    adj.pvalue < 0.05 & log2FC < 0 ~ "down_adjp.05", # down sig .05
-    adj.pvalue < 0.1 & log2FC > 0 ~ "up_adjp.1", # up 0.1
-    adj.pvalue < 0.1 & log2FC < 0 ~ "down_adjp.1", # down .1
-    TRUE ~ "ns" )), # catch the rest
-    alpha = .35, size = 1.6, shape = 1) +
-
-  scale_color_manual(values = c("firebrick", # coloring
-                                "royalblue3",
-                                "lightpink",
-                                "lightblue3",
-                                "grey100"),
-                     breaks = c("up_adjp.05",
-                                "down_adjp.05",
-                                "up_adjp.1",
-                                "down_adjp.1"),
-                     labels = c("\U2191 (adj.p <.05)",
-                                "\U2193 (adj.p <.05)",
-                                "\U2191 (adj.p <.1)",
-                                "\U2193 (adj.p <.1)")) +
+    # ORIGINAL PROTE COMP 
+    geom_point(aes(
+      fill = case_when( # conditional ass for FILL mapping
+        adj.pvalue < 0.05 & log2FC > 0 ~ "up_adjp.05", # up sig .05
+        adj.pvalue < 0.05 & log2FC < 0 ~ "down_adjp.05", # down sig .05
+        adj.pvalue < 0.1 & log2FC > 0 ~ "up_adjp.1", # up 0.1
+        adj.pvalue < 0.1 & log2FC < 0 ~ "down_adjp.1", # down .1
+        TRUE ~ "ns" ), # catch the rest
+      alpha = case_when( # conditional ass for ALPHA mapping
+        adj.pvalue < 0.05 & log2FC > 0 ~ "up_adjp.05", # up sig .05
+        adj.pvalue < 0.05 & log2FC < 0 ~ "down_adjp.05", # down sig .05
+        adj.pvalue < 0.1 & log2FC > 0 ~ "up_adjp.1", # up 0.1
+        adj.pvalue < 0.1 & log2FC < 0 ~ "down_adjp.1", # down .1
+        TRUE ~ "ns" )), # catch the rest
+      size = 1.5, shape = 21, color = "grey50", stroke = 0.01) +
+    
+    scale_fill_manual(values = c("firebrick", # coloring
+                                 "royalblue3",
+                                 "lightpink",
+                                 "lightblue3",
+                                 "grey80"),
+                      breaks = c("up_adjp.05",
+                                 "down_adjp.05",
+                                 "up_adjp.1",
+                                 "down_adjp.1",
+                                 "ns"),
+                      labels = c("\U2191 (adj.p <.05)",
+                                 "\U2193 (adj.p <.05)",
+                                 "\U2191 (adj.p <.1)",
+                                 "\U2193 (adj.p <.1)",
+                                 "ns")) +
+    scale_alpha_manual( # alpha mapping
+      values = c( # darker for more significant!
+        up_adjp.05  = 0.2,
+        down_adjp.05 = 0.2,
+        up_adjp.1   = 0.2,
+        down_adjp.1 = 0.2,
+        ns = 0.1
+      )) +
     
      geom_point(data = my_rct_prot,
                 aes(x = log2FC, y = -log10(adj.pvalue)),
-                alpha = .35, size = 1.5, shape = 21,
+                alpha = .45, size = 1.5, shape = 21,
                 fill = "#E17C05FF", color = "#FCA842FF") + 
 
   # geom_text_repel(max.overlaps = 27, size = 3, # gene text on points
@@ -1328,17 +1376,28 @@ for(rct in REACT_POI) {
   # NUM SIG UP & DOWN! | use sep df, overwise overplots
   geom_text(data = my_rct_prot_sums, # up 
             aes(label = paste0(rct_up, " \U2191")),
-            x = 1.5, y = 5.7, size = 2.7, color = "firebrick") + 
+            x = 1.45, y = 5.7, size = 2.7, color = "firebrick") + 
   geom_text(data = my_rct_prot_sums, # down
             aes(label = paste0(rct_down, " \U2193")),
-            x = -1.5, y = 5.7, size = 2.7, color = "royalblue3") + 
+            x = -1.45, y = 5.7, size = 2.7, color = "royalblue3") + 
+    
+    
+    geom_text(data = path_sig_lab, # GSEA SIGNIFICANCE LABEL
+              aes(label = paste0(sig_val),
+                  y = 5,
+                  x = ifelse(NES > 0, 1.45, -1.45), # side if neg or pos
+                  color = NES > 0), # col - TRUE FALSE 
+              size = 2.7) +
+    
+    scale_color_manual( # based on TRUE FALSE give color! 
+      values = c(`TRUE` = "firebrick", `FALSE` = "royalblue3")) +
 
 
     scale_x_continuous(limits = c(-2,2), expand = c(0, 0)) +
     scale_y_continuous(limits = c(0,6), expand = c(.04, 0)) + 
     
     geom_hline(yintercept = -log10(0.05),
-             linetype = "dotted", linewidth = 0.1,
+             linetype = "dashed", linewidth = 0.1,
              color = "grey30") +
     geom_hline(yintercept = -log10(0.1),linetype = "dotted",
              linewidth = 0.1, color = "grey50") +
@@ -1351,24 +1410,28 @@ for(rct in REACT_POI) {
      
     theme_bw() +
     theme(legend.position = "none",
-          plot.subtitle = element_text(size =8.5, vjust = 0),
+          plot.subtitle = element_text(size =8, vjust = 0),
           axis.title = element_text(size =7.5),
            axis.text = element_text(size =7),
           axis.ticks = element_blank(),
-          strip.text = element_text(size = 7.5),
+          strip.text = element_text(size = 7),
           panel.grid = element_blank()
         )
     
     print(vol_plot)
     
     reactome_volcano_list[[rct]] <- vol_plot
+    
+    print(paste0("Done for ", rct))
   
 }
 
 ```
 
 ```{r}
-plot_grid(plotlist = reactome_volcano_list[1:18], ncol = 3)
+plot_grid(plotlist = reactome_volcano_list[1:21], ncol = 3)
 
-# ggsave("2026_02_25_REACT_volcanos_200dpi_18_test.png", dpi = 200)
+# ggsave("2026_02_26_REACT_21_volcanos_300dpi.png", dpi = 300) # 11.4 x 5.99
 ```
+
+------------------------------------------------------------------------
