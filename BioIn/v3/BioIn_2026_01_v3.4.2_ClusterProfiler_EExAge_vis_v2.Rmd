@@ -131,24 +131,24 @@ protein_comp_entrez$Label <- factor(protein_comp_entrez$Label,
 ### Map nested .rda to master dfs
 
 ```{r}
-# # Map KEGG to a MASTER DF 
-# KEGG_tibs_df <- map_dfr(KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3$kegg_results_tib,
-#                         as.data.frame,
-#                         .id = "Label")  %>%
-#   mutate(Description_2 = str_replace_all(Description, " and ", " & "), # & instead of and
-#          .after = Description)
-# 
-# # MAP Msigdb Hallmarks to masterdf 
-# HM_tibs_df <- map_dfr(gsea_msig_Hmrk_EExAge_mss3.2.2_t1_cp3.4.2_t2$gsea_results_tib,
-#                         as.data.frame,
-#                         .id = "Label")
-# 
-# 
-# # MAP GO Simplified (nested nested) to single df
-# GO_sim_tibs_df <- map_dfr(
-#   GO_gsea_EExAge_cp_v3.4.2_t2_simplified$sim_GO_res_tib,
-#   ~map_dfr(.x, as_tibble, .id = "GO"),
-#   .id = "Label") 
+# Map KEGG to a MASTER DF
+KEGG_tibs_df <- map_dfr(KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3$kegg_results_tib,
+                        as.data.frame,
+                        .id = "Label")  %>%
+  mutate(Description_2 = str_replace_all(Description, " and ", " & "), # & instead of and
+         .after = Description)
+
+# MAP Msigdb Hallmarks to masterdf
+HM_tibs_df <- map_dfr(gsea_msig_Hmrk_EExAge_mss3.2.2_t1_cp3.4.2_t2$gsea_results_tib,
+                        as.data.frame,
+                        .id = "Label")
+
+
+# MAP GO Simplified (nested nested) to single df
+GO_sim_tibs_df <- map_dfr(
+  GO_gsea_EExAge_cp_v3.4.2_t2_simplified$sim_GO_res_tib,
+  ~map_dfr(.x, as_tibble, .id = "GO"),
+  .id = "Label")
 
 
 # MAP MSIG c2 REACTOME 
@@ -1020,11 +1020,12 @@ KEGG_tibs_df_6_entrez_split <- KEGG_tibs_df_6 %>%  # 104 x 12s
 kegg_POI  <- c(
   # "rno04722", "rno04724", # neurotrophin signalling,  GLUTsyn,
   "rno04721", "rno04082", "rno04723", # syanp_ves, neuroa_lig, ret_endoca
-  "rno04360",  "rno04727", # axon_guid, GLUTsyn, GABAsyn
+  "rno04727", # GABAsyn
+  "rno04360", # axonguidance
   "rno00900", # terpenoid backbone synthesis
   "rno00190", "rno00020",  # oxidati phos, TCA, 
   "rno03040", "rno03082", "rno03050", # spliceo, ATPchromatre, proteasom
-  "rno03010") # ribosome
+  "rno03010", "rno04141", "rno03013") # ribosome, protein proc in ER, nucleocytoplasmic transport
 
 
 # EMPTY PLOT LIST 
@@ -1033,7 +1034,8 @@ kegg_volcano_list <-  vector(mode = "list")
 
 ```{r}
 for(kp in kegg_POI) {
-
+  
+  # 1 - PREPARE THE DATA
   my_kpg <- KEGG_tibs_df_6_entrez_split %>%
     filter(ID == kp) %>%
     dplyr::distinct(SYMBOL) %>%
@@ -1043,102 +1045,169 @@ for(kp in kegg_POI) {
     filter(ID == kp) %>%
     dplyr::distinct(Description) %>%
     tibble::deframe()
-    
+  
   my_kp_prot <- protein_comp_entrez %>%
     filter(Label %in% c("H_EE_vs_SH","HxA_EE_YNG_vs_SH_YNG","HxA_EE_OLD_vs_SH_OLD",
                         "A_YNG_vs_OLD")) %>%
     # filter(!(Label %in% c("HxA_EE_OLD_vs_SH_YNG", "HxA_EE_YNG_vs_SH_OLD"))) %>%
-    filter(gene %in% my_kpg)
+    filter(gene %in% my_kpg) %>%
+    dplyr::group_by(Label) %>%
+    mutate(up = sum(log2FC > 0),
+           down = sum(log2FC < 0)) 
+  
+  prot_sums <- my_kp_prot %>% # this is needed to avoid overplotting
+    dplyr::select(Label, up, down) %>%
+    unique()
   
   
-  vol_plot <- protein_comp_entrez %>%
-        filter(Label %in% c("H_EE_vs_SH","HxA_EE_YNG_vs_SH_YNG","HxA_EE_OLD_vs_SH_OLD",
+  path_sig <- KEGG_tibs_df_6 %>% # GET DETAILS FOR ANNOTATING SIG 
+    filter(Label %in% c("H_EE_vs_SH","HxA_EE_YNG_vs_SH_YNG","HxA_EE_OLD_vs_SH_OLD",
                         "A_YNG_vs_OLD")) %>%
-       # filter(!(Label %in% c("HxA_EE_OLD_vs_SH_YNG", "HxA_EE_YNG_vs_SH_OLD"))) %>%
+    # filter(!(Label %in% c("HxA_EE_OLD_vs_SH_YNG", "HxA_EE_YNG_vs_SH_OLD"))) %>%
+    filter(ID == kp) %>%
+    dplyr::group_by(Label) %>% 
+    mutate(sig_val = case_when(
+      p.adjust <= 0.001 ~ "***",
+      p.adjust <= 0.01 ~ "**",
+      p.adjust <= 0.05 ~ "*",
+      .default = "NA" )) # if bit there then NA (ns)
+  
+  
+  # interesting... this step needed for some reason...
+  path_sig_lab <-  path_sig %>% 
+    dplyr::select(ID, Label, sig_val, NES) %>%
+    unique() 
+  
+  
+  # ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
+  # 2 - MAKE THE VOLCANO PLOTS!!!
+  vol_plot <- protein_comp_entrez %>%
+    filter(Label %in% c("H_EE_vs_SH","HxA_EE_YNG_vs_SH_YNG","HxA_EE_OLD_vs_SH_OLD",
+                        "A_YNG_vs_OLD")) %>%
+    # filter(!(Label %in% c("HxA_EE_OLD_vs_SH_YNG", "HxA_EE_YNG_vs_SH_OLD"))) %>%
     
-   ggplot(aes(x = log2FC, y = -log10(adj.pvalue))) +
+    ggplot(aes(x = log2FC, y = -log10(adj.pvalue))) +
     
-    geom_point(aes(color = case_when( # conditional ass for color mapping
-    adj.pvalue < 0.05 & log2FC > 0 ~ "up_adjp.05", # up sig .05
-    adj.pvalue < 0.05 & log2FC < 0 ~ "down_adjp.05", # down sig .05
-    adj.pvalue < 0.1 & log2FC > 0 ~ "up_adjp.1", # up 0.1
-    adj.pvalue < 0.1 & log2FC < 0 ~ "down_adjp.1", # down .1
-    TRUE ~ "ns" )), # catch the rest
-    alpha = .35, size = 1.6, shape = 1) +
+    geom_point(aes(fill = case_when( # conditional ass for color mapping
+      adj.pvalue < 0.05 & log2FC > 0 ~ "up_adjp.05", # up sig .05
+      adj.pvalue < 0.05 & log2FC < 0 ~ "down_adjp.05", # down sig .05
+      adj.pvalue < 0.1 & log2FC > 0 ~ "up_adjp.1", # up 0.1
+      adj.pvalue < 0.1 & log2FC < 0 ~ "down_adjp.1", # down .1
+      TRUE ~ "ns" ),
+      alpha = case_when( # conditional ass for ALPHA mapping
+        adj.pvalue < 0.05 & log2FC > 0 ~ "up_adjp.05", # up sig .05
+        adj.pvalue < 0.05 & log2FC < 0 ~ "down_adjp.05", # down sig .05
+        adj.pvalue < 0.1 & log2FC > 0 ~ "up_adjp.1", # up 0.1
+        adj.pvalue < 0.1 & log2FC < 0 ~ "down_adjp.1", # down .1
+        TRUE ~ "ns" )), # catch the rest
+       size = 1.6, shape = 21, stroke = 0.01) +
+    
+    scale_fill_manual(values = c("firebrick", # coloring
+                                  "royalblue3",
+                                  "lightpink",
+                                  "lightblue3",
+                                  "grey80"),
+                       breaks = c("up_adjp.05",
+                                  "down_adjp.05",
+                                  "up_adjp.1",
+                                  "down_adjp.1",
+                                  "ns"),
+                       labels = c("\U2191 (adj.p <.05)",
+                                  "\U2193 (adj.p <.05)",
+                                  "\U2191 (adj.p <.1)",
+                                  "\U2193 (adj.p <.1)",
+                                  "ns")) +
+    scale_alpha_manual( # alpha mapping
+      values = c( # darker for more significant!
+        up_adjp.05  = 0.2,
+        down_adjp.05 = 0.2,
+        up_adjp.1   = 0.2,
+        down_adjp.1 = 0.2,
+        ns = 0.1
+      )) +
+    
+    
+    
+    geom_point(data = my_kp_prot,
+               aes(x = log2FC, y = -log10(adj.pvalue)),
+               alpha = .4, size = 1.5, shape = 21,
+               fill = "#E17C05FF", color = "#FCA842FF") + 
+    # geom_text_repel(data = my_kp_prot, # LABELED GENES!!! | works but too messy
+    #                 aes(x = log2FC, y = -log10(adj.pvalue),
+    #                     label = gene,
+    #                     color = log2FC > 0), # color mapping (see below)
+    #                 max.overlaps = 30, size = 2, # gene text on points
+    #                 min.segment.length = .5, segment.alpha = 0.5, segment.size = 0.2,
+    #                 nudge_x = 0.155) +
 
-  scale_color_manual(values = c("firebrick", # coloring
-                                "royalblue3",
-                                "lightpink",
-                                "lightblue3",
-                                "grey100"),
-                     breaks = c("up_adjp.05",
-                                "down_adjp.05",
-                                "up_adjp.1",
-                                "down_adjp.1"),
-                     labels = c("\U2191 (adj.p <.05)",
-                                "\U2193 (adj.p <.05)",
-                                "\U2191 (adj.p <.1)",
-                                "\U2193 (adj.p <.1)")) +
     
-     geom_point(data = my_kp_prot,
-                aes(x = log2FC, y = -log10(adj.pvalue)),
-                alpha = .35, size = 1.5, shape = 21,
-                fill = "#E17C05FF", color = "#FCA842FF") + 
-
+    # NUM SIG UP & DOWN! | use sep df, overwise overplots
+    geom_text(data = prot_sums, # up 
+              aes(label = paste0(up, " \U2191")),
+              x = 1.52, y = 5.7, size = 2.7, color = "firebrick") + 
+    geom_text(data = prot_sums, # down
+              aes(label = paste0(down, " \U2193")),
+              x = -1.52, y = 5.7, size = 2.7, color = "royalblue3") + 
     
-     # geom_text_repel(data = my_kp_prot,
-     #            aes(label = gene),
-     #            alpha = .3, size = 1, shape = 19, color = "orange") +
     
-    # xlim(-1.5,1.5) +
-    # ylim(0,5) +
+    geom_text(data = path_sig_lab, # GSEA SIGNIFICANCE LABEL
+              aes(label = paste0(sig_val),
+                  y = 4.8,
+                  x = ifelse(NES > 0, 1.525, -1.525), # side if neg or pos
+                  color = NES > 0), # col - TRUE FALSE 
+              size = 2.7) +
+    scale_color_manual( # based on TRUE FALSE give color! 
+      values = c(`TRUE` = "firebrick", `FALSE` = "royalblue3")) +
+    
     
     
     scale_x_continuous(limits = c(-2,2),
                        expand = c(0, 0)) +
     scale_y_continuous(limits = c(0,6),
-                       expand = c(.04, 0)) + 
+                       expand = c(0.04, 0)) + 
     
     geom_hline(yintercept = -log10(0.05),
-             linetype = "dotted", linewidth = 0.1,
-             color = "grey30") +
+               linetype = "dashed", linewidth = 0.1,
+               color = "grey30") +
     geom_hline(yintercept = -log10(0.1),linetype = "dotted",
-             linewidth = 0.1, color = "grey50") +
+               linewidth = 0.1, color = "grey45") +
     geom_vline(xintercept = c(0),linetype = "solid",
-             linewidth = 0.1, color = "#74025FFF") +
-
+               linewidth = 0.1, color = "#74025FFF") +
+    
     
     labs(subtitle = my_title) +
-     
-
+    
+    
     facet_wrap(~Label, nrow = 1) + 
-     
+    
     theme_bw() +
     theme(legend.position = "none",
-          plot.subtitle = element_text(size =10),
-          axis.title = element_text(size =8),
-           axis.text = element_text(size =7.5),
-          strip.text = element_text(size = 7.5),
+          plot.subtitle = element_text(size = 10, vjust = 0),
+          axis.title = element_text(size =7.5),
+          axis.text = element_text(size =7),
+          axis.ticks = element_blank(),
+          strip.text = element_text(size = 7),
           panel.grid = element_blank()
-        )
-    
-    
-    print(vol_plot)
-    
-    
-    kegg_volcano_list[[kp]] <- vol_plot
+    )
+  
+  
+  print(vol_plot)
+  
+  # 3 - SAVE THE PLOTS
+  kegg_volcano_list[[kp]] <- vol_plot
   
 }
 
 ```
 
 ```{r}
-plot_grid(plotlist = kegg_volcano_list[c(1:3,5)], ncol = 2)
+# plot_grid(plotlist = kegg_volcano_list[c(9:10,12,14, 11,13)], ncol = 2)
+plot_grid(plotlist = kegg_volcano_list[1:14], ncol = 2)
 
-ggsave("2026_02_25_KEGG_EE_syn_volcanos_200dpi.png", dpi = 200)
+# ggsave("2026_02_26_KEGG_14_mapped_volcanos_300dpi.png", dpi = 300) # 11.4 x 1.96 in or 11.4 x 13.4
 ```
 
-REACTOME
+### REACTOME
 
 ```{r}
 REACT_tibs_df_6_entrez_split <- REACT_tibs_df_6 %>%
@@ -1165,7 +1234,7 @@ REACT_POI  <- c(
   "REACTOME_DISEASES_OF_SIGNAL_TRANSDUCTION_BY_GROWTH_FACTOR_RECEPTORS_AND_SECOND_MESSENGERS",
   "REACTOME_INTRACELLULAR_SIGNALING_BY_SECOND_MESSENGERS",
   "REACTOME_REGULATION_OF_RAS_BY_GAPS",
-    # "REACTOME_PTEN_REGULATION",
+    "REACTOME_PTEN_REGULATION",
    'REACTOME_NEUROTRANSMITTER_RELEASE_CYCLE',
    "REACTOME_GABA_SYNTHESIS_RELEASE_REUPTAKE_AND_DEGRADATION",
    "REACTOME_TRANSMISSION_ACROSS_CHEMICAL_SYNAPSES",
