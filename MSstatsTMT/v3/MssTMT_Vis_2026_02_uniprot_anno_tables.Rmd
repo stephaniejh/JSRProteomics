@@ -324,7 +324,110 @@ intersect(Zhang_2024$Uniprot_rat_accession, EE_mapped_comp$Protein) # 22
 ```
 
 ```{r}
+me_and_Zhang <- left_join(Zhang_2024, EE_mapped_comp,
+                         by = join_by(Uniprot_rat_accession == Protein)) 
 
+
+
+me_and_Zhang <- me_and_Zhang  %>%
+   mutate(Zhang_2024 =  case_when(
+    Significant == "yes" & In_EE == "Up" ~ "\u2191 *",
+    Significant == "yes" & In_EE == "Down" ~ "\u2193 *",
+    Significant == "no" & In_EE == "Up" ~ "\u2191",
+    Significant == "no" & In_EE == "Down" ~ "\u2193",
+    In_EE == "Same" ~ "-",
+    .default = " "
+   )) %>%
+  mutate(EE_vs_SH = case_when(
+    adj.pvalue < 0.05 & log2FC > .05 ~ "\u2191 *", # up sig .05
+    adj.pvalue < 0.05 & log2FC < -.05 ~ "\u2193 *", # down sig .05
+    # pvalue.y < 0.05 & log2FC > .05 ~ "\u2191", # up sig .05
+    # pvalue.y < 0.05 & log2FC < -.05 ~ "\u2193", # down sig .05
+    log2FC > .01 ~ "\u2191", # up sig .05
+    log2FC < -.01 ~ "\u2193", # down sig .05
+    .default = " " # ‐
+  )) %>%
+  mutate(Full_name = str_trunc(Full_name, 80)) %>%
+  filter(!is.na(Label)) %>% 
+  arrange(adj.pvalue, Gene_name) 
+  
+
+colnames(me_and_Zhang)
+```
+
+```{r}
+me_zhang_gt <- me_and_Zhang  %>%
+  
+  # select(!c(Uniprot_link:misc,issue, Cofactor, Mass.spectrometry,
+  #           Induction, organism_id, organism, feature,
+  #           sequence_version:sig_no_down_lab, Mod, Mod_type, Year,
+  #           Comparison, Condition, Catalytic.activity)) %>%
+  
+    # select(!c(Uniprot_link:misc,issue, Cofactor, Mass.spectrometry,
+  #           Induction, organism_id, organism, feature,
+  #           sequence_version:sig_no_down_lab, Mod, Mod_type, Year,
+  #           Comparison, Condition, Catalytic.activity)) %>%
+  
+  
+  
+  arrange(adj.pvalue) %>%
+
+  
+  gt(
+    groupname_col = "Label",
+    rowname_col = "Direction"
+  ) %>%
+  
+  cols_label(
+    gene = "Gene",
+    # Uniprot_entry_name = "Name",
+    description = "Protein Description",
+    database = "db",
+    Involvement.in.disease = "in.disease",
+    Gene.Names = "gns",
+    protein_existence = "existence"
+  ) %>%
+  
+  fmt_number(decimals = 3) %>%
+  
+  tab_style( 
+    style = list(
+      cell_text(style = "italic")
+      ),
+    locations = cells_body(
+      columns = gene,
+    )
+  ) %>%
+  
+  tab_style( 
+    style = list(
+      cell_text(size = px(10))
+      ),
+    locations = cells_body(
+      columns = c(Function..CC., Subcellular.location..CC., Domain..CC.)
+    )
+  ) %>%
+  
+  tab_style( 
+    style = list(
+      cell_fill(color = "#fddde6"),
+      cell_text(color = "#d33682")
+      ),
+    locations = cells_body(
+                 rows = log2FC > 0 )) %>%
+    tab_style( 
+    style = list(
+      cell_fill(color = "#e1eefb"),
+      cell_text(color = "#2380c1")
+      ),
+    locations = cells_body(
+                 rows = log2FC < 0 )) %>%
+
+  tab_options(
+    #heading.title.font.size = 16.5,
+              table.font.size=11,
+              ) #|>
+me_zhang_gt 
 ```
 
 ------------------------------------------------------------------------
