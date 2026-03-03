@@ -1677,6 +1677,8 @@ Hu_2013 <- mice_lit_re %>%
 dim(Hu_2013) #15 x 31
 ```
 
+EE_main_sig_df
+
 ```{r}
 # No over lap in significant  
 intersect(Hu_2013$Uniprot_rat_accession, EE_main_sig_df$Protein)
@@ -1872,10 +1874,12 @@ borg_merge <- borg_merge  %>%
     .default = " "
    )) %>%
   mutate(EE_vs_SH = case_when(
-    adj.pvalue < 0.05 & log2FC > .05 ~ "\u2191 *", # up sig .05
-    adj.pvalue < 0.05 & log2FC < -.05 ~ "\u2193 *", # down sig .05
-    pvalue < 0.05 & log2FC > .05 ~ "\u2191", # up sig .05
-    pvalue < 0.05 & log2FC < -.05 ~ "\u2193", # down sig .05
+    adj.pvalue < 0.05 & log2FC > 0 ~ "\u2191 *", # up sig .05
+    adj.pvalue < 0.05 & log2FC < 0 ~ "\u2193 *", # down sig .05
+    pvalue < 0.05 & log2FC > .04 ~ "\u2191", # up sig .05
+    pvalue < 0.05 & log2FC < -.04 ~ "\u2193", # down sig .05
+    # adj.pvalue < 0.7 & log2FC > .04 ~ "\u2191", # up sig .05
+    # adj.pvalue < 0.7 & log2FC < -.04 ~ "\u2193", # down sig .05
     .default = " " # ‐
   )) %>%
   mutate(Full_name = str_trunc(Full_name, 80)) %>%
@@ -1887,7 +1891,7 @@ borg_merge <- borg_merge  %>%
 ```{r}
 me_and_borg <- head(borg_merge, 30) %>%
   dplyr::ungroup() %>%
-  dplyr::select(c(Label, Animal, Region, Exp_type,
+  dplyr::select(c(Label, Exp_type,
                  Gene_name, Full_name, b_adj.pvalue, Fold_change,
                  Borgmeyer_2021,
                  EE_vs_SH,
@@ -1936,8 +1940,33 @@ me_and_borg <- head(borg_merge, 30) %>%
     style = list(
       cell_text(color = "grey15", size = px(9))),
     locations = list(
-      cells_body(columns = c(Animal, Region, Exp_type))
+      cells_body(columns = c(Exp_type))
       )) %>%
+  
+  tab_style( # BORGMEYER COLUMN
+    style = list(cell_fill(color = "#fddde6"),
+                 cell_text(color = "#d33682")),
+    locations = cells_body(rows = Fold_change > 0 ,
+                           columns = c(b_adj.pvalue, Fold_change,
+                                       Borgmeyer_2021))) %>%
+  tab_style( 
+    style = list(cell_fill(color = "#e1eefb"),
+                 cell_text(color = "#2380c1")),
+    locations = cells_body(rows = Fold_change < 0,
+                           columns = c(b_adj.pvalue, Fold_change, Borgmeyer_2021))) %>%
+  
+  tab_style( # My COLUMN
+    style = list(cell_fill(color = "#fddde6"),
+                 cell_text(color = "#d33682")),
+    locations = cells_body(rows = log2FC > 0 ,
+                           columns = c(EE_vs_SH, log2FC, adj.pvalue))) %>%
+  tab_style( 
+    style = list(cell_fill(color = "#e1eefb"),
+                 cell_text(color = "#2380c1")),
+    locations = cells_body(rows = log2FC < 0,
+                           columns = c(EE_vs_SH, log2FC, adj.pvalue))) %>%
+  
+  
   
   # gtsave("output/me_&_borg.pdf")
   
@@ -1946,6 +1975,10 @@ as_gtable(plot = TRUE, text_grob = gridtext::richtext_grob)
 # me_and_borg
 
 
+```
+
+```{r}
+ggsave("2025_03_02_Borgmeyer_redo_table.png", dpi = 150)
 ```
 
 ```{r}
