@@ -42,6 +42,7 @@ library(readxl)
 library(writexl) # for excel tab export
 library(ggvenn) # vennys (old ones)
 library(scales) #label_wrap text break in lolliplots
+library(ggh4x)
 ```
 
 ### Load Data
@@ -235,15 +236,6 @@ up_subcell <- up_subcell_raw %>%
 # note "SL-0181" rather than "SL0181" - sometimes varies?
 ```
 
-```{r}
-KEGG_counts <- KEGG_tibs_df %>%
-  count(Label)
-```
-
-```{r}
-
-```
-
 ------------------------------------------------------------------------
 
 ## Functions
@@ -296,15 +288,19 @@ lolliplot <- function(data,
        y = 'NES' ) +
     
     coord_flip() + #fliptheplot
-    facet_wrap(facet_formula,
-             space = 'free_x') +
+    # facet_wrap(facet_formula,
+    #          space = 'free_x') +
+    facet_grid2(facet_formula,
+             space = 'free', scales = "free") +
     theme_bw() +
     theme(
+      strip.text.y = element_text(angle = 0),
+      
     axis.text.x = element_text(angle = 90, hjust = 1, color = "grey15",
                                vjust = 0, # 90, hj1 t/R, vj.5 cent
                                size = 9.5, face = 'italic'), 
     axis.text.y = element_text(hjust = 1, color = "grey15",
-                               size = 8.5, face = 'italic',
+                               size = 9.5, face = 'italic',
                                lineheight = .7), # <1 smaller distances breaks
     axis.title.y = element_blank(),
     strip.text = element_text(size = 8.5),
@@ -334,7 +330,24 @@ HM_lol
 # exp 2026_01_31_EExAge_MSigDB_Hallmarks_v1 - 13.5 x 5
 ```
 
-### KEGG lolliplots (6)
+## KEGG lolliplots (6)
+
+```{r}
+# kk_gson <- gson_KEGG(species = "rno") # via clusterprofiler
+# kk_gson_df <- kk_gson@gsid2name
+# write_csv(kk_gson_df, "2026_03_04_KEGG_rno_pathways_kk_gson_df.csv")
+
+# see 2026_03_04_KEGG_rno_pathways_kk_gson_df_w_anno
+KEGG_cat_anno <- read_csv(
+  "input/db/2026_03_04_KEGG_rno_pathways_kk_gson_df_w_anno.csv")
+```
+
+```{r}
+KEGG_tibs_df_6_anno <- left_join(KEGG_tibs_df_6, KEGG_cat_anno, 
+                                 by = join_by(ID == gsid,
+                                              Description == name)) %>%
+  mutate(subcategory_2 = str_replace_all(subcategory, " and ", " & "))
+```
 
 ```{r}
 # KEGG ALL 6
@@ -345,6 +358,94 @@ KEGG_lol_f6
 # exp - 2026_01_31_EExAge_6_comps_KEGG_lolli_v1 12 x 12 
 
 ggsave("testest.png", dpi = 200)
+```
+
+```{r}
+# KEGG 3 EE
+KEGG_tibs_EE_3 <- KEGG_tibs_df_6 %>%
+  filter(Label %in% c("H_EE_vs_SH","HxA_EE_YNG_vs_SH_YNG","HxA_EE_OLD_vs_SH_OLD")) %>%
+  lolliplot(subtitle = "KEGG GSEA - Housing",
+            x_1 = Description_2,
+            legend_pos = "bottom")
+
+KEGG_tibs_EE_3 
+# exp - 2026_01_31_EE_3_comps_KEGG_lolli_v1 - 9 x 12
+# exp - 2026_02_25_EE_3_comps_KEGG_lolli_v2.pdf = 9 x 12 - 40.7kb 
+# ggsave("2026_02_23_EE_3_comps_KEGG_lolli_v2.png", dpi = 200) # 496kb 
+```
+
+#### KEGG Trimmed
+
+```{r}
+# rm KEGG human diseases
+human_diseases <- c("Non-alcoholic fatty liver disease",
+                    "Coronavirus disease - COVID-19",
+                    "Chemical carcinogenesis - reactive oxygen species",
+                    "Salmonella infection",
+                    "Diabetic cardiomyopathy",
+                    "Chemical carcinogenesis - receptor activation",
+                    "Acute myeloid leukemia",
+                    "Hepatocellular carcinoma",
+                    "Prostate cancer",
+                    "Platinum drug resistance",
+                    "Viral life cycle - HIV-1",
+                    "Systemic lupus erythematosus",
+                    "Staphylococcus aureus infection"
+                    )
+
+# organismal systems
+organs <- c("Pancreatic secretion",
+            "Cardiac muscle contraction",
+            # "Endocrine and other factor-regulated calcium reabsorption",
+            "Salivary secretion",
+            "Bile secretion",
+            # "Protein digestion and absorption",
+            "Gastric acid secretion",
+            "Thyroid hormone synthesis",
+            "Adrenergic signaling in cardiomyocytes"
+            )
+```
+
+```{r}
+# KEGG 6 TRIMMED
+KEGG_lol_f6_trim <- KEGG_tibs_df_6_anno %>%
+  filter(!(Description %in% human_diseases)) %>%
+    filter(!(Description %in% organs)) %>%
+  lolliplot(                         
+    facet_formula = category+subcategory_2~Label,
+    x_1 = Description_2,
+    subtitle = "KEGG", legend_pos = "bottom")
+
+KEGG_lol_f6_trim 
+```
+
+```{r}
+# KEGG 3 EE TRIMMED
+KEGG_tibs_EE_3_trim <- KEGG_tibs_df_6_anno %>%
+  filter(Label %in% c("H_EE_vs_SH","HxA_EE_YNG_vs_SH_YNG","HxA_EE_OLD_vs_SH_OLD")) %>%
+  filter(!(Description %in% human_diseases)) %>%
+  filter(!(Description %in% organs)) %>%
+  lolliplot(    facet_formula = subcategory_2~Label,
+    x_1 = Description_2,
+    subtitle = "KEGG GSEA - Housing", legend_pos = "bottom")
+
+KEGG_tibs_EE_3_trim
+
+```
+
+```{r}
+# KEGG 3 AGE TRIMMED
+KEGG_tibs_AGE_3_trim <- KEGG_tibs_df_6 %>%
+  filter(Label %in% c("A_YNG_vs_OLD", 
+              "HxA_EE_YNG_vs_EE_OLD",
+              "HxA_SH_YNG_vs_SH_OLD")) %>%
+  filter(!(Description %in% human_diseases)) %>%
+  filter(!(Description %in% organs)) %>%
+  lolliplot(
+    x_1 = Description_2,
+    subtitle = "KEGG GSEA - Age", legend_pos = "bottom")
+
+KEGG_tibs_AGE_3_trim
 ```
 
 ### GO lolliplots (6)
@@ -393,21 +494,7 @@ REACT_lol_EE_3
 # 3 - 2026_02_25_REACTOME_via_Msigdbr_C2_EE_3_trm_adjp011 - 13.5 x 20
 ```
 
-#### EE KEGG lolli
-
-```{r}
-# KEGG 3 EE
-KEGG_tibs_EE_3 <- KEGG_tibs_df_6 %>%
-  filter(Label %in% c("H_EE_vs_SH","HxA_EE_YNG_vs_SH_YNG","HxA_EE_OLD_vs_SH_OLD")) %>%
-  lolliplot(subtitle = "KEGG GSEA - Housing",
-            x_1 = Description_2,
-            legend_pos = "bottom")
-
-KEGG_tibs_EE_3 
-# exp - 2026_01_31_EE_3_comps_KEGG_lolli_v1 - 9 x 12
-# exp - 2026_02_25_EE_3_comps_KEGG_lolli_v2.pdf = 9 x 12 - 40.7kb 
-# ggsave("2026_02_23_EE_3_comps_KEGG_lolli_v2.png", dpi = 200) # 496kb 
-```
+#### 
 
 #### 
 
