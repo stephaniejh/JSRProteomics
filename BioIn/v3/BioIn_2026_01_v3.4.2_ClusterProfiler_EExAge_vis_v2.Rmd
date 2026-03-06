@@ -218,6 +218,37 @@ REACT_tibs_df_6$Label <- factor(REACT_tibs_df_6$Label,
 ```
 
 ```{r}
+# USED PREV TO RETRIEVE PATHWAYS & THEN EXPORTED & MANUALLY ANNOTATED & REIMPORTED!
+# kk_gson <- gson_KEGG(species = "rno") # via clusterprofiler
+# kk_gson_df <- kk_gson@gsid2name
+# write_csv(kk_gson_df, "2026_03_04_KEGG_rno_pathways_kk_gson_df.csv")
+
+# see 2026_03_04_KEGG_rno_pathways_kk_gson_df_w_anno
+KEGG_cat_anno <- read_csv(
+  "input/db/2026_03_04_KEGG_rno_pathways_kk_gson_df_w_anno.csv")
+```
+
+```{r}
+# KEGG CATEGOGY ANNO + COLOR FOR STRIP
+KEGG_tibs_df_6_anno <- left_join(KEGG_tibs_df_6, KEGG_cat_anno, 
+                                 by = join_by(ID == gsid,
+                                              Description == name)) %>%
+  mutate(subcategory_2 = str_replace_all(subcategory, " and ", " & ")) %>%
+  mutate(my_cat_color = case_when(
+    category == "Metabolism" ~ "#f5d2d3",
+    category == "Genetic Information Processing" ~ "#BED0E2",
+    category == "Organismal Systems" ~ "#dfccf1",
+    category == "Cellular Processes" ~ "#f7e1d3",
+    category == "Environmental Information Processing" ~ "#bdd0c4",
+    category == "Human Diseases" ~ "#e3e4e6"
+  ))
+
+my_cat_color_vec <- setNames(object = KEGG_tibs_df_6_anno$my_cat_color,
+                             KEGG_tibs_df_6_anno$subcategory_2) # needs 2 be name vec
+
+```
+
+```{r}
 # note alot here don't have GOID anyway
 colnames(up_subcell_raw)
 str(up_subcell_raw)
@@ -242,12 +273,17 @@ up_subcell <- up_subcell_raw %>%
 
 ### Lolliplot
 
+-   <https://stackoverflow.com/questions/39801041/ggplot2-have-common-facet-bar-in-outer-facet-panel-in-3-way-plot>
+-   <https://stackoverflow.com/questions/19440069/ggplot2-facet-wrap-strip-color-based-on-variable-in-data-set>
+-   <https://stackoverflow.com/questions/79755989/changing-facet-strip-colour-by-grouping-variable-when-using-ggh4xfacet-manual>
+
 ```{r}
 lolliplot <- function(data,
                       x_1 = Description, 
                       x_2 = NES, 
                       y = NES, 
-                      fill = NES,
+                      fill_1 = NES,
+                      # cat_color = NULL, # ONLY NEEDED FOR KEGG CATEGORIES 
                       alpha = p.adjust,
                       facet_formula = ~Label,
                       size = setSize,
@@ -256,8 +292,7 @@ lolliplot <- function(data,
   
   lol <- ggplot(data,
                 aes(x = reorder({{x_1}},{{x_2}}),
-                    y = {{y}},
-                    fill = {{fill}}
+                    y = {{y}}
                     )) +
     
     geom_segment(aes(x = {{x_1}},
@@ -266,7 +301,8 @@ lolliplot <- function(data,
                      )) +
     
     geom_point(aes(alpha = {{alpha}},
-                  size = {{size}}),
+                  size = {{size}},
+                  fill = {{fill_1}}),
              shape = 21) +
     # scale_alpha(range = c(.95,.3)) + # rev alpha so darker = more sig | all
     scale_alpha(range = c(.95,.45)) + #  GO TRIM VERSION so matches others
@@ -288,13 +324,23 @@ lolliplot <- function(data,
        y = 'NES' ) +
     
     coord_flip() + #fliptheplot
-    # facet_wrap(facet_formula,
-    #          space = 'free_x') +
-    facet_grid2(facet_formula,
-             space = 'free', scales = "free") +
+    
+    facet_wrap(facet_formula,
+             space = 'free_x') +
+    
+    # facet_nested(facet_formula, # KEGG subcategory anno!
+    #              space = "free", scales = "free") +
+     
+    # facet_grid2(facet_formula, # KEGG subcategory anno! half working ....
+    #              space = "free", scales = "free",
+    #             strip = strip_themed(
+    #               background_y = elem_list_rect(fill = cat_color))) +
+    
     theme_bw() +
     theme(
-      strip.text.y = element_text(angle = 0),
+      strip.text.y = element_text(angle = 0, size = 8),
+      strip.text.x = element_text(size = 8.5),
+      panel.spacing.y = unit(0, "lines"), # or "cm", "in", etc.
       
     axis.text.x = element_text(angle = 90, hjust = 1, color = "grey15",
                                vjust = 0, # 90, hj1 t/R, vj.5 cent
@@ -303,7 +349,7 @@ lolliplot <- function(data,
                                size = 9.5, face = 'italic',
                                lineheight = .7), # <1 smaller distances breaks
     axis.title.y = element_blank(),
-    strip.text = element_text(size = 8.5),
+
     
     # legend.margin = margin(-10,-1,-5,-1), # (top, right, bot, left) | bottom ver
     legend.title = element_text(face = 'italic', size =8,
@@ -333,35 +379,18 @@ HM_lol
 ## KEGG lolliplots (6)
 
 ```{r}
-# kk_gson <- gson_KEGG(species = "rno") # via clusterprofiler
-# kk_gson_df <- kk_gson@gsid2name
-# write_csv(kk_gson_df, "2026_03_04_KEGG_rno_pathways_kk_gson_df.csv")
-
-# see 2026_03_04_KEGG_rno_pathways_kk_gson_df_w_anno
-KEGG_cat_anno <- read_csv(
-  "input/db/2026_03_04_KEGG_rno_pathways_kk_gson_df_w_anno.csv")
-```
-
-```{r}
-KEGG_tibs_df_6_anno <- left_join(KEGG_tibs_df_6, KEGG_cat_anno, 
-                                 by = join_by(ID == gsid,
-                                              Description == name)) %>%
-  mutate(subcategory_2 = str_replace_all(subcategory, " and ", " & "))
-```
-
-```{r}
-# KEGG ALL 6
+# KEGG ALL 6 BASIC
 KEGG_lol_f6 <- lolliplot(KEGG_tibs_df_6,
                          x_1 = Description_2,
                          subtitle = "KEGG", legend_pos = "bottom")
 KEGG_lol_f6 
 # exp - 2026_01_31_EExAge_6_comps_KEGG_lolli_v1 12 x 12 
 
-ggsave("testest.png", dpi = 200)
+# ggsave("testest.png", dpi = 200)
 ```
 
 ```{r}
-# KEGG 3 EE
+# KEGG 3 EE BASIC
 KEGG_tibs_EE_3 <- KEGG_tibs_df_6 %>%
   filter(Label %in% c("H_EE_vs_SH","HxA_EE_YNG_vs_SH_YNG","HxA_EE_OLD_vs_SH_OLD")) %>%
   lolliplot(subtitle = "KEGG GSEA - Housing",
@@ -374,40 +403,8 @@ KEGG_tibs_EE_3
 # ggsave("2026_02_23_EE_3_comps_KEGG_lolli_v2.png", dpi = 200) # 496kb 
 ```
 
-#### KEGG Trimmed
-
 ```{r}
-# rm KEGG human diseases
-human_diseases <- c("Non-alcoholic fatty liver disease",
-                    "Coronavirus disease - COVID-19",
-                    "Chemical carcinogenesis - reactive oxygen species",
-                    "Salmonella infection",
-                    "Diabetic cardiomyopathy",
-                    "Chemical carcinogenesis - receptor activation",
-                    "Acute myeloid leukemia",
-                    "Hepatocellular carcinoma",
-                    "Prostate cancer",
-                    "Platinum drug resistance",
-                    "Viral life cycle - HIV-1",
-                    "Systemic lupus erythematosus",
-                    "Staphylococcus aureus infection"
-                    )
-
-# organismal systems
-organs <- c("Pancreatic secretion",
-            "Cardiac muscle contraction",
-            # "Endocrine and other factor-regulated calcium reabsorption",
-            "Salivary secretion",
-            "Bile secretion",
-            # "Protein digestion and absorption",
-            "Gastric acid secretion",
-            "Thyroid hormone synthesis",
-            "Adrenergic signaling in cardiomyocytes"
-            )
-```
-
-```{r}
-# KEGG 6 TRIMMED
+# KEGG 6 TRIMMED W CAT ANNO
 KEGG_lol_f6_trim <- KEGG_tibs_df_6_anno %>%
   filter(!(Description %in% human_diseases)) %>%
     filter(!(Description %in% organs)) %>%
@@ -420,28 +417,34 @@ KEGG_lol_f6_trim
 ```
 
 ```{r}
-# KEGG 3 EE TRIMMED
+
+# KEGG 3 EE TRIMMED W CAT ANNO
 KEGG_tibs_EE_3_trim <- KEGG_tibs_df_6_anno %>%
   filter(Label %in% c("H_EE_vs_SH","HxA_EE_YNG_vs_SH_YNG","HxA_EE_OLD_vs_SH_OLD")) %>%
   filter(!(Description %in% human_diseases)) %>%
   filter(!(Description %in% organs)) %>%
-  lolliplot(    facet_formula = subcategory_2~Label,
+  lolliplot(
+    cat_color = my_cat_color_vec, # ONLY NEEDED FOR KEGG CATEGORIES ????
+    facet_formula = reorder(subcategory_2, -NES)~Label,
+    # facet_formula = category+subcategory_2~Label,
     x_1 = Description_2,
     subtitle = "KEGG GSEA - Housing", legend_pos = "bottom")
 
 KEGG_tibs_EE_3_trim
-
 ```
 
 ```{r}
 # KEGG 3 AGE TRIMMED
-KEGG_tibs_AGE_3_trim <- KEGG_tibs_df_6 %>%
+KEGG_tibs_AGE_3_trim <- KEGG_tibs_df_6_anno %>%
   filter(Label %in% c("A_YNG_vs_OLD", 
               "HxA_EE_YNG_vs_EE_OLD",
               "HxA_SH_YNG_vs_SH_OLD")) %>%
   filter(!(Description %in% human_diseases)) %>%
   filter(!(Description %in% organs)) %>%
-  lolliplot(
+  lolliplot( 
+    # cat_color = my_cat_color,
+    cat_color = my_cat_color_vec, # ONLY NEEDED FOR KEGG CATEGORIES ????
+    facet_formula = reorder(subcategory_2, -NES)~Label,
     x_1 = Description_2,
     subtitle = "KEGG GSEA - Age", legend_pos = "bottom")
 
@@ -494,9 +497,117 @@ REACT_lol_EE_3
 # 3 - 2026_02_25_REACTOME_via_Msigdbr_C2_EE_3_trm_adjp011 - 13.5 x 20
 ```
 
-#### 
+------------------------------------------------------------------------
 
-#### 
+### KEGG lolli trim & cat anno
+
+```{r}
+# rm KEGG human diseases
+human_diseases <- c("Non-alcoholic fatty liver disease",
+                    "Coronavirus disease - COVID-19",
+                    "Chemical carcinogenesis - reactive oxygen species",
+                    "Salmonella infection",
+                    "Diabetic cardiomyopathy",
+                    "Chemical carcinogenesis - receptor activation",
+                    "Acute myeloid leukemia",
+                    "Hepatocellular carcinoma",
+                    "Prostate cancer",
+                    "Platinum drug resistance",
+                    "Viral life cycle - HIV-1",
+                    "Systemic lupus erythematosus",
+                    "Staphylococcus aureus infection"
+                    )
+
+# organismal systems
+organs <- c("Pancreatic secretion", # digestive
+            "Cardiac muscle contraction", # circulatory
+            
+            "Endocrine and other factor-regulated calcium reabsorption", #excretory
+            "Proximal tubule bicarbonate reclamation", #excretory
+            
+            "Salivary secretion", # digestive
+            "Bile secretion", # digestive
+            "Gastric acid secretion", # digestive
+            "Protein digestion and absorption",  # digestive
+            "Carbohydrate digestion and absorption",  # digestive
+            "Mineral absorption",  # digestive
+            
+            # "Thyroid hormone synthesis", # endocrine
+            "Adrenergic signaling in cardiomyocytes" # circulatory
+            )
+```
+
+```{r}
+# KEGG 6 TRIMMED W CAT ANNO
+
+KEGG_lolli_cat <- KEGG_tibs_df_6_anno  %>%
+  
+  filter(!(Description %in% human_diseases)) %>%
+  filter(!(Description %in% organs)) %>%
+  
+  ggplot(
+    aes(x = reorder(Description_2, NES),
+        y = NES)) +
+  
+  geom_segment(aes(x = Description_2,
+                   yend = NES, y = 0,
+                   alpha = p.adjust)) +
+  geom_point(aes(alpha = p.adjust,
+                 size = setSize,
+                 fill = NES),
+             shape = 21) +
+  scale_alpha(range = c(.95,.3)) + # rev alpha so darker = more sig | all
+  # scale_alpha(range = c(.95,.45)) + #  GO TRIM VERSION so matches others
+  geom_hline(yintercept = 0, color = 'grey20', linewidth = 0.1) +
+  scale_color_manual(breaks = c("Up", "Down"),
+                     # values = c("#dc322f", "#268bd2"),
+                     guide = 'none') + 
+  # scale_size_continuous(range = c(3,9)) + # map size oflolly (set size)
+  scale_size_continuous(range = c(2,8)) + # map size oflolly (set size) | GO BP
+  
+  # scale_fill_continuous_diverging("Blue-Red 3") + # colorspace
+  scale_fill_continuous_diverging("Blue-Red 2") +
+  
+  scale_x_discrete(labels = scales::label_wrap(width = 50)) + # break text |
+  
+  ylim(-4,4)+
+  
+  labs(subtitle = "KEGG GSEA",
+       y = 'NES' ) +
+  
+  coord_flip() + #fliptheplot
+  
+  facet_grid2(reorder(subcategory_2, -NES)~Label, # KEGG subcategory anno! 
+              space = "free", scales = "free",
+              strip = strip_themed(
+                background_y = elem_list_rect( # DOES NOT WORK AS INTENDED!??!?!?!
+                  fill = KEGG_tibs_df_6_anno$my_cat_color)
+                  )) +
+  
+  theme_bw() +
+  theme(
+    strip.text.y = element_text(angle = 0, size = 8),
+    strip.text.x = element_text(size = 8.5),
+    panel.spacing.y = unit(0, "lines"), # or "cm", "in", etc.
+    
+    axis.text.x = element_text(angle = 90, hjust = 1, color = "grey15",
+                               vjust = 0, # 90, hj1 t/R, vj.5 cent
+                               size = 9.5, face = 'italic'), 
+    axis.text.y = element_text(hjust = 1, color = "grey15",
+                               size = 9.5, face = 'italic',
+                               lineheight = .7), # <1 smaller distances breaks
+    axis.title.y = element_blank(),
+    
+    legend.margin = margin(-10,-1,-5,-1), # (top, right, bot, left) | bottom ver
+    legend.title = element_text(face = 'italic', size =8,
+                                hjust = 1),
+    legend.key.size = grid::unit(0.4, "cm"), # posit answer to same height
+    legend.text = element_text(margin = margin(l = 0)), # marg text & key
+    legend.box.just = "right", # right justify legend box
+    legend.position = "bottom") 
+
+KEGG_lolli_cat
+```
 
 ------------------------------------------------------------------------
 
