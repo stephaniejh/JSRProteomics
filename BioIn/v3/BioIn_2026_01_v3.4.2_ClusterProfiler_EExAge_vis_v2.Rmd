@@ -1135,12 +1135,18 @@ KEGG_tibs_df_6_entrez_split <- KEGG_tibs_df_6 %>%  # 104 x 12s
 
 # GET KEGG PATHVWAYS OF INTEREST 
 kegg_POI  <- c(
-  # "rno04722", "rno04724", # neurotrophin signalling,  GLUTsyn,
   "rno04721", "rno04082", "rno04723", # syanp_ves, neuroa_lig, ret_endoca
-  "rno04727", # GABAsyn
+  "rno04727", "rno04080", "rno05033", # GABAsyn, neuroacli-Recept, nicotine
+  "rno04014", "rno04024", # Ras signalling, cAMP signalling
+  "rno04022", "rno04020", # cGMP-PKG & Calcium isngalling
   "rno04360", # axonguidance
   "rno00900", # terpenoid backbone synthesis
+  "rno01250", # Biosynthesis of nucleotide sugars
+  "rno00030", "rno00230", # pentose phosphate, purine metabolism
   "rno00190", "rno00020",  # oxidati phos, TCA, 
+  "rno04714", # thermogenesis
+  "rno05012", "rno05016", "rno05020", # parkinsons, huntington, prion 
+  "rno04137", #mitophagy
   "rno03040", "rno03082", "rno03050", # spliceo, ATPchromatre, proteasom
   "rno03010", "rno04141", "rno03013") # ribosome, protein proc in ER, nucleocytoplasmic transport
 
@@ -1195,7 +1201,12 @@ for(kp in kegg_POI) {
     dplyr::select(ID, Label, sig_val, NES) %>%
     unique() 
   
+  my_lg_prot <- my_kp_prot %>% #LABEL LEADING GENE???
+    arrange(adj.pvalue) %>% # not quite - 5 most sig proteins
+    slice_head(n = 5)
   
+  
+
   # ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
   # 2 - MAKE THE VOLCANO PLOTS!!!
   vol_plot <- protein_comp_entrez %>%
@@ -1245,17 +1256,18 @@ for(kp in kegg_POI) {
     
     
     
-    geom_point(data = my_kp_prot,
+    geom_point(data = my_kp_prot, # ORGANE POINTS
                aes(x = log2FC, y = -log10(adj.pvalue)),
                alpha = .4, size = 1.5, shape = 21,
                fill = "#E17C05FF", color = "#FCA842FF") + 
-    # geom_text_repel(data = my_kp_prot, # LABELED GENES!!! | works but too messy
-    #                 aes(x = log2FC, y = -log10(adj.pvalue),
-    #                     label = gene,
-    #                     color = log2FC > 0), # color mapping (see below)
-    #                 max.overlaps = 30, size = 2, # gene text on points
-    #                 min.segment.length = .5, segment.alpha = 0.5, segment.size = 0.2,
-    #                 nudge_x = 0.155) +
+    
+    geom_text_repel(data =  my_lg_prot, # TOP 5 MOST SIG ANNO
+                    aes(x = log2FC, y = -log10(adj.pvalue),
+                        label = gene,
+                        color = log2FC > 0), # color mapping (see below)
+                    max.overlaps = 30, size = 2, # gene text on points
+                    min.segment.length = .5, segment.alpha = 0.5, segment.size = 0.2) +
+                    # nudge_x = 0.155) +
 
     
     # NUM SIG UP & DOWN! | use sep df, overwise overplots
@@ -1313,15 +1325,20 @@ for(kp in kegg_POI) {
   # 3 - SAVE THE PLOTS
   kegg_volcano_list[[kp]] <- vol_plot
   
+  print(paste0("Done for ", kp))
+  
 }
 
 ```
 
 ```{r}
-# plot_grid(plotlist = kegg_volcano_list[c(9:10,12,14, 11,13)], ncol = 2)
-plot_grid(plotlist = kegg_volcano_list[1:14], ncol = 2)
+# plot_grid(plotlist = kegg_volcano_list[c(10,11,6:9)], ncol = 2)
+plot_grid(plotlist = kegg_volcano_list[1:28], ncol = 4)
 
 # ggsave("2026_02_26_KEGG_14_mapped_volcanos_300dpi.png", dpi = 300) # 11.4 x 1.96 in or 11.4 x 13.4
+
+# ggsave("2026_03_09_KEGG_energy_6_map_volcano_300dpi.png", dpi = 300) # 11.2 x 5.92
+ggsave("2026_03_09_KEGG_28_map_volcano_300dpi.png", dpi = 300) # 11.2 x 5.92
 ```
 
 ------------------------------------------------------------------------
@@ -1429,6 +1446,11 @@ for(rct in REACT_POI) {
   path_sig_lab <-  path_sig %>% 
     dplyr::select(ID, Label, sig_val, NES) %>%
     unique() 
+  
+  
+  my_lg_prot <- my_rct_prot %>% #LABEL LEADING GENE???
+    arrange(adj.pvalue) %>% # not quite - 5 most sig proteins
+    slice_head(n = 5)
 
   
   # ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
@@ -1485,8 +1507,13 @@ for(rct in REACT_POI) {
                 alpha = .45, size = 1.5, shape = 21,
                 fill = "#E17C05FF", color = "#FCA842FF") + 
 
-  # geom_text_repel(max.overlaps = 27, size = 3, # gene text on points
-  #                 color = "grey10") +
+    geom_text_repel(data =  my_lg_prot, # TOP 5 MOST SIG ANNO
+                    aes(x = log2FC, y = -log10(adj.pvalue),
+                        label = gene,
+                        color = log2FC > 0), # color mapping (see below)
+                    max.overlaps = 30, size = 2, # gene text on points
+                    min.segment.length = .5, segment.alpha = 0.5, segment.size = 0.2) +
+
   
   # NUM SIG UP & DOWN! | use sep df, overwise overplots
   geom_text(data = my_rct_prot_sums, # up 
@@ -1544,9 +1571,9 @@ for(rct in REACT_POI) {
 ```
 
 ```{r}
-plot_grid(plotlist = reactome_volcano_list[1:21], ncol = 3)
+# plot_grid(plotlist = reactome_volcano_list[1:21], ncol = 3)
 
-# ggsave("2026_02_26_REACT_21_volcanos_300dpi.png", dpi = 300) # 11.4 x 5.99
+# ggsave("2026_03_10_REACT_21_volcanos_300dpi.png", dpi = 300) # 11.4 x 5.99
 ```
 
 ------------------------------------------------------------------------
