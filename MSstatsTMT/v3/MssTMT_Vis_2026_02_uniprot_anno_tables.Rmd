@@ -50,9 +50,9 @@ colnames(rat_ref_proteome_2025_12_13)
 
 rat_ref_trm <- rat_ref_proteome_2025_12_13 %>%
   dplyr::select(Entry, Protein.families, Keywords,
-                Tissue.specificity, Subcellular.location..CC.,
-         Activity.regulation, Catalytic.activity, Cofactor, Developmental.stage:Pathway,
-         Gene.Names)
+  Subcellular.location..CC.,
+  Activity.regulation, Catalytic.activity, Cofactor, Developmental.stage:Pathway,
+  Gene.Names)
 ```
 
 ```{r}
@@ -90,7 +90,7 @@ mapped_comp <- mapped_comp_v3.2.2_EExAge_t1 %>%
 ```
 
 ```{r}
-mappped_comp_2 <- mapped_comp %>%
+mapped_comp_2 <- mapped_comp %>%
   left_join(rat_ref_trm,
              by = join_by(Protein == Entry))
 ```
@@ -345,7 +345,7 @@ EE_gt
 #### Lit tables
 
 ```{r}
-EE_mapped_comp <- mapped_comp %>%
+EE_mapped_comp <- mapped_comp_2 %>%
   filter(Label == "H_EE_vs_SH")
 ```
 
@@ -376,7 +376,7 @@ colnames(me_and_Kang)
 ```{r}
 me_kang_gt <- me_and_Kang %>%
   
-  select(!c(Uniprot_link:misc,issue, Cofactor, Mass.spectrometry,
+  dplyr::select(!c(Uniprot_link:misc,issue, Cofactor, Mass.spectrometry,
             Induction, organism_id, organism, feature,
             sequence_version:sig_no_down_lab, Mod, Mod_type, Year,
             Comparison, Condition, Catalytic.activity)) %>%
@@ -565,6 +565,164 @@ me_zhang_gt
 
 ------------------------------------------------------------------------
 
+#### Borgmeyer
+
+```{r}
+borg <- read_csv("input/lit_review/2025_12_15_Borgmeyer_2021_Hip_SJ_proteomics_lit_re_rats_v1.csv")
+```
+
+```{r}
+# NOTE SOME REDUNDANCIES
+borg_trm <- borg %>%
+  group_by(Used_name, Gene_name) %>%
+  dplyr::slice(1) %>%  # rm 3 209 tp 206
+  dplyr::select(adj.pvalue, Year:misc) %>%
+  dplyr::rename(b_adj.pvalue = adj.pvalue)
+
+
+borg_list <- intersect(borg_trm$Uniprot_rat_accession, EE_mapped_comp$Protein)
+
+borg_map <- EE_mapped_comp %>%
+  filter(Label == "H_EE_vs_SH") %>%
+  filter(Protein %in% borg_list)
+
+
+borg_merge <- left_join(borg_trm, borg_map, 
+                        by = join_by(Uniprot_rat_accession == Protein))
+
+
+borg_merge <- borg_merge  %>%
+   mutate(Borgmeyer_2021 =  case_when(
+    Significant == "yes" & In_EE == "Up" ~ "\u2191 *",
+    Significant == "yes" & In_EE == "Down" ~ "\u2193 *",
+    Significant == "no" & In_EE == "Up" ~ "\u2191",
+    Significant == "no" & In_EE == "Down" ~ "\u2193",
+    In_EE == "Same" ~ "-",
+    .default = " "
+   )) %>%
+  mutate(EE_vs_SH = case_when(
+    adj.pvalue < 0.05 & log2FC > 0 ~ "\u2191 *", # up sig .05
+    adj.pvalue < 0.05 & log2FC < 0 ~ "\u2193 *", # down sig .05
+    pvalue < 0.05 & log2FC > .04 ~ "\u2191", # up sig .05
+    pvalue < 0.05 & log2FC < -.04 ~ "\u2193", # down sig .05
+    # adj.pvalue < 0.7 & log2FC > .04 ~ "\u2191", # up sig .05
+    # adj.pvalue < 0.7 & log2FC < -.04 ~ "\u2193", # down sig .05
+    .default = " " # ‐
+  )) %>%
+  mutate(Full_name = str_trunc(Full_name, 80)) %>%
+  filter(!is.na(Label)) %>% 
+  arrange(adj.pvalue, Gene_name) 
+```
+
+```{r}
+me_and_borg <- head(borg_merge, 30) %>%
+  dplyr::ungroup() %>%
+  dplyr::select(c(Label, Exp_type,
+                 Gene_name, Full_name, b_adj.pvalue, Fold_change,
+                 Borgmeyer_2021,
+                 EE_vs_SH,
+                 log2FC, adj.pvalue)) %>%
+  
+ gt(
+    groupname_col = "Label",
+    rowname_col = "Gene_name"
+  ) %>%
+
+  fmt_number(decimals = 2)  %>%
+  
+    cols_label(
+    Full_name = "Protein Description",
+    Fold_change = "log2FC",
+    b_adj.pvalue = "adj.pvalue"
+  ) %>%
+  
+  tab_source_note(source_note = "Comparison to Borgmeyer 2021. Mapped to significant proteins in EE mice (DDA LFQ Proteomics, Hippocampal Synaptic Junctions of Male Mice). Top 30 most significant mapped proteins depicted.") %>%
+
+  tab_style(
+    style = list(
+      cell_text(style = "italic",  size = px(12))
+      ),
+    locations = cells_stub()) %>%
+
+    tab_options(table.font.size=10) %>%
+    opt_vertical_padding(scale = 0.3) %>% # vert padding
+
+    tab_style(
+    style = list(
+      cell_text(weight = "bold", size = px(14), # pass through px to work! 
+                align = "center")  
+      ),
+    locations = list(
+      cells_body(columns = c(Borgmeyer_2021, EE_vs_SH))
+      )) %>%
+  
+  tab_style(
+    style = list(
+      cell_text(weight = "bold", size = px(11))),
+    locations = list(
+      cells_column_labels(columns = c(Borgmeyer_2021, EE_vs_SH))
+      )) %>%
+  tab_style(
+    style = list(
+      cell_text(color = "grey15", size = px(9))),
+    locations = list(
+      cells_body(columns = c(Exp_type))
+      )) %>%
+  
+  tab_style( # BORGMEYER COLUMN
+    style = list(cell_fill(color = "#fddde6"),
+                 cell_text(color = "#d33682")),
+    locations = cells_body(rows = Fold_change > 0 ,
+                           columns = c(b_adj.pvalue, Fold_change,
+                                       Borgmeyer_2021))) %>%
+  tab_style( 
+    style = list(cell_fill(color = "#e1eefb"),
+                 cell_text(color = "#2380c1")),
+    locations = cells_body(rows = Fold_change < 0,
+                           columns = c(b_adj.pvalue, Fold_change, Borgmeyer_2021))) %>%
+  
+  tab_style( # My COLUMN
+    style = list(cell_fill(color = "#fddde6"),
+                 cell_text(color = "#d33682")),
+    locations = cells_body(rows = log2FC > 0 ,
+                           columns = c(EE_vs_SH, log2FC, adj.pvalue))) %>%
+  tab_style( 
+    style = list(cell_fill(color = "#e1eefb"),
+                 cell_text(color = "#2380c1")),
+    locations = cells_body(rows = log2FC < 0,
+                           columns = c(EE_vs_SH, log2FC, adj.pvalue))) %>%
+  
+  
+  
+  # gtsave("output/me_&_borg.pdf")
+  
+as_gtable(plot = TRUE, text_grob = gridtext::richtext_grob)
+
+# me_and_borg
+```
+
+------------------------------------------------------------------------
+
+Hu et al., 2013
+
 ```{r}
 
+```
+
+Paban
+
+```{r}
+UP_Paban_list <- c('Bdnf', 'Gmfb', 'Gdnf', 'Gfra3',
+                   'Mt3', 'Ngf', 'Tac1', 'Npffr2', 'Fgf2',
+                   'Ptn', 'Cxcr4', 'Myc', 'Stat5a')
+
+Paban_pat <- paste(UP_Paban_list, collapse = "|") # so sep by OR |
+
+me_and_paban <- EE_mapped_comp %>%
+  # match any case insenstitive
+  filter(str_detect(gene, regex(Paban_pat, ignore_case = TRUE)))
+
+# matched 8, all non sig, closest is Protachykinin-1 but mapping weird Tac1?
+# old paper so need to remap genes! 
+# NVM DOUBLE CHECK THIS IM VERY CONFUSED!!! 
 ```

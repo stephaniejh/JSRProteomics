@@ -62,12 +62,12 @@ load("output/gsea_results/2026_01_24_GO_gsea_EExAge_cp_v3.4.2_t2_simplified.rda"
 load("output/gsea_results/2026_01_12_gsea_msig_Hallmark_EExAge_mssv3.2.2_t1_cpv3.4.2_t2.rda")
 
 # MSIGDB C2 Reactome 
-load("output/gsea_results/2026_02_09_gsea_msig_c2_reactome_EExAge_mss3.2.2_t1_cp3.4.2.rda")
+# load("output/gsea_results/2026_02_09_gsea_msig_c2_reactome_EExAge_mss3.2.2_t1_cp3.4.2.rda")
 ```
 
 ```{r}
-up_subcell_raw <- read_excel(
-  "input/db/UP_subcellular_locations_all_2026_01_23.xlsx")
+# up_subcell_raw <- read_excel(
+#   "input/db/UP_subcellular_locations_all_2026_01_23.xlsx")
 ```
 
 ```{r}
