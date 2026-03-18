@@ -16,7 +16,7 @@ library(gt)
 library(readxl)
 ```
 
-## Including Plots
+## Load Files
 
 You can also embed plots, for example:
 
@@ -43,6 +43,8 @@ rat_lit_re <- read_excel(
   "input/lit_review/2026_01_13_EE_omics_lit_review_mRNA_Proteins.xlsx",
            sheet = 'rat_proteins_mRNA')
 ```
+
+## Wrangle
 
 ```{r}
 # trim uniprot ann
@@ -89,6 +91,8 @@ mapped_comp <- mapped_comp_v3.2.2_EExAge_t1 %>%
 #   unique() # yep matches up! 
 ```
 
+## Significant Proteins Tables
+
 ```{r}
 mapped_comp_2 <- mapped_comp %>%
   left_join(rat_ref_trm,
@@ -97,7 +101,7 @@ mapped_comp_2 <- mapped_comp %>%
 
 ```{r}
 # TOP 250 or SIG
-mappped_comp_2 %>%
+mapped_comp_2 %>%
   
   # filter(Label %in% c("H_EE_vs_SH",
   # "HxA_EE_YNG_vs_SH_YNG", "HxA_EE_OLD_vs_SH_OLD")) %>%
@@ -203,7 +207,7 @@ mappped_comp_2 %>%
 ### EE gt
 
 ```{r}
-EE_gt <- mappped_comp_2 %>%
+EE_gt <- mapped_comp_2 %>%
   
   filter(adj.pvalue <= 0.11) %>%
 
@@ -342,12 +346,170 @@ EE_gt
 
 ------------------------------------------------------------------------
 
-#### Lit tables
+# Lit tables
 
 ```{r}
-EE_mapped_comp <- mapped_comp_2 %>%
+EE_mapped_comp <- mapped_comp %>%
   filter(Label == "H_EE_vs_SH")
 ```
+
+## Neurotrophins
+
+### Hu et al., 2013
+
+```{r}
+Hu <- mice_lit_re %>%
+  filter(Author == "Hu") %>%
+  filter(is.na(Mod)) %>%
+  mutate(Study = paste0(Author, " ", Year)) 
+
+dim(Hu) #15 x 31
+```
+
+```{r}
+hu_list <- intersect(Hu$Uniprot_rat_accession, EE_mapped_comp$Protein)
+
+hu_map <- EE_mapped_comp %>%
+  filter(Label == "H_EE_vs_SH") %>%
+  filter(Protein %in% hu_list)
+
+hu_merge <- left_join(Hu, hu_map, 
+                      by = join_by(Uniprot_rat_accession == Protein)) 
+  
+colnames(hu_merge)
+
+hu_merge <- hu_merge %>%
+     mutate(Hu.2013 =  case_when(
+    Significant == "yes" & In_EE == "Up" ~ "\u2191 *",
+    Significant == "yes" & In_EE == "Down" ~ "\u2193 *",
+    Significant == "no" & In_EE == "Up" ~ "\u2191",
+    Significant == "no" & In_EE == "Down" ~ "\u2193",
+    In_EE == "Same" ~ "-",
+    .default = " "
+   )) %>%
+  mutate(EE_vs_SH = case_when(
+    adj.pvalue < 0.05 & log2FC > 0 ~ "\u2191 *", # up sig .05
+    adj.pvalue < 0.05 & log2FC < 0 ~ "\u2193 *", # down sig .05
+    adj.pvalue <= 0.5 & log2FC  > 0 ~ "\u2191", # up sig .05
+    adj.pvalue <= 0.5 & log2FC  < 0 ~ "\u2193", # down sig .05
+    .default = " " # ‐
+  )) %>%
+  mutate(description = str_trunc(description, 70)) %>%
+  group_by(Used_name) %>%
+  mutate(description = if_else(is.na(description), Full_name, description)) %>%
+  mutate(alt_lab = if_else(is.na(Label), "Not detected in current dataset",
+                           Label)) %>%
+  # mutate(Method_2 = "Proteomics (LC-MS\u00B2 DDA iTRAQ)") %>%
+  # filter(!is.na(Label)) %>% # removes undetected
+  arrange(adj.pvalue, Gene_name) 
+```
+
+```{r}
+me_and_hu <- hu_merge  %>%
+  
+  select(c(alt_lab, Region, Method, Exp_type,
+           Used_name, description, gene, Hu.2013,
+           EE_vs_SH, log2FC, adj.pvalue)) %>%
+  
+  arrange(adj.pvalue) %>%
+
+  
+  gt(
+    groupname_col = "alt_lab", # new method as grouping
+    rowname_col = "gene"
+  ) %>%
+  
+  cols_label(
+    gene = "Gene",
+    # Uniprot_entry_name = "Name",
+    description = "Protein Description",
+    EE_vs_SH = "EE",
+    adj.pvalue = "adj.pval",
+    Exp_type = "Type",
+    Used_name = "Used Name",
+    # Gene.Names = "gns",
+    # protein_existence = "existence"
+  ) %>%
+  
+  
+  tab_source_note(source_note = "Comparison to Hu et al. 2013 (mPFC (whole proteomics) in male mice). Of the 36 significant proteins identified in their EE group, 21 were successfully mapped to the current dataset and are displayed from most to least significant (based on the H_EE_vs_SH results). Additionally, the 5 proteins from their confirmatory western blot experiment are also shown.") %>%
+  
+  fmt_number(decimals = 2) %>%
+  tab_style(
+    style = list(
+      cell_text(style = "italic",  size = px(12.5))),
+    locations = cells_stub()) %>%
+  
+  tab_options(table.font.size=11.5) %>%
+  opt_vertical_padding(scale = 0.3) %>% # vert padding
+  
+  tab_style(
+    style = list(
+      cell_text(weight = "bold", size = px(14), # pass through px to work! 
+                align = "center")),
+    locations = list(
+      cells_body(columns = c(Hu.2013, EE_vs_SH)))) %>%
+  
+  tab_style(
+    style = list(
+      cell_text(weight = "bold", size = px(11.5), align = "center")),
+    locations = list(
+      cells_column_labels(columns = c(Hu.2013, EE_vs_SH))
+    )) %>%
+  
+
+# THEIR OCLUMNS | annoying manual anno here
+  tab_style(
+    style = list(cell_fill(color = "#FEEEF3"),
+                 cell_text(color = "#d33682")),
+    locations = cells_body(rows = str_detect(Hu.2013, "\u2191"),
+                           columns = c(Hu.2013))) %>%
+
+tab_style( # detected sig up
+    style = list(cell_fill(color = "#fddde6"),
+                 cell_text(color = "#d33682")),
+    locations = cells_body(rows = str_detect(gene, "Ntrk2|Creb1|Ntf3|Grin1"),
+                           columns = c(Hu.2013))) %>%
+  
+tab_style(
+    style = list(cell_fill(color = "#fddde6"),
+                 cell_text(color = "#d33682")),
+    locations = cells_body(rows = str_detect(Used_name, "BDNF|NGF|tPA") & Region == "Hippocampus",
+                           columns = c(Hu.2013))) %>%
+  
+  
+
+# MY COLUMNS  
+tab_style( # My COLUMN
+    style = list(cell_fill(color = "#fddde6"),
+                 cell_text(color = "#d33682")),
+    locations = cells_body(rows =  adj.pvalue < 0.35 & log2FC > 0 ,
+                           columns = c(EE_vs_SH, log2FC, adj.pvalue))) %>%
+  tab_style( 
+    style = list(cell_fill(color = "#e1eefb"),
+                 cell_text(color = "#2380c1")),
+    locations = cells_body(rows = adj.pvalue < 0.35 & log2FC < 0,
+                           columns = c(EE_vs_SH, log2FC, adj.pvalue))) %>%
+  
+  tab_style( # My COLUMN
+    style = list(cell_fill(color = "#FEEEF3"),
+                 cell_text(color = "#d33682")),
+    locations = cells_body(rows = adj.pvalue < 0.7 & log2FC > 0 ,
+                           columns = c(EE_vs_SH, log2FC, adj.pvalue))) %>%
+  tab_style( 
+    style = list(cell_fill(color = "#ECF4FC"),
+                 cell_text(color = "#2380c1")),
+    locations = cells_body(rows = adj.pvalue < 0.7 & log2FC < 0,
+                           columns = c(EE_vs_SH, log2FC, adj.pvalue)))
+
+
+  
+  
+  
+print(me_and_hu)
+```
+
+------------------------------------------------------------------------
 
 #### Kang et al., 2016
 
@@ -441,7 +603,658 @@ me_kang_gt <- me_and_Kang %>%
 me_kang_gt
 ```
 
-#### Zhang et al., 2024
+------------------------------------------------------------------------
+
+## Gene Expression & Protein Processing
+
+### Rampon et al., 2000
+
+Made 2 versions 2026_03_17 single column version & then 2026_03_18 made modified dual column version on top (e.g. 2 & 14 days) - a bit messy...
+
+```{r}
+rampon <- read_excel("input/lit_review/Rampon_2000_mRNA_uniprot_mapped_v2_ena_ebi_added_19dec_by_name_search_2026_03.xlsx",
+                     na = "NA")
+```
+
+<https://stackoverflow.com/questions/15895050/using-gsub-to-extract-character-string-before-white-space-in-r>
+
+```{r}
+str(rampon)
+dim(rampon)
+colnames(rampon)
+# length(unique(rampon$Accession_no)) #54
+
+#consolidate auto anno (Entry) & manual anno (uniprot_acc)
+rampon <- rampon %>%
+  group_by(Accession_no) %>%
+  mutate(gene_1st = sub(" .*", "", Gene.Names)) %>% # get 1st gene name 
+  mutate(gene_merged = if_else(is.na(gene_1st), uniprot_gene, gene_1st)) %>% # merge
+  filter(!is.na(gene_merged)) %>% # remove 1 NA which causes mapping issues
+  ungroup()  %>%
+  group_by(Duration, gene_merged) %>%
+  slice(1) %>%
+  ungroup() %>%
+# trimmed dual column version below
+  select(Phase, Category, gene_merged, Duration, Direction) %>%
+  pivot_wider(names_from = Duration, values_from = Direction)  %>%
+  # filter(Phase == "Late")
+  filter(Phase == "Early")
+  
+```
+
+```{r}
+rampon_list <- intersect(rampon$gene_merged, EE_mapped_comp$gene) # 35 mapped
+```
+
+\# filter(adj.pvalue \< 0.8) %\>%
+
+```{r}
+rampon_map <- EE_mapped_comp %>%
+  filter(Label == "H_EE_vs_SH") %>%
+  filter(gene %in% rampon_list)
+
+
+rampon_merge <- left_join(rampon, rampon_map,
+                          by = join_by(gene_merged == gene))
+
+
+rampon_merge <- rampon_merge  %>%
+  
+   # mutate("2 days"  =  case_when(
+   #  `2_days` == "Up" ~ "\u2191 *",
+   #  `2_days` == "Down" ~ "\u2193 *",
+   #  `2_days`  == "Same" ~ "-",
+   #  .default = " "
+   # )) %>%
+   # mutate("14 days"  =  case_when(
+   #  `14_days` == "Up" ~ "\u2191 *",
+   #  `14_days` == "Down" ~ "\u2193 *",
+   #  `14_days`  == "Same" ~ "-",
+   #  .default = " "
+   # )) %>%
+  
+     mutate("3 hours"  =  case_when(
+    `3_h` == "Up" ~ "\u2191 *",
+    `3_h` == "Down" ~ "\u2193 *",
+    `3_h`  == "Same" ~ "-",
+    .default = " "
+   )) %>%
+   mutate("6 hours"  =  case_when(
+    `6_h` == "Up" ~ "\u2191 *",
+    `6_h` == "Down" ~ "\u2193 *",
+    `6_h`  == "Same" ~ "-",
+    .default = " "
+   )) %>%
+  
+  mutate(EE_vs_SH = case_when(
+    adj.pvalue < 0.05 & log2FC > 0 ~ "\u2191 *", # up sig .05
+    adj.pvalue < 0.05 & log2FC < 0 ~ "\u2193 *", # down sig .05
+    adj.pvalue <= 0.5 & log2FC > 0  ~ "\u2191", # up sig .05
+    adj.pvalue <= 0.5 & log2FC  < 0 ~ "\u2193", # down sig .05
+    .default = " " # ‐
+  )) %>%
+  # mutate(Full_name = str_trunc(Full_name, 80)) %>%
+  filter(!is.na(Label)) %>%
+  filter(adj.pvalue < 0.9) %>%
+  arrange(adj.pvalue)
+  
+
+length(unique(rampon_merge$gene_merged)) # 19 if cut off is adj.pvalue < 0.8
+```
+
+```{r}
+me_and_rampon <- rampon_merge %>%
+  
+  select(c(Category, description, gene_merged, 
+           #Rampon_2000,
+           # `2 days`, `14 days`,
+           `3 hours`, `6 hours`,
+           EE_vs_SH, log2FC, adj.pvalue)) %>%
+  
+  # filter(Duration == "14_days") %>%  #14 day filter
+  
+  arrange(adj.pvalue) %>%
+  
+  gt(
+    # groupname_col = "Duration", # timiibg
+    rowname_col = "gene_merged"
+  ) %>%
+  
+  cols_label(
+    gene_merged = "Gene",
+    description = "Protein Description",
+    EE_vs_SH = "EE",
+    adj.pvalue = "adj.p",
+    # Rampon_2000 = "Rampon 2000"
+  ) %>%
+  
+  tab_source_note(source_note = "Comparison to Rampon et al. 2000 (mRNA - microarray, cortex, mice). Observed 35 of the 54 provided entries/IDs in the current dataset. Note - Aspartyl aminopeptidase like protein & Aspartyl aminopeptidase were not able to be automatically mapped using the provided ENA accession number via Uniprot databases. Further details were retrieved from IDs provided at https://www.ebi.ac.uk/biostudies/europepmc/studies/S-EPMC18858 & based on manual cross-referencing both IDs best mapped to the Uniprot rat equivalent Aspartyl aminopeptidase (Dnpep;A0A8I6ABE2). Both versions of Dnpep showed the same pattern of expression (increased in EE after 2 days but no change after 14 days), hence were merged into one. For breivity, only those below the adj.pvalue cutoff of < 0.9 are displayed.") %>%
+  
+  fmt_number(decimals = 2) %>%
+  tab_style(
+    style = list(
+      cell_text(style = "italic",  size = px(12.5))),
+    locations = cells_stub()) %>%
+  
+  tab_options(table.font.size=11.5) %>%
+  opt_vertical_padding(scale = 0.3) %>% # vert padding
+  
+  tab_style(
+    style = list(
+      cell_text(weight = "bold", size = px(14), # pass through px to work! 
+                align = "center")),
+    locations = list(
+      cells_body(columns = c(
+        # `2 days`, `14 days`,
+        `3 hours`, `6 hours`,
+        # Rampon_2000,
+        EE_vs_SH)))) %>%
+  
+  tab_style(
+    style = list(
+      cell_text(size = px(11.5), align = "center")),
+    locations = list(
+      cells_column_labels(columns = c(
+        # `2 days`, `14 days`,
+        `3 hours`, `6 hours`,
+        #Rampon_2000,
+        EE_vs_SH))
+    )) %>%
+  
+  # tab_spanner(label = "Rampon 2000", columns = c(`2 days`, `14 days`))  %>%
+  tab_spanner(label = "Rampon 2000", columns = c(`3 hours`, `6 hours`))  %>%
+  tab_spanner(label = "H_EE_vs_SH", columns = c(EE_vs_SH, log2FC, adj.pvalue)) %>%
+  
+# LIT COLUMNS  
+# tab_style( # RAMPON GENERAL
+#     style = list(cell_fill(color = "#fddde6"),
+#                  cell_text(color = "#d33682")),
+#     locations = cells_body(rows = str_detect(Rampon_2000, "\u2191 *"),
+#                            columns = c(Rampon_2000))) %>%
+#   tab_style( 
+#     style = list(cell_fill(color = "#DBECFC"),
+#                  cell_text(color = "#2380c1")),
+#     locations = cells_body(rows = str_detect(Rampon_2000, "\u2193 *"),
+#                            columns = c(Rampon_2000))) %>%
+  
+  
+  # tab_style( # RAMPON 2 days
+  #   style = list(cell_fill(color = "#fddde6"),
+  #                cell_text(color = "#d33682")),
+  #   locations = cells_body(rows = str_detect(`2 days`, "\u2191 *"),
+  #                          columns = c(`2 days`))) %>%
+  #   tab_style( # RAMPON 14 days
+  #   style = list(cell_fill(color = "#fddde6"),
+  #                cell_text(color = "#d33682")),
+  #   locations = cells_body(rows = str_detect(`14 days`, "\u2191 *"),
+  #                          columns = c(`14 days`))) %>%
+  # 
+  # tab_style(  # RAMPON 2 days
+  #   style = list(cell_fill(color = "#DBECFC"),
+  #                cell_text(color = "#2380c1")),
+  #   locations = cells_body(rows = str_detect(`2 days`, "\u2193 *"),
+  #                          columns = c(`2 days`))) %>%
+  # 
+  # tab_style(  # RAMPON 14 days
+  #   style = list(cell_fill(color = "#DBECFC"),
+  #                cell_text(color = "#2380c1")),
+  #   locations = cells_body(rows = str_detect(`14 days`, "\u2193 *"),
+  #                          columns = c(`14 days`))) %>%
+  
+  
+  
+  tab_style( # RAMPON 3 hours
+    style = list(cell_fill(color = "#fddde6"),
+                 cell_text(color = "#d33682")),
+    locations = cells_body(rows = str_detect(`3 hours`, "\u2191 *"),
+                           columns = c(`3 hours`))) %>%
+    tab_style( # RAMPON 6 hours
+    style = list(cell_fill(color = "#fddde6"),
+                 cell_text(color = "#d33682")),
+    locations = cells_body(rows = str_detect(`6 hours`, "\u2191 *"),
+                           columns = c(`6 hours`))) %>%
+  
+  tab_style(  # RAMPON 3 hours
+    style = list(cell_fill(color = "#DBECFC"),
+                 cell_text(color = "#2380c1")),
+    locations = cells_body(rows = str_detect(`3 hours`, "\u2193 *"),
+                           columns = c(`3 hours`))) %>%
+  
+  tab_style(  # RAMPON 6 hours
+    style = list(cell_fill(color = "#DBECFC"),
+                 cell_text(color = "#2380c1")),
+    locations = cells_body(rows = str_detect(`6 hours`, "\u2193 *"),
+                           columns = c(`6 hours`))) %>%  
+  
+  
+  
+  
+
+# MY COLUMNS  
+  tab_style( # My COLUMN - SIG & SIG ISH - DIRECTIONAL HIGHLIGHT
+    style = list(cell_fill(color = "#fddde6"),
+                 cell_text(color = "#d33682")),
+    locations = cells_body(rows =  adj.pvalue < 0.35 & log2FC > 0 ,
+                           columns = c(EE_vs_SH, log2FC, adj.pvalue))) %>%
+  tab_style( 
+    style = list(cell_fill(color = "#DBECFC"),
+                 cell_text(color = "#2380c1")),
+    locations = cells_body(rows = adj.pvalue < 0.35 & log2FC < 0,
+                           columns = c(EE_vs_SH, log2FC, adj.pvalue))) %>%
+  
+  tab_style( # My COLUMN - NON SIG DIRECTIONAL HIGHLIGHT
+    style = list(cell_fill(color = "#FEEEF3"),
+                 cell_text(color = "#d33682")),
+  locations = cells_body(rows = adj.pvalue < 0.7 & adj.pvalue > 0.35 & log2FC > 0 ,
+                           columns = c(EE_vs_SH, log2FC, adj.pvalue))) %>%
+  tab_style( 
+    style = list(cell_fill(color = "#EFF6FD"),
+                 cell_text(color = "#2380c1")),
+  locations = cells_body(rows = adj.pvalue < 0.7 & adj.pvalue > 0.35 & log2FC < 0,
+                           columns = c(EE_vs_SH, log2FC, adj.pvalue))) %>%
+  
+ tab_style( # My COLUMN - very NON SIG - DIRECTIONAL COLOR
+    style = list(cell_text(color = "#d33682")),
+  locations = cells_body(rows = adj.pvalue > 0.7 & log2FC > 0 ,
+                           columns = c(EE_vs_SH, log2FC, adj.pvalue))) %>%
+  tab_style( 
+    style = list(cell_text(color = "#2380c1")),
+  locations = cells_body(rows = adj.pvalue > 0.7 & log2FC < 0,
+                           columns = c(EE_vs_SH, log2FC, adj.pvalue)))
+
+me_and_rampon
+```
+
+------------------------------------------------------------------------
+
+### Park et al., 2015
+
+```{r}
+park <- read_csv("input/lit_review/2025_12_17_Park_2015_mRNA_lit_review_EExAging_summed_v2.csv")
+```
+
+```{r}
+park_list <- intersect(park$Uniprot_rat_accession, EE_mapped_comp$Protein) #263
+```
+
+```{r}
+park_map <- EE_mapped_comp %>%
+  filter(Label == "H_EE_vs_SH") %>%
+  filter(Protein %in% park_list)
+
+park_merge <- left_join(park, park_map,
+                        by = join_by(Uniprot_rat_accession == Protein))
+
+colnames(park_merge)
+
+park_merge <- park_merge %>%
+      mutate(Park_2015 =  case_when(
+    Significant == "yes" & In_EE == "Up" ~ "\u2191 *",
+    Significant == "yes" & In_EE == "Down" ~ "\u2193 *",
+    Significant == "no" & In_EE == "Up" ~ "\u2191",
+    Significant == "no" & In_EE == "Down" ~ "\u2193",
+    In_EE == "Same" ~ "-",
+    .default = " "
+   )) %>%
+  mutate(EE_vs_SH = case_when(
+    adj.pvalue < 0.05 & log2FC > 0 ~ "\u2191 *", # up sig .05
+    adj.pvalue < 0.05 & log2FC < 0 ~ "\u2193 *", # down sig .05
+    adj.pvalue <= 0.5 & log2FC  > 0 ~ "\u2191", # up sig .05
+    adj.pvalue <= 0.5 & log2FC  < 0 ~ "\u2193", # down sig .05
+    .default = " " # ‐
+  )) %>%
+  mutate(description = str_trunc(description, 70)) %>%
+  mutate(transcriptomics_id = recode(transcriptomics_id,
+         EE_old = "EE Old (~16.5-18.5 months)",
+         EE_yng = "EE Young (~6.5-7.5 months)" )) %>%
+  # mutate(Method_2 = "Proteomics (LC-MS\u00B2 DDA iTRAQ)") %>%
+  filter(!is.na(Label)) %>% 
+  arrange(adj.pvalue, Gene_name) 
+```
+
+```{r}
+me_and_park <- head(park_merge, 30) %>%
+  dplyr::select(c(transcriptomics_id, 
+                 Gene_name, description,
+                 # "Mean EA", "Mean EY", "Mean SA" , "Mean SY",
+                 pvalue.x, Fold_change, Park_2015,
+                 EE_vs_SH, log2FC, adj.pvalue)) %>%
+  
+ gt(
+    groupname_col = "transcriptomics_id",
+    rowname_col = "Gene_name"
+  ) %>%
+
+  fmt_number(decimals = 2)  %>%
+  
+    cols_label(
+    pvalue.x = "pval",
+    Fold_change = "FC",
+    description = "Protein Description",
+    EE_vs_SH = "EE",
+    Park_2015 = "EE",
+    adj.pvalue = "adj.p") %>%
+  
+  tab_source_note(source_note = "Comparison to Park et al. 2015 - EE x Age SAGEseq Transcriptomics (Hippocampus; male mice). Of the 469 (59 in EE young & 410 in EE old) significant genes identified, 263 were successfully mapped onto proteins in the current dataset, with the top 30 most significant in the H_EE_vs_SH comparison shown here. ") %>%
+
+  tab_style(
+    style = list(
+      cell_text(style = "italic",  size = px(12.5))
+      ),
+    locations = cells_stub()) %>%
+
+    tab_options(table.font.size=11.5) %>%
+    opt_vertical_padding(scale = 0.3) %>% # vert padding
+
+    tab_style(
+    style = list(
+      cell_text(weight = "bold", size = px(14), # pass through px to work! 
+                align = "center")  
+      ),
+    locations = list(
+      cells_body(columns = c(Park_2015, EE_vs_SH))
+      )) %>%
+  
+  tab_style(
+    style = list(
+      cell_text(size = px(11.5), align = "center")),
+    locations = list(
+      cells_column_labels(columns = c(Park_2015, EE_vs_SH))
+      )) %>%
+  
+  
+tab_spanner(label = "Park 2015",
+      columns = c(
+        #"Mean EA", "Mean EY", "Mean SA", "Mean SY",
+                   pvalue.x, Fold_change, Park_2015))  %>%
+tab_spanner(label = "H_EE_vs_SH", columns = c(EE_vs_SH, log2FC, adj.pvalue)) %>%
+
+  
+tab_style( # ARROYO
+    style = list(cell_fill(color = "#fddde6"),
+                 cell_text(color = "#d33682")),
+    locations = cells_body(rows = str_detect(Park_2015, "\u2191 *"),
+                           columns = c(pvalue.x, Fold_change, Park_2015))) %>%
+  tab_style( 
+    style = list(cell_fill(color = "#DBECFC"),
+                 cell_text(color = "#2380c1")),
+    locations = cells_body(rows = str_detect(Park_2015, "\u2193 *"),
+                           columns = c(pvalue.x, Fold_change,Park_2015))) %>%
+  
+  
+  
+tab_style( # My COLUMN
+    style = list(cell_fill(color = "#fddde6"),
+                 cell_text(color = "#d33682")),
+    locations = cells_body(rows =  adj.pvalue < 0.35 & log2FC > 0 ,
+                           columns = c(EE_vs_SH, log2FC, adj.pvalue))) %>%
+  tab_style( 
+    style = list(cell_fill(color = "#DBECFC"),
+                 cell_text(color = "#2380c1")),
+    locations = cells_body(rows = adj.pvalue < 0.35 & log2FC < 0,
+                           columns = c(EE_vs_SH, log2FC, adj.pvalue))) %>%
+  
+  tab_style( # My COLUMN
+    style = list(cell_fill(color = "#FEEEF3"),
+                 cell_text(color = "#d33682")),
+locations = cells_body(rows = adj.pvalue < 0.7 & adj.pvalue > 0.35 & log2FC > 0 ,
+                           columns = c(EE_vs_SH, log2FC, adj.pvalue))) %>%
+  tab_style( 
+    style = list(cell_fill(color = "#EFF6FD"),
+                 cell_text(color = "#2380c1")),
+locations = cells_body(rows = adj.pvalue < 0.7 & adj.pvalue > 0.35 & log2FC < 0,
+                           columns = c(EE_vs_SH, log2FC, adj.pvalue))) %>%
+  
+ tab_style( # My COLUMN - very NON SIG - DIRECTIONAL COLOR
+    style = list(cell_text(color = "#d33682")),
+  locations = cells_body(rows = adj.pvalue > 0.7 & log2FC > 0 ,
+                           columns = c(EE_vs_SH, log2FC, adj.pvalue))) %>%
+  tab_style( 
+    style = list(cell_text(color = "#2380c1")),
+  locations = cells_body(rows = adj.pvalue > 0.7 & log2FC < 0,
+                           columns = c(EE_vs_SH, log2FC, adj.pvalue)))
+
+  
+  
+print(me_and_park)
+```
+
+#### PPPs - Protein phosphatase
+
+```{r}
+# note - non sig in other comparisons either 
+PPPs <- mapped_comp %>%
+  filter(!(Label %in% c("HxA_EE_YNG_vs_SH_OLD", "HxA_EE_OLD_vs_SH_YNG"))) %>%
+  filter(str_detect(description, "Protein phosphatase|Calcineurin")) %>%
+    mutate(EE_vs_SH = case_when(
+    adj.pvalue < 0.05 & log2FC > 0 ~ "\u2191 *", # up sig .05
+    adj.pvalue < 0.05 & log2FC < 0 ~ "\u2193 *", # down sig .05
+    adj.pvalue <= 0.5 & log2FC  > 0 ~ "\u2191", # up sig .05
+    adj.pvalue <= 0.5 & log2FC  < 0 ~ "\u2193", # down sig .05
+    .default = " " # ‐
+  )) %>%
+  arrange(adj.pvalue)
+```
+
+```{r}
+PPPs_gt <- head(PPPs, 70) %>%
+  dplyr::select(c(Label, gene, description, EE_vs_SH,
+                  log2FC, adj.pvalue)) %>%
+  
+  gt(groupname_col = "Label",
+     rowname_col = "gene") %>%
+  fmt_number(decimals = 2)  %>%
+  
+  
+  cols_label(
+    # Fold_change = "log2FC.a",
+    description = "Protein Description",
+    EE_vs_SH = "EE",
+    adj.pvalue = "adj.p"
+    ) %>%
+  
+    tab_style(
+    style = list(
+      cell_text(style = "italic",  size = px(12.5))
+      ),
+    locations = cells_stub()) %>%
+
+    tab_options(table.font.size=11.5) %>%
+    opt_vertical_padding(scale = 0.3) %>% # vert padding
+  
+ tab_source_note(source_note = "Expression of Protein Phosphatases in EE (37 observed)") %>%
+
+  tab_style( # My COLUMN
+    style = list(cell_fill(color = "#fddde6"),
+                 cell_text(color = "#d33682")),
+    locations = cells_body(rows =  adj.pvalue < 0.35 & log2FC > 0 ,
+                           columns = c(EE_vs_SH, log2FC, adj.pvalue))) %>%
+  tab_style( 
+    style = list(cell_fill(color = "#DBECFC"),
+                 cell_text(color = "#2380c1")),
+    locations = cells_body(rows = adj.pvalue < 0.35 & log2FC < 0,
+                           columns = c(EE_vs_SH, log2FC, adj.pvalue))) %>%
+  
+  tab_style( # My COLUMN
+    style = list(cell_fill(color = "#FEEEF3"),
+                 cell_text(color = "#d33682")),
+  locations = cells_body(rows = adj.pvalue < 0.7 & adj.pvalue > 0.35 & log2FC > 0 ,
+                           columns = c(EE_vs_SH, log2FC, adj.pvalue))) %>%
+  tab_style( 
+    style = list(cell_fill(color = "#EFF6FD"),
+                 cell_text(color = "#2380c1")),
+  locations = cells_body(rows = adj.pvalue < 0.7 & adj.pvalue > 0.35 & log2FC < 0,
+                           columns = c(EE_vs_SH, log2FC, adj.pvalue))) %>%
+  
+  tab_style( # My COLUMN - very NON SIG - DIRECTIONAL COLOR
+    style = list(cell_text(color = "#d33682")),
+    locations = cells_body(rows = adj.pvalue > 0.7 & log2FC > 0 ,
+                           columns = c(EE_vs_SH, log2FC, adj.pvalue))) %>%
+  tab_style( 
+    style = list(cell_text(color = "#2380c1")),
+    locations = cells_body(rows = adj.pvalue > 0.7 & log2FC < 0,
+                           columns = c(EE_vs_SH, log2FC, adj.pvalue)))
+
+
+PPPs_gt 
+```
+
+------------------------------------------------------------------------
+
+### Arroyo et al., 2020
+
+```{r}
+arroyo <- read_csv("input/lit_review/2025_12_29_Arroyo_2020_pigs_proteomics_lit_review_sig_v1.csv") # 55
+```
+
+```{r}
+# 44 of 55 observed
+arroyo_list <- intersect(arroyo$Uniprot_rat_accession, EE_mapped_comp$Protein) # 44
+
+arroyo_map <- EE_mapped_comp %>%
+  filter(Label == "H_EE_vs_SH") %>%
+  filter(Protein %in% arroyo_list)
+
+
+arroyo_merge <- left_join(arroyo, arroyo_map, 
+                        by = join_by(Uniprot_rat_accession == Protein)) 
+  
+colnames(arroyo_merge)
+
+arroyo_merge <- arroyo_merge %>%
+     mutate(Arroyo_2020 =  case_when(
+    Significant == "yes" & In_EE == "Up" ~ "\u2191 *",
+    Significant == "yes" & In_EE == "Down" ~ "\u2193 *",
+    Significant == "no" & In_EE == "Up" ~ "\u2191",
+    Significant == "no" & In_EE == "Down" ~ "\u2193",
+    In_EE == "Same" ~ "-",
+    .default = " "
+   )) %>%
+  mutate(EE_vs_SH = case_when(
+    adj.pvalue < 0.05 & log2FC.y > 0 ~ "\u2191 *", # up sig .05
+    adj.pvalue < 0.05 & log2FC.y < 0 ~ "\u2193 *", # down sig .05
+    adj.pvalue <= 0.5 & log2FC.y  > 0 ~ "\u2191", # up sig .05
+    adj.pvalue <= 0.5 & log2FC.y  < 0 ~ "\u2193", # down sig .05
+    .default = " " # ‐
+  )) %>%
+  mutate(description = str_trunc(description, 70)) %>%
+  mutate(Method_2 = "Proteomics (LC-MS\u00B2 DDA iTRAQ)") %>%
+  filter(!is.na(Label)) %>% 
+  arrange(adj.pvalue, Gene_name) 
+  
+```
+
+```{r}
+me_and_arroyo <- head(arroyo_merge, 30) %>%
+  dplyr::ungroup() %>%
+  dplyr::select(c(Method_2,
+                 Gene_name, description,Arroyo_2020,
+                 EE_vs_SH, log2FC.y, adj.pvalue)) %>%
+  
+ gt(
+    groupname_col = "Method_2",
+    rowname_col = "Gene_name"
+  ) %>%
+
+  fmt_number(decimals = 2)  %>%
+  
+    cols_label(
+    # Fold_change = "log2FC.a",
+    description = "Protein Description",
+    EE_vs_SH = "EE",
+    Arroyo_2020 = "EE",
+    adj.pvalue = "adj.p",
+    log2FC.y = "log2FC") %>%
+  
+  tab_source_note(source_note = "Comparison to Arroyo et al. 2020 (Hippocampus (whole proteomics) in female pigs). Of the 56 significant proteins identified in their EE group, 44 were successfully mapped to the current dataset, with the top 30 most significant in the H_EE_vs_SH comparison shown here.") %>%
+
+  tab_style(
+    style = list(
+      cell_text(style = "italic",  size = px(12.5))
+      ),
+    locations = cells_stub()) %>%
+
+    tab_options(table.font.size=11.5) %>%
+    opt_vertical_padding(scale = 0.3) %>% # vert padding
+
+    tab_style(
+    style = list(
+      cell_text(weight = "bold", size = px(14), # pass through px to work! 
+                align = "center")  
+      ),
+    locations = list(
+      cells_body(columns = c(Arroyo_2020, EE_vs_SH))
+      )) %>%
+  
+  tab_style(
+    style = list(
+      cell_text(size = px(11.5), align = "center")),
+    locations = list(
+      cells_column_labels(columns = c(Arroyo_2020, EE_vs_SH))
+      )) %>%
+  
+  
+  tab_spanner(label = "Arroyo 2020", columns = c(Arroyo_2020))  %>%
+tab_spanner(label = "H_EE_vs_SH", columns = c(EE_vs_SH, log2FC.y, adj.pvalue)) %>%
+
+  
+tab_style( # ARROYO
+    style = list(cell_fill(color = "#fddde6"),
+                 cell_text(color = "#d33682")),
+    locations = cells_body(rows = str_detect(Arroyo_2020, "\u2191 *"),
+                           columns = c(Arroyo_2020))) %>%
+  tab_style( 
+    style = list(cell_fill(color = "#DBECFC"),
+                 cell_text(color = "#2380c1")),
+    locations = cells_body(rows = str_detect(Arroyo_2020, "\u2193 *"),
+                           columns = c(Arroyo_2020))) %>%
+  
+  
+  
+tab_style( # My COLUMN
+    style = list(cell_fill(color = "#fddde6"),
+                 cell_text(color = "#d33682")),
+    locations = cells_body(rows =  adj.pvalue < 0.35 & log2FC.y > 0 ,
+                           columns = c(EE_vs_SH, log2FC.y, adj.pvalue))) %>%
+  tab_style( 
+    style = list(cell_fill(color = "#DBECFC"),
+                 cell_text(color = "#2380c1")),
+    locations = cells_body(rows = adj.pvalue < 0.35 & log2FC.y < 0,
+                           columns = c(EE_vs_SH, log2FC.y, adj.pvalue))) %>%
+  
+  tab_style( # My COLUMN
+    style = list(cell_fill(color = "#FEEEF3"),
+                 cell_text(color = "#d33682")),
+locations = cells_body(rows = adj.pvalue < 0.7 & adj.pvalue > 0.35 & log2FC.y > 0 ,
+                           columns = c(EE_vs_SH, log2FC.y, adj.pvalue))) %>%
+  tab_style( 
+    style = list(cell_fill(color = "#EFF6FD"),
+                 cell_text(color = "#2380c1")),
+locations = cells_body(rows = adj.pvalue < 0.7 & adj.pvalue > 0.35 & log2FC.y < 0,
+                           columns = c(EE_vs_SH, log2FC.y, adj.pvalue))) %>%
+  
+ tab_style( # My COLUMN - very NON SIG - DIRECTIONAL COLOR
+    style = list(cell_text(color = "#d33682")),
+  locations = cells_body(rows = adj.pvalue > 0.7 & log2FC.y > 0 ,
+                           columns = c(EE_vs_SH, log2FC.y, adj.pvalue))) %>%
+  tab_style( 
+    style = list(cell_text(color = "#2380c1")),
+  locations = cells_body(rows = adj.pvalue > 0.7 & log2FC.y < 0,
+                           columns = c(EE_vs_SH, log2FC.y, adj.pvalue)))
+
+  
+  
+print(me_and_arroyo)
+    # gtsave("output/me_&_borg.pdf")
+  
+# as_gtable(plot = TRUE, text_grob = gridtext::richtext_grob)
+
+
+```
+
+------------------------------------------------------------------------
+
+### Zhang et al., 2024
 
 ```{r}
 Zhang_2024 <- mice_lit_re %>%
@@ -463,6 +1276,9 @@ me_and_Zhang <- left_join(Zhang_2024, EE_mapped_comp,
 
 
 me_and_Zhang <- me_and_Zhang  %>%
+  mutate(Method_2 = if_else(str_detect(Method, "PROTEOMICS"),
+                            "Proteomics (LC-MS\u00B2 DDA LFQ)",
+                            "Western Blot (Confirmatory)")) %>%
    mutate(Zhang_2024 =  case_when(
     Significant == "yes" & In_EE == "Up" ~ "\u2191 *",
     Significant == "yes" & In_EE == "Down" ~ "\u2193 *",
@@ -472,12 +1288,10 @@ me_and_Zhang <- me_and_Zhang  %>%
     .default = " "
    )) %>%
   mutate(EE_vs_SH = case_when(
-    adj.pvalue < 0.05 & log2FC > .05 ~ "\u2191 *", # up sig .05
-    adj.pvalue < 0.05 & log2FC < -.05 ~ "\u2193 *", # down sig .05
-    # pvalue.y < 0.05 & log2FC > .05 ~ "\u2191", # up sig .05
-    # pvalue.y < 0.05 & log2FC < -.05 ~ "\u2193", # down sig .05
-    log2FC > .01 ~ "\u2191", # up sig .05
-    log2FC < -.01 ~ "\u2193", # down sig .05
+    adj.pvalue < 0.05 & log2FC > 0 ~ "\u2191 *", # up sig .05
+    adj.pvalue < 0.05 & log2FC < 0 ~ "\u2193 *", # down sig .05
+    adj.pvalue <= 0.5 & log2FC > 0 ~ "\u2191", # up sig .05
+    adj.pvalue <= 0.5 & log2FC  < 0 ~ "\u2193", # down sig .05
     .default = " " # ‐
   )) %>%
   mutate(Full_name = str_trunc(Full_name, 80)) %>%
@@ -491,81 +1305,248 @@ colnames(me_and_Zhang)
 ```{r}
 me_zhang_gt <- me_and_Zhang  %>%
   
-  # select(!c(Uniprot_link:misc,issue, Cofactor, Mass.spectrometry,
-  #           Induction, organism_id, organism, feature,
-  #           sequence_version:sig_no_down_lab, Mod, Mod_type, Year,
-  #           Comparison, Condition, Catalytic.activity)) %>%
-  
-    # select(!c(Uniprot_link:misc,issue, Cofactor, Mass.spectrometry,
-  #           Induction, organism_id, organism, feature,
-  #           sequence_version:sig_no_down_lab, Mod, Mod_type, Year,
-  #           Comparison, Condition, Catalytic.activity)) %>%
-  
-  
+  select(c(Method_2, description, gene, Zhang_2024,
+           EE_vs_SH, log2FC, adj.pvalue)) %>%
   
   arrange(adj.pvalue) %>%
-
   
   gt(
-    groupname_col = "Label",
-    rowname_col = "Direction"
+    groupname_col = "Method_2", # new method as grouping
+    rowname_col = "gene"
   ) %>%
   
   cols_label(
     gene = "Gene",
-    # Uniprot_entry_name = "Name",
     description = "Protein Description",
-    database = "db",
-    Involvement.in.disease = "in.disease",
-    Gene.Names = "gns",
-    protein_existence = "existence"
+    EE_vs_SH = "EE",
+    adj.pvalue = "adj.p",
+    Zhang_2024 = "EE"
   ) %>%
   
-  fmt_number(decimals = 3) %>%
+  tab_source_note(source_note = "Comparison to Zhang et al. 2024 (mPFC (whole proteomics) in male mice). Of the 36 significant proteins identified in their EE group, 21 were successfully mapped to the current dataset and are displayed from most to least significant (based on the H_EE_vs_SH results). Additionally, the 5 proteins from their confirmatory western blot experiment are also shown.") %>%
   
-  tab_style( 
+  fmt_number(decimals = 2) %>%
+  tab_style(
     style = list(
-      cell_text(style = "italic")
-      ),
-    locations = cells_body(
-      columns = gene,
-    )
-  ) %>%
+      cell_text(style = "italic",  size = px(12.5))),
+    locations = cells_stub()) %>%
   
-  tab_style( 
-    style = list(
-      cell_text(size = px(10))
-      ),
-    locations = cells_body(
-      columns = c(Function..CC., Subcellular.location..CC., Domain..CC.)
-    )
-  ) %>%
+  tab_options(table.font.size=11.5) %>%
+  opt_vertical_padding(scale = 0.3) %>% # vert padding
   
-  tab_style( 
+  tab_style(
     style = list(
-      cell_fill(color = "#fddde6"),
-      cell_text(color = "#d33682")
-      ),
-    locations = cells_body(
-                 rows = log2FC > 0 )) %>%
-    tab_style( 
+      cell_text(weight = "bold", size = px(14), # pass through px to work! 
+                align = "center")),
+    locations = list(
+      cells_body(columns = c(Zhang_2024, EE_vs_SH)))) %>%
+  
+  tab_style(
     style = list(
-      cell_fill(color = "#e1eefb"),
-      cell_text(color = "#2380c1")
-      ),
-    locations = cells_body(
-                 rows = log2FC < 0 )) %>%
+      cell_text(size = px(11.5), align = "center")),
+    locations = list(
+      cells_column_labels(columns = c(Zhang_2024, EE_vs_SH))
+    )) %>%
+  
+  tab_spanner(label = "Zhang 2024", columns = c(Zhang_2024))  %>%
+  tab_spanner(label = "H_EE_vs_SH", columns = c(EE_vs_SH, log2FC, adj.pvalue)) %>%
+  
 
-  tab_options(
-    #heading.title.font.size = 16.5,
-              table.font.size=11,
-              ) #|>
+tab_style( # Zhang COLUMN
+    style = list(cell_fill(color = "#fddde6"),
+                 cell_text(color = "#d33682")),
+    locations = cells_body(rows = str_detect(Zhang_2024, "\u2191 *"),
+                           columns = c(Zhang_2024))) %>%
+  tab_style( 
+    style = list(cell_fill(color = "#DBECFC"),
+                 cell_text(color = "#2380c1")),
+    locations = cells_body(rows = str_detect(Zhang_2024, "\u2193 *"),
+                           columns = c(Zhang_2024))) %>%
+  
+# MY COLUMNS  
+  tab_style( # My COLUMN - SIG & SIG ISH - DIRECTIONAL HIGHLIGHT
+    style = list(cell_fill(color = "#fddde6"),
+                 cell_text(color = "#d33682")),
+    locations = cells_body(rows =  adj.pvalue < 0.35 & log2FC > 0 ,
+                           columns = c(EE_vs_SH, log2FC, adj.pvalue))) %>%
+  tab_style( 
+    style = list(cell_fill(color = "#DBECFC"),
+                 cell_text(color = "#2380c1")),
+    locations = cells_body(rows = adj.pvalue < 0.35 & log2FC < 0,
+                           columns = c(EE_vs_SH, log2FC, adj.pvalue))) %>%
+  
+  tab_style( # My COLUMN - NON SIG DIRECTIONAL HIGHLIGHT
+    style = list(cell_fill(color = "#FEEEF3"),
+                 cell_text(color = "#d33682")),
+  locations = cells_body(rows = adj.pvalue < 0.7 & adj.pvalue > 0.35 & log2FC > 0 ,
+                           columns = c(EE_vs_SH, log2FC, adj.pvalue))) %>%
+  tab_style( 
+    style = list(cell_fill(color = "#EFF6FD"),
+                 cell_text(color = "#2380c1")),
+  locations = cells_body(rows = adj.pvalue < 0.7 & adj.pvalue > 0.35 & log2FC < 0,
+                           columns = c(EE_vs_SH, log2FC, adj.pvalue))) %>%
+  
+ tab_style( # My COLUMN - very NON SIG - DIRECTIONAL COLOR
+    style = list(cell_text(color = "#d33682")),
+  locations = cells_body(rows = adj.pvalue > 0.7 & log2FC > 0 ,
+                           columns = c(EE_vs_SH, log2FC, adj.pvalue))) %>%
+  tab_style( 
+    style = list(cell_text(color = "#2380c1")),
+  locations = cells_body(rows = adj.pvalue > 0.7 & log2FC < 0,
+                           columns = c(EE_vs_SH, log2FC, adj.pvalue)))
+
 me_zhang_gt 
 ```
 
 ------------------------------------------------------------------------
 
-#### Borgmeyer
+### Perez et al., 2024
+
+```{r}
+perez <- read_excel("input/lit_review/2025_12_16_Perez_2024_proteomics_lit_review_sig_v1.xlsx",
+                    sheet = "all")
+
+
+perez <- perez %>%
+  filter(!is.na(Gene_name)) %>%
+  filter(!is.na(Uniprot_rat_accession)) %>%
+  group_by(SYMBOL) %>%
+  slice_head(n=1) # still 898 
+```
+
+```{r}
+#805 of 2293 found 
+perez_list <- intersect(perez$Uniprot_rat_accession, EE_mapped_comp$Protein) 
+
+perez_map <- EE_mapped_comp %>%
+  filter(Label == "H_EE_vs_SH") %>%
+  filter(Protein %in% perez_list)
+
+
+perez_merge <- perez %>%
+  select(Year:misc) %>% #filtered
+  
+  left_join(perez_map, 
+            by = join_by(Uniprot_rat_accession == Protein)) 
+  
+colnames(perez_merge)
+
+perez_merge <- perez_merge  %>%
+     mutate(Perez_2024 =  case_when(
+     pvalue.x < 0.05 & In_EE == "up" ~ "\u2191 *",
+    pvalue.x < 0.05 & In_EE == "down" ~ "\u2193 *",
+    pvalue.x >= 0.05 & In_EE == "up" ~ "\u2191",
+    pvalue.x >= 0.05 & In_EE == "down" ~ "\u2193",
+    .default = " "
+   )) %>%
+  mutate(EE_vs_SH = case_when(
+    adj.pvalue < 0.05 & log2FC  > 0 ~ "\u2191 *", # up sig .05
+    adj.pvalue < 0.05 & log2FC < 0 ~ "\u2193 *", # down sig .05
+    adj.pvalue <= 0.5 & log2FC > 0 ~ "\u2191", # up sig .05
+   adj.pvalue <= 0.5 & log2FC  < 0 ~ "\u2193", # down sig .05
+    .default = " " # ‐
+  )) %>%
+  mutate(description = str_trunc(description, 75)) %>%
+  mutate(Method_2 = "Proteomics (LC-MS\u00B2 DIA LFQ)") %>%
+  filter(!is.na(Label)) %>% 
+  arrange(adj.pvalue, Gene_name) 
+
+```
+
+```{r}
+me_and_perez <- head(perez_merge, 35) %>%
+  dplyr::ungroup() %>%
+  dplyr::select(c(Method_2,
+                 Gene_name, description, Fold_change, pvalue.x, Perez_2024,
+                 EE_vs_SH, log2FC, adj.pvalue)) %>%
+  
+ gt(
+    groupname_col = "Method_2",
+    rowname_col = "Gene_name"
+  ) %>%
+
+  fmt_number(decimals = 2)  %>%
+  
+    cols_label(
+    Fold_change = "log2FC.p",
+    description = "Protein Description",
+    pvalue.x = "adj.pvalue.p") %>%
+  
+  tab_source_note(source_note = "Comparison to Perez et al. 2024 (EE all group) (Hippocampus (whole proteomics) in male mice). Of the 898 significant proteins identified in their EE group, 804 were successfully mapped to the current dataset, with the top 35 most significant in the H_EE_vs_SH comparison shown here.") %>%
+
+  tab_style(
+    style = list(
+      cell_text(style = "italic",  size = px(12.5))
+      ),
+    locations = cells_stub()) %>%
+
+    tab_options(table.font.size=11.5) %>%
+    opt_vertical_padding(scale = 0.5) %>% # vert padding
+
+    tab_style(
+    style = list(
+      cell_text(weight = "bold", size = px(14), # pass through px to work! 
+                align = "center")  
+      ),
+    locations = list(
+      cells_body(columns = c(Perez_2024, EE_vs_SH))
+      )) %>%
+  
+  tab_style(
+    style = list(
+      cell_text(weight = "bold", size = px(11))),
+    locations = list(
+      cells_column_labels(columns = c(Perez_2024, EE_vs_SH))
+      )) %>%
+
+  
+  tab_style( # Perez
+    style = list(cell_fill(color = "#fddde6"),
+                 cell_text(color = "#d33682")),
+    locations = cells_body(rows = Fold_change > 0 ,
+                           columns = c(Fold_change, pvalue.x, Perez_2024))) %>%
+  tab_style(
+    style = list(cell_fill(color = "#e1eefb"),
+                 cell_text(color = "#2380c1")),
+    locations = cells_body(rows = Fold_change < 0,
+                           columns = c(Fold_change, pvalue.x, Perez_2024))) %>%
+  
+
+  
+  tab_style( # My COLUMN
+    style = list(cell_fill(color = "#fddde6"),
+                 cell_text(color = "#d33682")),
+    locations = cells_body(rows =  adj.pvalue < 0.35 & log2FC > 0 ,
+                           columns = c(EE_vs_SH, log2FC, adj.pvalue))) %>%
+  tab_style( 
+    style = list(cell_fill(color = "#e1eefb"),
+                 cell_text(color = "#2380c1")),
+    locations = cells_body(rows = adj.pvalue < 0.35 & log2FC < 0,
+                           columns = c(EE_vs_SH, log2FC, adj.pvalue))) %>%
+  
+  tab_style( # My COLUMN
+    style = list(cell_fill(color = "#FEEEF3"),
+                 cell_text(color = "#d33682")),
+  locations = cells_body(rows = adj.pvalue < 0.7 & adj.pvalue > 0.35 & log2FC > 0,
+                           columns = c(EE_vs_SH, log2FC, adj.pvalue))) %>%
+  tab_style( 
+    style = list(cell_fill(color = "#ECF4FC"),
+                 cell_text(color = "#2380c1")),
+  locations = cells_body(rows = adj.pvalue < 0.7 & adj.pvalue > 0.35 & log2FC < 0,
+                           columns = c(EE_vs_SH, log2FC, adj.pvalue)))
+  
+  
+print(me_and_perez)
+    # gtsave("output/me_&_borg.pdf")
+  
+# as_gtable(plot = TRUE, text_grob = gridtext::richtext_grob)
+
+
+```
+
+------------------------------------------------------------------------
+
+### Borgmeyer et al 2021
 
 ```{r}
 borg <- read_csv("input/lit_review/2025_12_15_Borgmeyer_2021_Hip_SJ_proteomics_lit_re_rats_v1.csv")
@@ -603,10 +1584,8 @@ borg_merge <- borg_merge  %>%
   mutate(EE_vs_SH = case_when(
     adj.pvalue < 0.05 & log2FC > 0 ~ "\u2191 *", # up sig .05
     adj.pvalue < 0.05 & log2FC < 0 ~ "\u2193 *", # down sig .05
-    pvalue < 0.05 & log2FC > .04 ~ "\u2191", # up sig .05
-    pvalue < 0.05 & log2FC < -.04 ~ "\u2193", # down sig .05
-    # adj.pvalue < 0.7 & log2FC > .04 ~ "\u2191", # up sig .05
-    # adj.pvalue < 0.7 & log2FC < -.04 ~ "\u2193", # down sig .05
+    adj.pvalue <= 0.6 & log2FC >= .03 ~ "\u2191", # up sig .05
+    adj.pvalue <= 0.6 & log2FC  <= -.03 ~ "\u2193", # down sig .05
     .default = " " # ‐
   )) %>%
   mutate(Full_name = str_trunc(Full_name, 80)) %>%
@@ -679,26 +1658,37 @@ me_and_borg <- head(borg_merge, 30) %>%
     style = list(cell_fill(color = "#e1eefb"),
                  cell_text(color = "#2380c1")),
     locations = cells_body(rows = Fold_change < 0,
-                           columns = c(b_adj.pvalue, Fold_change, Borgmeyer_2021))) %>%
+                       columns = c(b_adj.pvalue, Fold_change, Borgmeyer_2021))) %>%
+  
   
   tab_style( # My COLUMN
     style = list(cell_fill(color = "#fddde6"),
                  cell_text(color = "#d33682")),
-    locations = cells_body(rows = log2FC > 0 ,
+    locations = cells_body(rows =  adj.pvalue < 0.35 & log2FC > 0 ,
                            columns = c(EE_vs_SH, log2FC, adj.pvalue))) %>%
   tab_style( 
     style = list(cell_fill(color = "#e1eefb"),
                  cell_text(color = "#2380c1")),
-    locations = cells_body(rows = log2FC < 0,
+    locations = cells_body(rows = adj.pvalue < 0.35 & log2FC < 0,
                            columns = c(EE_vs_SH, log2FC, adj.pvalue))) %>%
   
+  tab_style( # My COLUMN
+    style = list(cell_fill(color = "#FEEEF3"),
+                 cell_text(color = "#d33682")),
+  locations = cells_body(rows = adj.pvalue < 0.7 & adj.pvalue > 0.35 & log2FC > 0,
+                           columns = c(EE_vs_SH, log2FC, adj.pvalue))) %>%
+  tab_style( 
+    style = list(cell_fill(color = "#ECF4FC"),
+                 cell_text(color = "#2380c1")),
+  locations = cells_body(rows = adj.pvalue < 0.7 & adj.pvalue > 0.35 & log2FC < 0,
+                           columns = c(EE_vs_SH, log2FC, adj.pvalue)))
   
   
   # gtsave("output/me_&_borg.pdf")
   
-as_gtable(plot = TRUE, text_grob = gridtext::richtext_grob)
+# as_gtable(plot = TRUE, text_grob = gridtext::richtext_grob)
 
-# me_and_borg
+me_and_borg
 ```
 
 ------------------------------------------------------------------------
@@ -725,4 +1715,13 @@ me_and_paban <- EE_mapped_comp %>%
 # matched 8, all non sig, closest is Protachykinin-1 but mapping weird Tac1?
 # old paper so need to remap genes! 
 # NVM DOUBLE CHECK THIS IM VERY CONFUSED!!! 
+```
+
+```{r}
+EE_mapped_comp_2 <- EE_mapped_comp %>%
+  arrange(adj.pvalue) 
+
+plot(EE_mapped_comp_2$adj.pvalue)
+
+# adjpvalue  of 0.6 is around the top 1000 mark out of 8000 something
 ```
