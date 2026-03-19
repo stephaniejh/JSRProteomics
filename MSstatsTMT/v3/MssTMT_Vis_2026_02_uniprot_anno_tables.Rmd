@@ -879,7 +879,8 @@ park_list <- intersect(park$Uniprot_rat_accession, EE_mapped_comp$Protein) #263
 
 ```{r}
 park_map <- EE_mapped_comp %>%
-  filter(Label == "H_EE_vs_SH") %>%
+  # filter(Label == "H_EE_vs_SH") %>%
+    # filter(!(Label %in% c("HxA_EE_YNG_vs_SH_OLD", "HxA_EE_OLD_vs_SH_YNG"))) %>%
   filter(Protein %in% park_list)
 
 park_merge <- left_join(park, park_map,
@@ -910,10 +911,13 @@ park_merge <- park_merge %>%
   # mutate(Method_2 = "Proteomics (LC-MS\u00B2 DDA iTRAQ)") %>%
   filter(!is.na(Label)) %>% 
   arrange(adj.pvalue, Gene_name) 
+
 ```
 
+-   Even when looking at other comparisons (A_YNG_vs_OLD, HxA_EE_YNG_vs_EE_OLD, HxA_SH_YNG_vs_SH_OLD) there is very little overlap! So results are just very different in general.
+
 ```{r}
-me_and_park <- head(park_merge, 30) %>%
+me_and_park <- head(park_merge, 50) %>%
   dplyr::select(c(transcriptomics_id, 
                  Gene_name, description,
                  # "Mean EA", "Mean EY", "Mean SA" , "Mean SY",
@@ -1019,13 +1023,15 @@ locations = cells_body(rows = adj.pvalue < 0.7 & adj.pvalue > 0.35 & log2FC < 0,
 print(me_and_park)
 ```
 
-#### PPPs - Protein phosphatase
+#### PPPs - Protein phosphatase Inhibitors
 
 ```{r}
 # note - non sig in other comparisons either 
 PPPs <- mapped_comp %>%
   filter(!(Label %in% c("HxA_EE_YNG_vs_SH_OLD", "HxA_EE_OLD_vs_SH_YNG"))) %>%
-  filter(str_detect(description, "Protein phosphatase|Calcineurin")) %>%
+  # filter(Label %in% c("H_EE_vs_SH", "A_YNG_vs_OLD")) %>%
+  filter(str_detect(description, regex("phosphatase|kinase",
+                                       ignore_case = TRUE))) %>%
     mutate(EE_vs_SH = case_when(
     adj.pvalue < 0.05 & log2FC > 0 ~ "\u2191 *", # up sig .05
     adj.pvalue < 0.05 & log2FC < 0 ~ "\u2193 *", # down sig .05
@@ -1037,7 +1043,10 @@ PPPs <- mapped_comp %>%
 ```
 
 ```{r}
-PPPs_gt <- head(PPPs, 70) %>%
+PPPs_gt <- PPPs %>%
+  group_by(Label) %>%
+  slice_min(adj.pvalue, n = 20, with_ties = FALSE) %>%
+  # head(PPPs,500) %>%
   dplyr::select(c(Label, gene, description, EE_vs_SH,
                   log2FC, adj.pvalue)) %>%
   
@@ -1062,13 +1071,21 @@ PPPs_gt <- head(PPPs, 70) %>%
     tab_options(table.font.size=11.5) %>%
     opt_vertical_padding(scale = 0.3) %>% # vert padding
   
- tab_source_note(source_note = "Expression of Protein Phosphatases in EE (37 observed)") %>%
+ tab_source_note(source_note = "Contains Kinase or Phosphatase in Description") %>%
 
+    
+  tab_style( # My COLUMN
+    style = list(cell_text(weight = "bold")),
+    locations = cells_body(rows =  str_detect(gene,
+    "Ppp1r1a|Ppp1r3b|Ppp1r13b|Ppp1r14a|Ppp1r16b|Ppp1r14a"),
+                           columns = everything())) %>%
+  
+  
   tab_style( # My COLUMN
     style = list(cell_fill(color = "#fddde6"),
                  cell_text(color = "#d33682")),
-    locations = cells_body(rows =  adj.pvalue < 0.35 & log2FC > 0 ,
-                           columns = c(EE_vs_SH, log2FC, adj.pvalue))) %>%
+    locations = cells_body(rows =  adj.pvalue < 0.35 & log2FC > 0,
+                           columns =  c(EE_vs_SH, log2FC, adj.pvalue))) %>%
   tab_style( 
     style = list(cell_fill(color = "#DBECFC"),
                  cell_text(color = "#2380c1")),
@@ -1097,6 +1114,14 @@ PPPs_gt <- head(PPPs, 70) %>%
 
 
 PPPs_gt 
+```
+
+```{r}
+# KINASE & PHOSPHOTASE KEYWORD
+kw_PPK <- mapped_comp_2 %>%
+  filter(!(Label %in% c("HxA_EE_YNG_vs_SH_OLD", "HxA_EE_OLD_vs_SH_YNG"))) %>%
+  filter(str_detect(Keywords, regex("Protein phosphatase inhibitor|kinase",
+                                    ignore_case = TRUE)))
 ```
 
 ------------------------------------------------------------------------

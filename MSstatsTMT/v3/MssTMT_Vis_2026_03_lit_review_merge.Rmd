@@ -1,0 +1,212 @@
+---
+title: "MssTMT_Vis_2026_02_uniprot_anno_tables"
+author: "Stephanie Huang"
+date: "2026-02-15"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+#load packages
+library(tidyverse)
+library(gt)
+library(readxl)
+```
+
+## Load Files
+
+You can also embed plots, for example:
+
+```{r}
+#psum
+load("input/MSstatsTMT/psum/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_psum.rda") 
+
+#comp
+load("input/MSstatsTMT/comp/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_comp.rda") 
+
+# uniprot rat ref proteome anno
+load("input/db/rat_ref_proteome_2025_12_13_51872x295.rda")
+
+#anno
+anno <- read_csv("input/anno/EEv&SH_F&M_TMT_anno_v3_df_b_check_sorted_2025_12_31.csv") 
+# double check later!
+
+# import 
+mice_lit_re <- read_excel(
+  "input/lit_review/2026_01_13_EE_omics_lit_review_mRNA_Proteins.xlsx",
+           sheet = 'mice_proteins_mRNA')
+
+rat_lit_re <- read_excel(
+  "input/lit_review/2026_01_13_EE_omics_lit_review_mRNA_Proteins.xlsx",
+           sheet = 'rat_proteins_mRNA')
+```
+
+## Wrangle
+
+```{r}
+# trim uniprot ann
+colnames(rat_ref_proteome_2025_12_13)
+
+rat_ref_trm <- rat_ref_proteome_2025_12_13 %>%
+  dplyr::select(Entry, Protein.families, Keywords,
+  Subcellular.location..CC.,
+  Activity.regulation, Catalytic.activity, Cofactor, Developmental.stage:Pathway,
+  Gene.Names)
+```
+
+```{r}
+# see lil checks in other vis folder - 
+# shorten name & clean up! 
+mapped_comp <- mapped_comp_v3.2.2_EExAge_t1 %>%
+  
+  filter(is.na(issue)) %>% # keeps rows with issue == na (so comps that are ok)
+  filter(!str_detect(log2FC, "Inf")) %>% # remove infinity/missing FC values
+  
+  # make gene label for significant! 
+  mutate(sig_g_label = if_else(adj.pvalue <= .1, gene, NA)) %>%
+  
+  # make one for no of sig up & down for each comaprison group/label
+  group_by(Label) %>%
+  mutate(sig_no_up_lab = sum(adj.pvalue < 0.05 & log2FC > 0), # up
+         sig_no_down_lab = sum(adj.pvalue < 0.05 & log2FC < 0)) %>%  #  down
+  
+  mutate(Direction = if_else(log2FC > 0, "Up", "Down")) %>%
+  mutate(Direction_2 = if_else(Direction == "Up", "\u2191", # up arrow
+                               "\u2193")) %>% # else down arrow
+  
+  mutate(protein_existence = as.character(protein_existence)) # as char so no decimal
+  
+  
+
+# # check 
+# head(mapped_comp) 
+# colnames(mapped_comp)
+# dim(mapped_comp) # 64384 x 22
+# 
+# unique_check <- mapped_comp %>% 
+#   dplyr::select(Label, sig_no_down_lab, sig_no_up_lab) %>%
+#   unique() # yep matches up! 
+```
+
+## Significant Proteins Tables
+
+```{r}
+mapped_comp_2 <- mapped_comp %>%
+  left_join(rat_ref_trm,
+             by = join_by(Protein == Entry))
+```
+
+------------------------------------------------------------------------
+
+# Lit tables
+
+```{r}
+EE_mapped_comp <- mapped_comp %>%
+  filter(Label == "H_EE_vs_SH")
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+# MANUAL CURATION
+
+RAT
+
+```{r}
+# drop spacing rows & convery *** to pvalue numbers instead. 
+unique(rat_lit_re$pvalue)
+
+rat_lit_EE <- rat_lit_re %>%
+  tidyr::drop_na(Year, Author) %>% # rm empty spacing rowsw
+  rename(pvalue_old = pvalue) %>%
+  mutate(pvalue =  as.numeric(case_when(
+    pvalue_old == "*" ~ "0.049",
+    pvalue_old == "**" ~ "0.00999",
+    pvalue_old == "***" ~ "0.00099",
+    .default = pvalue_old
+  )), .after = pvalue_old) %>%
+  relocate(pvalue_old, .before = Year) %>% # checked okay 
+  mutate(misc = as.character(misc)) %>%
+  select(Year:misc)  # checked okay & can drop 
+```
+
+# AUTO MAP
+
+## BOTH
+
+```{r}
+perez_p <- read_excel("input/lit_review/2025_12_27_Perez_2024_proteomics_lit_review_all_v1.xlsx",
+                    sheet = "combined") %>%
+    select(Year:misc) #31/74
+
+
+# perez <- perez %>%
+#   filter(!is.na(Gene_name)) %>%
+#   filter(!is.na(Uniprot_rat_accession)) %>%
+#   group_by(SYMBOL) %>%
+#   slice_head(n=1) # still 898 
+```
+
+```{r}
+perez_t <- read_excel("input/lit_review/2025_12_27_Perez_2024_transcriptomics_lit_review_all_v1.xlsx",
+                      sheet = "combined") %>%
+  select(Year:misc) #31/74
+```
+
+## Proteomics
+
+Lichti et al., 2014
+
+```{r}
+lichti <- read_csv(
+  "input/lit_review/2025_12_12_Lichti_2014_rats_NAc_data_lit_review_v1.csv") %>%
+  select(Year:misc) #31/55
+```
+
+### Arroyo et al., 2020
+
+```{r}
+arroyo <- read_csv("input/lit_review/2025_12_29_Arroyo_2020_pigs_proteomics_lit_review_sig_v1.csv") %>%
+  select(Year:misc) # 31/55
+```
+
+### Borgmeyer et al 2021
+
+```{r}
+borg <- read_csv("input/lit_review/2025_12_15_Borgmeyer_2021_Hip_SJ_proteomics_lit_re_rats_v1.csv") %>%
+  relocate(pvalue, .after = Significant) %>%
+  select(Year:misc) # 31/76
+```
+
+## Transcriptomics
+
+### Park et al., 2015
+
+```{r}
+park <- read_csv("input/lit_review/2025_12_17_Park_2015_mRNA_lit_review_EExAging_summed_v2.csv") %>%
+   select(Year:misc) 31/54
+```
+
+------------------------------------------------------------------------
+
+------------------------------------------------------------------------
+
+# MERGE
+
+```{r}
+zhang <- read_csv(
+  "input/lit_review/2025_12_13_Zhang_2024_mPFC_lit_re_mapped_w_rat_ID_v1.csv") %>%
+    select(Year:misc) # 31/62
+```
+
+```{r}
+merged <- bind_rows(rat_lit_EE, lichti, arroyo, borg, park, perez, zhang)
+```
