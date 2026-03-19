@@ -109,7 +109,9 @@ EE_mapped_comp <- mapped_comp %>%
 ```
 
 ```{r}
-
+EE_mapped_comp_adjp1 <- EE_mapped_comp %>%
+  filter(adj.pvalue <= 0.1) %>%
+  pull(gene)
 ```
 
 ```{r}
@@ -138,6 +140,20 @@ rat_lit_EE <- rat_lit_re %>%
   select(Year:misc)  # checked okay & can drop 
 ```
 
+
+### Zhang et al., 2024
+```{r}
+zhang <- read_csv(
+  "input/lit_review/2025_12_13_Zhang_2024_mPFC_lit_re_mapped_w_rat_ID_v1.csv") %>%
+    select(Year:misc) # 31/62
+```
+
+```{r}
+
+```
+
+
+
 # AUTO MAP
 
 ## BOTH
@@ -145,20 +161,18 @@ rat_lit_EE <- rat_lit_re %>%
 ```{r}
 perez_p <- read_excel("input/lit_review/2025_12_27_Perez_2024_proteomics_lit_review_all_v1.xlsx",
                     sheet = "combined") %>%
-    select(Year:misc) #31/74
+    select(Year:misc)  #31/74 x 6849
 
 
-# perez <- perez %>%
-#   filter(!is.na(Gene_name)) %>%
-#   filter(!is.na(Uniprot_rat_accession)) %>%
-#   group_by(SYMBOL) %>%
-#   slice_head(n=1) # still 898 
+perez_p <- perez_p %>%
+  filter(!is.na(Gene_name)) %>%
+  filter(!is.na(Uniprot_rat_accession)) #6483 
 ```
 
 ```{r}
-perez_t <- read_excel("input/lit_review/2025_12_27_Perez_2024_transcriptomics_lit_review_all_v1.xlsx",
-                      sheet = "combined") %>%
-  select(Year:misc) #31/74
+# perez_t <- read_excel("input/lit_review/2025_12_27_Perez_2024_transcriptomics_lit_review_all_v1.xlsx",
+#                       sheet = "combined") %>%
+#   select(Year:misc) #31/74
 ```
 
 ## Proteomics
@@ -192,7 +206,7 @@ borg <- read_csv("input/lit_review/2025_12_15_Borgmeyer_2021_Hip_SJ_proteomics_l
 
 ```{r}
 park <- read_csv("input/lit_review/2025_12_17_Park_2015_mRNA_lit_review_EExAging_summed_v2.csv") %>%
-   select(Year:misc) 31/54
+   select(Year:misc) #31/54
 ```
 
 ------------------------------------------------------------------------
@@ -201,12 +215,20 @@ park <- read_csv("input/lit_review/2025_12_17_Park_2015_mRNA_lit_review_EExAging
 
 # MERGE
 
+
 ```{r}
-zhang <- read_csv(
-  "input/lit_review/2025_12_13_Zhang_2024_mPFC_lit_re_mapped_w_rat_ID_v1.csv") %>%
-    select(Year:misc) # 31/62
+merged <- bind_rows(rat_lit_EE, lichti, arroyo, borg, park, perez_p, zhang) %>%
+  filter(!is.na(Gene_name)) # removes empty gene name rows (unmapped ones)
 ```
 
 ```{r}
-merged <- bind_rows(rat_lit_EE, lichti, arroyo, borg, park, perez, zhang)
+gene_counts <- merged %>%
+  group_by(Gene_name) %>%
+  count(Author)
 ```
+
+```{r}
+adjp_overlap <- merged %>%
+  filter(Gene_name %in% EE_mapped_comp_adjp1)
+```
+
