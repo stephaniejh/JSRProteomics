@@ -43,6 +43,7 @@ library(writexl) # for excel tab export
 library(ggvenn) # vennys (old ones)
 library(scales) #label_wrap text break in lolliplots
 library(ggh4x)
+library(ggrepel) # geom_text_repel
 ```
 
 ### Load Data
@@ -62,7 +63,7 @@ load("output/gsea_results/2026_01_24_GO_gsea_EExAge_cp_v3.4.2_t2_simplified.rda"
 load("output/gsea_results/2026_01_12_gsea_msig_Hallmark_EExAge_mssv3.2.2_t1_cpv3.4.2_t2.rda")
 
 # MSIGDB C2 Reactome 
-# load("output/gsea_results/2026_02_09_gsea_msig_c2_reactome_EExAge_mss3.2.2_t1_cp3.4.2.rda")
+load("output/gsea_results/2026_02_09_gsea_msig_c2_reactome_EExAge_mss3.2.2_t1_cp3.4.2.rda")
 ```
 
 ```{r}
@@ -152,15 +153,15 @@ GO_sim_tibs_df <- map_dfr(
   .id = "Label")
 
 
-# # MAP MSIG c2 REACTOME 
-# REACT_tibs_df <- map_dfr(
-#   gsea_msig_c2_reactome_EExAge_mss3.2.2_t1_cp3.4.2$gsea_results_tib,
-#   as.data.frame,
-#   .id = "Label") %>%
-#   mutate(Description_2 = str_replace_all(Description, "REACTOME_", ""), 
-#          .after = Description)  %>%
-#   mutate(Description_3 = str_replace_all(Description_2, "_AND_", "_&_"), # needs 2 work
-#          .after = Description_2)  
+# MAP MSIG c2 REACTOME
+REACT_tibs_df <- map_dfr(
+  gsea_msig_c2_reactome_EExAge_mss3.2.2_t1_cp3.4.2$gsea_results_tib,
+  as.data.frame,
+  .id = "Label") %>%
+  mutate(Description_2 = str_replace_all(Description, "REACTOME_", ""),
+         .after = Description)  %>%
+  mutate(Description_3 = str_replace_all(Description_2, "_AND_", "_&_"), # needs 2 work
+         .after = Description_2)
 
 
 ```
@@ -173,6 +174,11 @@ my_levels = c("H_EE_vs_SH",
               "HxA_EE_YNG_vs_EE_OLD",
               "HxA_SH_YNG_vs_SH_OLD"
 )
+
+my_level_colors <- c("#cbdec1", "#cbdec1", "#cbdec1",
+                     "#E6E6FA", "#E6E6FA", "#E6E6FA")
+
+names(my_level_colors) <- my_levels
 
 
 # KEGG 6 ORD
@@ -191,12 +197,12 @@ GO_sim_tibs_df_6$Label <- factor(GO_sim_tibs_df_6$Label,
                         levels = my_levels)
 
 
-# # REACTOME 
-# REACT_tibs_df_6 <- REACT_tibs_df %>%
-#    filter(!(Label %in% c("HxA_EE_OLD_vs_SH_YNG", "HxA_EE_YNG_vs_SH_OLD"))) 
-# 
-# REACT_tibs_df_6$Label <- factor(REACT_tibs_df_6$Label,
-#                                   levels = my_levels)
+# REACTOME
+REACT_tibs_df_6 <- REACT_tibs_df %>%
+   filter(!(Label %in% c("HxA_EE_OLD_vs_SH_YNG", "HxA_EE_YNG_vs_SH_OLD")))
+
+REACT_tibs_df_6$Label <- factor(REACT_tibs_df_6$Label,
+                                  levels = my_levels)
 
 
 # # MSIGDB | "HxA_EE_OLD_vs_SH_OLD",
@@ -278,6 +284,13 @@ lolliplot <- function(data,
                       subtitle = NULL,
                       legend_pos = "none") {
   
+  # NEED TO SHUFFLE HERE & THERE BUT WORKS
+  strip <- strip_themed( # green for 1st 3 (housing) & Lavender for last 3 (age)
+    background_x = elem_list_rect(fill = c(
+      "#cbdec1", "#cbdec1", "#cbdec1",
+      "#D5D3E4", "#D5D3E4", "#D5D3E4")))
+  
+  
   lol <- ggplot(data,
                 aes(x = reorder({{x_1}},{{x_2}}),
                     y = {{y}}
@@ -314,17 +327,24 @@ lolliplot <- function(data,
     
     coord_flip() + #fliptheplot
     
-    facet_wrap(facet_formula,
-             space = 'free_x') +
-    
+
+   
+    # facet_wrap(facet_formula,
+    #          space = 'free_x') +
      
-    facet_grid(facet_formula, # KEGG subcategory anno! half working ....
-                 space = "free", scales = "free") +
+    # facet_grid(facet_formula, # KEGG subcategory anno! half working ....
+    #              space = "free", scales = "free") +
+    
+    facet_grid2(facet_formula,
+                strip = strip,
+                space = "free", scales = "free") + 
+    
     
     theme_bw() +
     theme(
-      strip.background.x = element_rect(fill = "#cbdec1"),
-      strip.background.y = element_rect(fill = "grey95"),
+      # strip.background.x = element_rect(fill = "#cbdec1"),
+      # strip.background.x = element_rect(fill = my_level_colors),
+      # strip.background.y = element_rect(fill = "grey95"),
       strip.text.y = element_text(angle = 0, size = 8),
       strip.text.x = element_text(size = 8),
       panel.spacing.y = unit(0, "lines"), # or "cm", "in", etc.
@@ -470,7 +490,7 @@ KEGG_tibs_AGE_3_trim <- KEGG_tibs_df_6_anno %>%
   filter(!(Description %in% organs)) %>%
   lolliplot( 
     # cat_color = my_cat_color,
-    cat_color = my_cat_color_vec, # ONLY NEEDED FOR KEGG CATEGORIES ????
+    # cat_color = my_cat_color_vec, # ONLY NEEDED FOR KEGG CATEGORIES ????
     facet_formula = reorder(subcategory_2, -NES)~Label,
     x_1 = Description_2,
     subtitle = "KEGG GSEA - Age", legend_pos = "bottom")
@@ -1170,9 +1190,9 @@ for(kp in kegg_POI) {
     tibble::deframe()
   
   my_kp_prot <- protein_comp_entrez %>%
-    filter(Label %in% c("H_EE_vs_SH","HxA_EE_YNG_vs_SH_YNG","HxA_EE_OLD_vs_SH_OLD",
-                        "A_YNG_vs_OLD")) %>%
-    # filter(!(Label %in% c("HxA_EE_OLD_vs_SH_YNG", "HxA_EE_YNG_vs_SH_OLD"))) %>%
+    # filter(Label %in% c("H_EE_vs_SH","HxA_EE_YNG_vs_SH_YNG","HxA_EE_OLD_vs_SH_OLD",
+    #                     "A_YNG_vs_OLD")) %>%
+    filter(!(Label %in% c("HxA_EE_OLD_vs_SH_YNG", "HxA_EE_YNG_vs_SH_OLD"))) %>%
     filter(gene %in% my_kpg) %>%
     dplyr::group_by(Label) %>%
     mutate(up = sum(log2FC > 0),
@@ -1184,9 +1204,9 @@ for(kp in kegg_POI) {
   
   
   path_sig <- KEGG_tibs_df_6 %>% # GET DETAILS FOR ANNOTATING SIG 
-    filter(Label %in% c("H_EE_vs_SH","HxA_EE_YNG_vs_SH_YNG","HxA_EE_OLD_vs_SH_OLD",
-                        "A_YNG_vs_OLD")) %>%
-    # filter(!(Label %in% c("HxA_EE_OLD_vs_SH_YNG", "HxA_EE_YNG_vs_SH_OLD"))) %>%
+    # filter(Label %in% c("H_EE_vs_SH","HxA_EE_YNG_vs_SH_YNG","HxA_EE_OLD_vs_SH_OLD",
+    #                     "A_YNG_vs_OLD")) %>%
+    filter(!(Label %in% c("HxA_EE_OLD_vs_SH_YNG", "HxA_EE_YNG_vs_SH_OLD"))) %>%
     filter(ID == kp) %>%
     dplyr::group_by(Label) %>% 
     mutate(sig_val = case_when(
@@ -1202,17 +1222,28 @@ for(kp in kegg_POI) {
     unique() 
   
   my_lg_prot <- my_kp_prot %>% #LABEL LEADING GENE???
-    arrange(adj.pvalue) %>% # not quite - 5 most sig proteins
-    slice_head(n = 5)
+    arrange(adj.pvalue) %>% # not quite - 6 most sig proteins
+    slice_head(n = 1)
+  
+  # strip for facet_wrap2 (conditional strip bg color)
+  # strip <- strip_themed( # green for 1st 3 (housing) & Lavender for last 3 (age)
+  #   background_x = elem_list_rect(fill = c(
+  #     "#BDD5B0", "#cbdec1", "#cbdec1",
+  #     "#C6C3DA", "#D5D3E4", "#D5D3E4")))
+
   
   
+    strip <- strip_themed( # green for 1st 3 (housing) & Lavender for last 3 (age)
+    background_x = elem_list_rect(fill = c(
+      "#AFCC9F", "#cbdec1", "#cbdec1",
+      "#BFBBD5", "#D5D3E4", "#D5D3E4")))
 
   # ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
   # 2 - MAKE THE VOLCANO PLOTS!!!
   vol_plot <- protein_comp_entrez %>%
-    filter(Label %in% c("H_EE_vs_SH","HxA_EE_YNG_vs_SH_YNG","HxA_EE_OLD_vs_SH_OLD",
-                        "A_YNG_vs_OLD")) %>%
-    # filter(!(Label %in% c("HxA_EE_OLD_vs_SH_YNG", "HxA_EE_YNG_vs_SH_OLD"))) %>%
+    # filter(Label %in% c("H_EE_vs_SH","HxA_EE_YNG_vs_SH_YNG","HxA_EE_OLD_vs_SH_OLD",
+    #                     "A_YNG_vs_OLD")) %>%
+    filter(!(Label %in% c("HxA_EE_OLD_vs_SH_YNG", "HxA_EE_YNG_vs_SH_OLD"))) %>%
     
     ggplot(aes(x = log2FC, y = -log10(adj.pvalue))) +
     
@@ -1307,16 +1338,21 @@ for(kp in kegg_POI) {
     labs(subtitle = my_title) +
     
     
-    facet_wrap(~Label, nrow = 1) + 
+    # facet_wrap(~Label, nrow = 1) + 
+    facet_wrap2(~Label, nrow = 1,
+                strip = strip
+                ) + 
     
     theme_bw() +
-    theme(legend.position = "none",
-          plot.subtitle = element_text(size = 10, vjust = 0),
-          axis.title = element_text(size =7.5),
-          axis.text = element_text(size =7),
-          axis.ticks = element_blank(),
-          strip.text = element_text(size = 7),
-          panel.grid = element_blank()
+    theme(
+      # strip.background.x = element_rect(fill = my_level_colors),
+      legend.position = "none",
+      plot.subtitle = element_text(size = 10, vjust = 0),
+      axis.title = element_text(size =7.5),
+      axis.text = element_text(size =7),
+      axis.ticks = element_blank(),
+      strip.text = element_text(size = 7),
+      panel.grid = element_blank()
     )
   
   
@@ -1333,12 +1369,12 @@ for(kp in kegg_POI) {
 
 ```{r}
 # plot_grid(plotlist = kegg_volcano_list[c(10,11,6:9)], ncol = 2)
-plot_grid(plotlist = kegg_volcano_list[1:28], ncol = 4)
+plot_grid(plotlist = kegg_volcano_list[1:12], ncol = 2)
 
 # ggsave("2026_02_26_KEGG_14_mapped_volcanos_300dpi.png", dpi = 300) # 11.4 x 1.96 in or 11.4 x 13.4
 
 # ggsave("2026_03_09_KEGG_energy_6_map_volcano_300dpi.png", dpi = 300) # 11.2 x 5.92
-ggsave("2026_03_09_KEGG_28_map_volcano_300dpi.png", dpi = 300) # 11.2 x 5.92
+ggsave("2026_03_23_KEGG_12_syn_map_volcano_300dpi_top1.png", dpi = 300) # 15.7 x 11.2
 ```
 
 ------------------------------------------------------------------------
@@ -1415,9 +1451,9 @@ for(rct in REACT_POI) {
     tibble::deframe()
     
   my_rct_prot <- protein_comp_entrez %>%
-    filter(Label %in% c("H_EE_vs_SH","HxA_EE_YNG_vs_SH_YNG","HxA_EE_OLD_vs_SH_OLD",
-                        "A_YNG_vs_OLD")) %>%
-    # filter(!(Label %in% c("HxA_EE_OLD_vs_SH_YNG", "HxA_EE_YNG_vs_SH_OLD"))) %>%
+    # filter(Label %in% c("H_EE_vs_SH","HxA_EE_YNG_vs_SH_YNG","HxA_EE_OLD_vs_SH_OLD",
+    #                     "A_YNG_vs_OLD")) %>%
+    filter(!(Label %in% c("HxA_EE_OLD_vs_SH_YNG", "HxA_EE_YNG_vs_SH_OLD"))) %>%
     filter(gene %in% my_rct) %>%
     dplyr::group_by(Label) %>%
     mutate(rct_up = sum(log2FC > 0), # up
@@ -1430,10 +1466,10 @@ for(rct in REACT_POI) {
   
   # GSEA significance
   path_sig <- REACT_tibs_df_6 %>% # GET DETAILS FOR ANNOTATING SIG 
-    filter(Label %in% c("H_EE_vs_SH","HxA_EE_YNG_vs_SH_YNG","HxA_EE_OLD_vs_SH_OLD",
-                        "A_YNG_vs_OLD"
-    )) %>%
-    # filter(!(Label %in% c("HxA_EE_OLD_vs_SH_YNG", "HxA_EE_YNG_vs_SH_OLD"))) %>%
+    # filter(Label %in% c("H_EE_vs_SH","HxA_EE_YNG_vs_SH_YNG","HxA_EE_OLD_vs_SH_OLD",
+    #                     "A_YNG_vs_OLD"
+    # )) %>%
+    filter(!(Label %in% c("HxA_EE_OLD_vs_SH_YNG", "HxA_EE_YNG_vs_SH_OLD"))) %>%
     filter(ID == rct) %>%
     dplyr::group_by(Label) %>% 
     mutate(sig_val = case_when(
@@ -1450,15 +1486,21 @@ for(rct in REACT_POI) {
   
   my_lg_prot <- my_rct_prot %>% #LABEL LEADING GENE???
     arrange(adj.pvalue) %>% # not quite - 5 most sig proteins
-    slice_head(n = 5)
+    slice_head(n = 6)
 
+  
+  
+  strip <- strip_themed( # green for 1st 3 (housing) & Lavender for last 3 (age)
+    background_x = elem_list_rect(fill = c(
+      "#AFCC9F", "#cbdec1", "#cbdec1",
+      "#BFBBD5", "#D5D3E4", "#D5D3E4")))
   
   # ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
   # 2 - MAKE THE VOLCANO PLOTS!!!
   vol_plot <- protein_comp_entrez %>%
-        filter(Label %in% c("H_EE_vs_SH","HxA_EE_YNG_vs_SH_YNG","HxA_EE_OLD_vs_SH_OLD",
-                        "A_YNG_vs_OLD")) %>%
-       # filter(!(Label %in% c("HxA_EE_OLD_vs_SH_YNG", "HxA_EE_YNG_vs_SH_OLD"))) %>%
+        # filter(Label %in% c("H_EE_vs_SH","HxA_EE_YNG_vs_SH_YNG","HxA_EE_OLD_vs_SH_OLD",
+        #                 "A_YNG_vs_OLD")) %>%
+       filter(!(Label %in% c("HxA_EE_OLD_vs_SH_YNG", "HxA_EE_YNG_vs_SH_OLD"))) %>%
     
    ggplot(aes(x = log2FC, y = -log10(adj.pvalue))) +
     
@@ -1548,8 +1590,13 @@ for(rct in REACT_POI) {
     
     labs(subtitle = my_title) +
      
-    facet_wrap(~Label, nrow = 1) + 
-     
+    # facet_wrap(~Label, nrow = 1) + 
+    
+    # facet_wrap(~Label, nrow = 1) + 
+    facet_wrap2(~Label, nrow = 1,
+                strip = strip
+    ) + 
+    
     theme_bw() +
     theme(legend.position = "none",
           plot.subtitle = element_text(size =8, vjust = 0),
@@ -1571,9 +1618,9 @@ for(rct in REACT_POI) {
 ```
 
 ```{r}
-# plot_grid(plotlist = reactome_volcano_list[1:21], ncol = 3)
+plot_grid(plotlist = reactome_volcano_list[1:21], ncol = 3)
 
-# ggsave("2026_03_10_REACT_21_volcanos_300dpi.png", dpi = 300) # 11.4 x 5.99
+# ggsave("2026_03_23_REACT_21_volcanos_300dpi.png", dpi = 300) # 11.4 x 5.99
 ```
 
 ------------------------------------------------------------------------
