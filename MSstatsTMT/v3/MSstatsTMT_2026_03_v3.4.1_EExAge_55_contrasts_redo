@@ -1,0 +1,34 @@
+---
+title: "MSstatsTMT_2026_03_v3.4.1_EExAge_55_contrasts_redo"
+author: "Stephanie Huang"
+date: "2026-03-26"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+# Set working directory - *Session \> Set Working Directory \> To Source File Location*
+# setwd("~/RProjects/JSRProteomics/MSstatsTMT/v3")
+
+# Load packages 
+library(MSstatsTMT) # for conversion, protein summarization & group comparisons.
+library(MSstats) # some dependencies from above? / other functions
+library(readr) # data import & export e.g. read_tsv() or write_csv()
+library(dplyr) # wrangling data e.g. %>% & bind_rows()
+library(stringr) # for str_detect()
+library(ggplot2) # not really used? but for plots 
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
