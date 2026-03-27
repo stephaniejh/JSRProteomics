@@ -1,0 +1,122 @@
+---
+title: "MSstatsTMT_2026_03_v3.4.1_EExAge_55_contrasts_redo"
+author: "Stephanie Huang"
+date: "2026-03-26"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Testing Contrasts Matrix
+
+Uses data from MSstatsTMT_2025_12_v3.2.2_1pspg_EExAge.Rmd
+
+```{r}
+# Set working directory - *Session \> Set Working Directory \> To Source File Location*
+# setwd("~/RProjects/JSRProteomics/MSstatsTMT/v3")
+
+# Load packages 
+library(MSstatsTMT) # for conversion, protein summarization & group comparisons.
+library(MSstats) # some dependencies from above? / other functions
+library(readr) # data import & export e.g. read_tsv() or write_csv()
+library(dplyr) # wrangling data e.g. %>% & bind_rows()
+library(stringr) # for str_detect()
+library(ggplot2) # not really used? but for plots 
+```
+
+```{r}
+load('output/MSstatsTMT/psum/2025_12_31_1pspg_Protein_Summarization_v3.2.2_t1_EExAge.rda')
+```
+
+## groupComparisonTMT
+
+Import Contrast Matrix
+
+```{r}
+# Housing x Age
+contrast_matrix <- read.csv("input/anno/2026_03_26_HA_matrix.csv", 
+                            header = TRUE) # header must be true
+
+# contrast_matrix <- read.csv("input/anno/2025_12_31_anno_v3_HA_matrix.csv", 
+#                             header = TRUE) # same one lol | didn't need to remake... 
+```
+
+Setup as a matrix df (for t2)
+
+```{r}
+#based off of sam's
+row.names(contrast_matrix) <- contrast_matrix[,1]
+contrast_matrix <- contrast_matrix[,-1]
+contrast_matrix <- as.matrix(contrast_matrix)
+```
+
+### t1 - Housing x Age - by contrasts (all defaults) \| Model fitting for 8049 proteins.
+
+[Note takes only 5 min on Jen]{.smallcaps}
+
+```{r}
+# all defaults
+test.contrasts.msstats <- groupComparisonTMT(data = quant.msstats, 
+                             contrast.matrix = contrast_matrix, # t1
+                             moderated = FALSE, # default F t1
+                             adj.method = "BH", # multiple compa adj
+                             save_fitted_models = TRUE) #otherwise not saved
+```
+
+save comparisons output
+
+```{r}
+# save(test.contrasts.msstats,
+#      file = 'output/MSstatsTMT/comp/2026_03_1pspg_55_newCTRS_mssTMT_v3.4.1_t1_EExAge.rda')
+# 
+# write_excel_csv(test.contrasts.msstats$ComparisonResult,
+#     file='output/MSstatsTMT/comp/2026_03_1pspg_55_newCTRS_mssTMT_v3.4.1_t1_EExAge.csv')
+```
+
+Volcano Plots
+
+```{r}
+groupComparisonPlots(data = test.contrasts.msstats$ComparisonResult,
+                    type="VolcanoPlot")
+```
+
+```{r}
+# this is the fasta csv used to search in PD (2025_08 v3 1pspg) | 22403
+v3_1pspg_PD <- read_csv("input/db/UP000002494_10116_Rat_Ref_Proteome_22403_1pspg_2025_04_UPfastadf.csv")
+```
+
+```{r}
+mapped_comp <- left_join(test.contrasts.msstats$ComparisonResult, v3_1pspg_PD, 
+                         by = join_by(Protein == unique_id))
+
+# write_excel_csv(mapped_comp,
+#                 "output/MSstatsTMT/comp/2026_03_1pspg_55_newCTRS_mssTMT_v3.4.1_t1_EExAge_mapped.csv")
+# 
+# mapped_comp_v3.4.1_EExAge_t1 <- mapped_comp
+# 
+# save(mapped_comp_v3.4.1_EExAge_t1,
+#          file = "output/MSstatsTMT/comp/2026_03_1pspg_55_newCTRS_mssTMT_v3.4.1_t1_EExAge_mapped.rda")
+```
+
+```{r}
+mapped_comp_sig <- mapped_comp_v3.4.1_EExAge_t1 %>%
+  filter(adj.pvalue <= 0.05) %>%
+  arrange(Label, adj.pvalue)
+
+mapped_comp_sig_EE <- mapped_comp_v3.4.1_EExAge_t1 %>%
+  filter(adj.pvalue <0.05) %>%
+  filter(Label == "H_EE_vs_SH")
+```
+
+```{r}
+# write_excel_csv(mapped_comp_sig, "output/MSstatsTMT/comp/2026_03_1pspg_55_newCTRS_mssTMT_v3.4.1_t1_EExAge_mapped_SIG_ONLY.csv")
+```
+
+```{r}
+mapped_comp_sig_count <- mapped_comp_v3.4.1_EExAge_t1 %>%
+  filter(adj.pvalue <0.05) %>%
+  group_by(Label) %>%
+  count()
+```
