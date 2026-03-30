@@ -1374,7 +1374,7 @@ plot_grid(plotlist = kegg_volcano_list[1:12], ncol = 2)
 # ggsave("2026_02_26_KEGG_14_mapped_volcanos_300dpi.png", dpi = 300) # 11.4 x 1.96 in or 11.4 x 13.4
 
 # ggsave("2026_03_09_KEGG_energy_6_map_volcano_300dpi.png", dpi = 300) # 11.2 x 5.92
-ggsave("2026_03_23_KEGG_12_syn_map_volcano_300dpi_top1.png", dpi = 300) # 15.7 x 11.2
+# ggsave("2026_03_23_KEGG_12_syn_map_volcano_300dpi_top1.png", dpi = 300) # 15.7 x 11.2
 ```
 
 ------------------------------------------------------------------------
