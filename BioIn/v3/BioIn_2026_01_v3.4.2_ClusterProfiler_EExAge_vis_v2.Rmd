@@ -1687,7 +1687,10 @@ plot_grid(kegg_volcano_list$rno04360,
 
 ```
 
+CONT HERE
+
 ```{r}
+# TO REDO
 # REACTOME - NT systems & transmission
 plot_grid(plotlist = reactome_volcano_list[6:11], 
           ncol = 1,
@@ -1698,6 +1701,7 @@ plot_grid(plotlist = reactome_volcano_list[6:11],
 ```
 
 ```{r}
+#REDO
 # REACTOME - other brain
 plot_grid(plotlist = reactome_volcano_list[12:17], 
           ncol = 1,
