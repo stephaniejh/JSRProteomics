@@ -285,10 +285,10 @@ lolliplot <- function(data,
                       legend_pos = "none") {
   
   # NEED TO SHUFFLE HERE & THERE BUT WORKS
-  strip <- strip_themed( # green for 1st 3 (housing) & Lavender for last 3 (age)
+    strip <- strip_themed( # green for 1st 3 (housing) & Lavender for last 3 (age)
     background_x = elem_list_rect(fill = c(
-      "#cbdec1", "#cbdec1", "#cbdec1",
-      "#D5D3E4", "#D5D3E4", "#D5D3E4")))
+      "#AFCC9F", "#cbdec1", "#cbdec1",
+      "#BFBBD5", "#D5D3E4", "#D5D3E4")))
   
   
   lol <- ggplot(data,
@@ -1223,20 +1223,14 @@ for(kp in kegg_POI) {
   
   my_lg_prot <- my_kp_prot %>% #LABEL LEADING GENE???
     arrange(adj.pvalue) %>% # not quite - 6 most sig proteins
-    slice_head(n = 1)
+    slice_head(n = 6)
   
-  # strip for facet_wrap2 (conditional strip bg color)
-  # strip <- strip_themed( # green for 1st 3 (housing) & Lavender for last 3 (age)
-  #   background_x = elem_list_rect(fill = c(
-  #     "#BDD5B0", "#cbdec1", "#cbdec1",
-  #     "#C6C3DA", "#D5D3E4", "#D5D3E4")))
 
-  
   
     strip <- strip_themed( # green for 1st 3 (housing) & Lavender for last 3 (age)
     background_x = elem_list_rect(fill = c(
-      "#AFCC9F", "#cbdec1", "#cbdec1",
-      "#BFBBD5", "#D5D3E4", "#D5D3E4")))
+      "#AFCC9F", "#D4E4CB", "#D4E4CB",
+      "#BFBBD5", "#DDDCE9", "#DDDCE9")))
 
   # ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
   # 2 - MAKE THE VOLCANO PLOTS!!!
@@ -1304,10 +1298,10 @@ for(kp in kegg_POI) {
     # NUM SIG UP & DOWN! | use sep df, overwise overplots
     geom_text(data = prot_sums, # up 
               aes(label = paste0(up, " \U2191")),
-              x = 1.52, y = 5.7, size = 2.7, color = "firebrick") + 
+              x = 1.52, y = 5.7, size = 3, color = "firebrick") + 
     geom_text(data = prot_sums, # down
               aes(label = paste0(down, " \U2193")),
-              x = -1.52, y = 5.7, size = 2.7, color = "royalblue3") + 
+              x = -1.52, y = 5.7, size = 3, color = "royalblue3") + 
     
     
     geom_text(data = path_sig_lab, # GSEA SIGNIFICANCE LABEL
@@ -1315,7 +1309,7 @@ for(kp in kegg_POI) {
                   y = 4.8,
                   x = ifelse(NES > 0, 1.525, -1.525), # side if neg or pos
                   color = NES > 0), # col - TRUE FALSE 
-              size = 2.7) +
+              size = 3) +
     scale_color_manual( # based on TRUE FALSE give color! 
       values = c(`TRUE` = "firebrick", `FALSE` = "royalblue3")) +
     
@@ -1335,7 +1329,7 @@ for(kp in kegg_POI) {
                linewidth = 0.1, color = "#74025FFF") +
     
     
-    labs(subtitle = my_title) +
+    labs(subtitle = paste0("KEGG - ", my_title)) +
     
     
     # facet_wrap(~Label, nrow = 1) + 
@@ -1347,7 +1341,7 @@ for(kp in kegg_POI) {
     theme(
       # strip.background.x = element_rect(fill = my_level_colors),
       legend.position = "none",
-      plot.subtitle = element_text(size = 10, vjust = 0),
+      plot.subtitle = element_text(size = 8.5, vjust = 0),
       axis.title = element_text(size =7.5),
       axis.text = element_text(size =7),
       axis.ticks = element_blank(),
@@ -1390,13 +1384,13 @@ REACT_tibs_df_6_entrez_split <- REACT_tibs_df_6 %>%
 ```
 
 ```{r}
-check_REACT_paths <- REACT_tibs_df_6 %>%
-  filter(Label %in% c("H_EE_vs_SH","HxA_EE_YNG_vs_SH_YNG","HxA_EE_OLD_vs_SH_OLD")) %>%
-  filter(p.adjust < 0.011) %>%
-  arrange(p.adjust) %>%
-  distinct(ID)
-
-check_REACT_paths
+# check_REACT_paths <- REACT_tibs_df_6 %>%
+#   filter(Label %in% c("H_EE_vs_SH","HxA_EE_YNG_vs_SH_YNG","HxA_EE_OLD_vs_SH_OLD")) %>%
+#   filter(p.adjust < 0.011) %>%
+#   arrange(p.adjust) %>%
+#   distinct(ID)
+# 
+# check_REACT_paths
 ```
 
 ```{r}
@@ -1420,8 +1414,6 @@ REACT_POI  <- c(
   "REACTOME_ECM_PROTEOGLYCANS",
   "REACTOME_NEURONAL_SYSTEM",
   "REACTOME_NERVOUS_SYSTEM_DEVELOPMENT",
-  
-
   
   
 
@@ -1492,8 +1484,9 @@ for(rct in REACT_POI) {
   
   strip <- strip_themed( # green for 1st 3 (housing) & Lavender for last 3 (age)
     background_x = elem_list_rect(fill = c(
-      "#AFCC9F", "#cbdec1", "#cbdec1",
-      "#BFBBD5", "#D5D3E4", "#D5D3E4")))
+      "#AFCC9F", "#D4E4CB", "#D4E4CB",
+      "#BFBBD5", "#DDDCE9", "#DDDCE9")))
+
   
   # ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
   # 2 - MAKE THE VOLCANO PLOTS!!!
@@ -1560,10 +1553,10 @@ for(rct in REACT_POI) {
   # NUM SIG UP & DOWN! | use sep df, overwise overplots
   geom_text(data = my_rct_prot_sums, # up 
             aes(label = paste0(rct_up, " \U2191")),
-            x = 1.45, y = 5.7, size = 2.7, color = "firebrick") + 
+            x = 1.45, y = 5.7, size = 3, color = "firebrick") + 
   geom_text(data = my_rct_prot_sums, # down
             aes(label = paste0(rct_down, " \U2193")),
-            x = -1.45, y = 5.7, size = 2.7, color = "royalblue3") + 
+            x = -1.45, y = 5.7, size = 3, color = "royalblue3") + 
     
     
     geom_text(data = path_sig_lab, # GSEA SIGNIFICANCE LABEL
@@ -1571,7 +1564,7 @@ for(rct in REACT_POI) {
                   y = 5,
                   x = ifelse(NES > 0, 1.45, -1.45), # side if neg or pos
                   color = NES > 0), # col - TRUE FALSE 
-              size = 2.7) +
+              size = 3) +
     
     scale_color_manual( # based on TRUE FALSE give color! 
       values = c(`TRUE` = "firebrick", `FALSE` = "royalblue3")) +
@@ -1621,6 +1614,97 @@ for(rct in REACT_POI) {
 plot_grid(plotlist = reactome_volcano_list[1:21], ncol = 3)
 
 # ggsave("2026_03_23_REACT_21_volcanos_300dpi.png", dpi = 300) # 11.4 x 5.99
+```
+
+------------------------------------------------------------------------
+
+#### Cholesterol & Isoprenoids/Terpenoid Backbone synthesis
+
+```{r}
+#rno00900
+plot_grid(kegg_volcano_list$rno00900,
+          reactome_volcano_list$REACTOME_CHOLESTEROL_BIOSYNTHESIS,
+          ncol = 1, labels = c("a","b"), label_colour = "grey10", label_size = 12)
+
+# ggsave("2026_03_30_Cholesterol_Terpenoid_mapped_volcano_330dpi.png", dpi = 330)
+```
+
+```{r}
+# REACTOME INTRACELLULAR SIGNALLING
+plot_grid(reactome_volcano_list$REACTOME_PROLONGED_ERK_ACTIVATION_EVENTS,
+          reactome_volcano_list$REACTOME_REGULATION_OF_RAS_BY_GAPS,
+          reactome_volcano_list$REACTOME_DISEASES_OF_SIGNAL_TRANSDUCTION_BY_GROWTH_FACTOR_RECEPTORS_AND_SECOND_MESSENGERS,
+          reactome_volcano_list$REACTOME_INTRACELLULAR_SIGNALING_BY_SECOND_MESSENGERS,
+  ncol = 1, labels = c("a","b", "c", "d"), label_colour = "grey10", label_size = 12)
+
+#ggsave("2026_03_30_REACT_intracellular_sig_mapped_volcano_330dpi.png", dpi = 330) 
+# 8.5 x 7.97 (6 labels x 4 grpahs)
+```
+
+```{r}
+# # Ras signalling, cAMP signalling # cGMP-PKG & Calcium isngalling
+plot_grid(kegg_volcano_list$rno04014, kegg_volcano_list$rno04024,
+          kegg_volcano_list$rno04022, kegg_volcano_list$rno04020,
+    ncol = 1, labels = c("a","b", "c", "d"), label_colour = "grey10", label_size = 12)
+
+# ggsave("2026_03_31_sig_EEyng_KEGG_intracell_sig_mapped_volcano_330dpi.png", dpi = 330)
+```
+
+```{r}
+# KEGG SYNAPTIC 
+  "rno04721", "rno04082", "rno04723", # syanp_ves, neuroa_lig, ret_endoca
+  "rno04727", "rno04080", "rno05033", # GABAsyn, neuroacli-Recept, nicotine
+  "rno04014", "rno04024", # Ras signalling, cAMP signalling
+  "rno04022", "rno04020", # cGMP-PKG & Calcium isngalling
+  "rno04360", # axonguidance
+```
+
+```{r}
+# # syanp_ves, neuroa_lig, ret_endoca
+plot_grid(kegg_volcano_list$rno04721, kegg_volcano_list$rno04082,
+          kegg_volcano_list$rno04723,
+          ncol = 1, labels = c("a","b", "c"), label_colour = "grey10", label_size = 12)
+
+# ggsave("2026_03_31_sig_KEGG_synaptic_mapped_volcano_330dpi.png", dpi = 330)
+```
+
+```{r}
+# # EE YNG GABAsyn, neuroacli-Recept, nicotine
+plot_grid(kegg_volcano_list$rno04727, kegg_volcano_list$rno04080,
+          kegg_volcano_list$rno05033,
+          ncol = 1, labels = c("a","b", "c"), label_colour = "grey10", label_size = 12)
+
+# ggsave("2026_03_31_sig_EE_yng_KEGG_synaptic_mapped_volcano_330dpi.png", dpi = 330)
+```
+
+```{r}
+# KEGG axon guidance & REACT nervous system development
+plot_grid(kegg_volcano_list$rno04360, 
+          reactome_volcano_list$REACTOME_NERVOUS_SYSTEM_DEVELOPMENT,
+          ncol = 1, labels = c("a","b"), label_colour = "grey10", label_size = 12)
+
+# ggsave("2026_03_31_axonguidance_brain_dev_mapped_volcano_330dpi.png", dpi = 330)
+
+```
+
+```{r}
+# REACTOME - NT systems & transmission
+plot_grid(plotlist = reactome_volcano_list[6:11], 
+          ncol = 1,
+          # labels = c("a","b","c"),
+          label_colour = "grey10", label_size = 12)
+
+# ggsave("2026_03_31_REACT_NT_systems_mapped_volcano_330dpi.png", dpi = 330)
+```
+
+```{r}
+# REACTOME - other brain
+plot_grid(plotlist = reactome_volcano_list[12:17], 
+          ncol = 1,
+          # labels = c("a","b","c"),
+          label_colour = "grey10", label_size = 12)
+
+# ggsave("2026_03_31_REACT_other_brain_mapped_volcano_330dpi.png", dpi = 330)
 ```
 
 ------------------------------------------------------------------------
