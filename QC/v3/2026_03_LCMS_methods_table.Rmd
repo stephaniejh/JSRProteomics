@@ -1,0 +1,100 @@
+---
+title: "2026_03_LCMS_methods_table"
+output: html_document
+---
+
+```{r}
+library(tidyverse) # dplur.readr, stringr, tidyr, ggplot, tibble, purr etc
+```
+
+```{r}
+# read in methods csvs (exported from run info from Thermo FreeStyle)
+LC_raw <- read_csv("input/Steph_TMTpro-16plex_NOV2022_B4_MP_TR2_HpHF_F1_LC.csv")
+MS_raw <- read_csv("input/Steph_TMTpro-16plex_NOV2022_B4_MP_TR2_HpHF_F1_MS.csv")
+```
+
+-   LC Instrument Settings - code below grabs the basic LC instrument settings (row 10-54), then separates based on common patterns.
+-   Everything before the 1st . is the part.
+-   Everything at the end after the : is the value
+-   Everything in the middle is the setting (after 1st . & b4 : ). this can be split further into
+-   The code uses separate_wider_regex to split into the 3 main segments (part, setting, value).
+-   Then further spliting using the basic separate_wider_delim to split if there are further dots into settings (if not dot . - keeps as is) , subsettings (if 1 .) & subsubsettings (if . . ) dots. This is enabled by too_few = "align_start"
+-   Finally converts NA to "" blank space for those that do not get split further.
+-   & export!
+
+```{r}
+#Instrument Setup - 	
+# from 10 Sampler.LowDispersionMode: Off to 54 ColumnOven.ValveRight: 1_2
+LC_setup_raw <- LC_raw[10:54,1] 
+
+LC_setup <- LC_setup_raw %>%
+  separate_wider_regex(`Instrument Method`,
+                       patterns = c(
+                         part = "[^.]+", # everything b4 dot
+                         "\\.", # . itself not captured
+                         setting ="[^:]+", # everything before : 
+                         ": ", #skip : & space
+                         value = ".*" # everything after 
+                       )) %>%
+  separate_wider_delim(setting, delim = ".", 
+                       names = c("settings", "subsettings", "subsubsettings"),
+                       too_few = "align_start") %>% # deal w/ variable length split
+  replace_na(list("subsettings" = "", subsubsettings = "")) # NAs to "" blank
+```
+
+```{r}
+# write_excel_csv(LC_setup, "output/LC_setup_instrument_settings_split.csv")
+```
+
+**LC Method Plot**
+
+```{r}
+LC_gradient_1 <- LC_raw[55:101, 1]
+
+LC_gradient_2 <- LC_gradient_1 %>%
+  mutate(set_val = if_else(str_detect(`Instrument Method`, "\\[min\\]"),
+                            NA,`Instrument Method`)) %>%
+  mutate(time_raw = if_else(!str_detect(`Instrument Method`, "\\[min\\]"),
+                            NA,`Instrument Method`), .before = set_val) %>%
+  fill(time_raw, .direction = "down")  # fill down like excel corner click! 
+
+
+
+#print(LC_gradient_3$action) # 2 check
+LC_gradient_3 <- LC_gradient_2 %>%
+  
+  drop_na(set_val) %>% # remove NAs rows in set_val (those prev time rows)
+  select(time_raw, set_val) %>%
+  
+  separate_wider_regex(time_raw,
+                       patterns = c(
+                         min = ".*", # greedy - gets everything b4 [min]
+                         " \\[min\\]", # "delim" 
+                         action = ".*"), #greedy - everything after [min]
+                       too_few = ("align_start")) %>%
+  
+  mutate(action = na_if(action, "")) %>% # recodes "" as NA (so below works)
+  fill(action, .direction = "down") %>% # autofill NAs with value above
+  
+
+  separate_wider_delim(set_val, delim = ":",
+                       names = c("setting", "value"), 
+                       too_few = "align_start" ) %>%
+  
+  mutate(across(where(is.character), str_squish)) # remove white spaces
+  
+
+LC_gradient_4 <- LC_gradient_3 %>%
+  filter(action == "Run") %>%
+   separate_wider_delim(setting, delim = ".",
+                       names = c("setting", "subsettings",
+                                 "subsubsettings", "subsubsubsettings"), 
+                       too_few = "align_start")  %>%
+  replace_na(list(subsubsettings = "", subsubsubsettings = "")) # NAs to "" blank
+  
+```
+
+```{r}
+# write_excel_csv(LC_gradient_3, "output/LC_gradient_3.csv")
+# write_excel_csv(LC_gradient_4, "output/LC_gradient_4.csv")
+```

@@ -1,0 +1,176 @@
+---
+title: "2026_04_PD2.4_WFsettings_TMTpro_2025_08_1pspg"
+author: "Stephanie Huang"
+date: "2026-04-01"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Details
+
+This is the wrangling .pdConsensusWF and .pdProcessingWF settings files used for the search in Proteome Discoverer 2.4 (PD2.4). The exported setting files appears in an .xml document. Therefore the files were uploaded into claude to get it as a readable .csv format to pull into R to make the tables
+
+The outputs were checked against the documentation and screenshots in the googledocs (2025_08) of the run settings. See the document screenshot for additional details.
+
+## Load Packages
+
+```{r}
+library(tidyverse) # using a lot of tidyr functions! 
+library(gt)
+```
+
+------------------------------------------------------------------------
+
+~~Attempted pull in via xml packages but super confusing structure, lots of nodes & nesting - maybe look into in the future.~~
+
+-   [~~https://xml2.r-lib.org/~~](https://xml2.r-lib.org/){.uri}
+-   [~~https://ethanbrockmann.com/post/xml-ratee/~~](https://ethanbrockmann.com/post/xml-ratee/){.uri}
+-   [~~https://stackoverflow.com/questions/47254923/nested-xml-to-data-frame-in-r~~](https://stackoverflow.com/questions/47254923/nested-xml-to-data-frame-in-r){.uri}
+
+```{r}
+# library(xml2) # read in xml file
+# library(XML) # parse nodes  e.g xmlParse
+```
+
+```{r}
+# IGNORE 
+# pWF_raw <- read_xml("input/2025_08_26_Steph_TMTproQuan_SPSMS3_SeqHT_Perc.xml")%>%
+# xml2::as_list() %>%
+# as_tibble() #%>%
+# unnest()  # processing wF
+
+# pWF_raw_2 <- xmlParse(pWF_raw)
+# df <- xmlToDataFrame(pWF_raw_2, nodes=getNodeSet(pWF_raw_2, "//WorkflowNode"))
+```
+
+------------------------------------------------------------------------
+
+## Load in data
+
+```{r}
+# Read in CSVs 
+pWF_raw <- read_csv("input/2025_08_1pspg_TMTproQuan_processing_workflow_settings.csv")
+
+cWF_raw <- read_csv("input/2025_08_1pspg_CWF_consensus_workflow_settings.csv")
+```
+
+# pWF
+
+## Wrangling
+
+-   <https://stackoverflow.com/questions/78275267/add-a-second-groupname-col-in-gt-table-without-concatenating-the-column-valu> (modified solution of this)
+
+```{r}
+colnames(pWF_raw)
+
+
+# for non repeating stub in gt table 
+pWF_df_1 <- pWF_raw  %>%
+  filter(c(`Value Set` == TRUE)) %>% # 
+  mutate(Node_com = paste0(Node, " - ", `Node Name`), .after = `Node Name`) %>%
+  
+  mutate(Category = factor(Category, levels = unique(Category))) %>%  
+  mutate(Node_com = factor(Node_com, levels = unique(Node_com))) %>%  
+  
+  select(Node_com, Category, Parameter, Value, Advanced, `Value Set`) %>%
+  
+  mutate(Category_NA = ifelse(row_number() == 1,
+                               as.character(Category), # keep 1st
+                               ""), # rm rest
+         .by = c(Category), .after =  Category)
+```
+
+### gt
+
+```{r}
+pWF_gt_1 <- pWF_df_1 %>%
+  # select(Node_com, Category_NA, Parameter, Value, Advanced, `Value Set`) %>%
+  select(Node_com, Category_NA, Parameter, Value, Advanced) %>%
+  
+  gt(
+    groupname_col = "Node_com",
+     rowname_col = "Category_NA",
+     ) %>%
+  
+  tab_header(
+    title = "2025_08_26_Steph_TMTproQuan_SPSMS3_SeqHT_Perc.pdProcessingWF",
+    subtitle = "xml file extracted in claude & pulled into R"
+      ) %>%
+  opt_align_table_header(align = "left") %>%
+  
+  tab_options(table.font.size=10,
+              row_group.font.weight = "bold") %>%
+  opt_vertical_padding(scale = 0.1)  # vert padding
+
+pWF_gt_1
+```
+
+```{r}
+# write_excel_csv(pWF_df_1, "output/2026_04_01_PD2.5_processingWF_claude_raw_2025_08_1pspg_PhD_93_obs.csv")
+```
+
+#### ~~Trimmed version (table 2) - removed advanced & non-set~~
+
+~~Why does "3. Scan Event Filters" in Category_NA dissapear? - because of the filter not set true - need to do after again!~~
+
+```{r}
+# # why does 3. Scan Event Filters dissapear?
+# write_excel_csv(pWF_df_2, "output/2026_04_01_PD2.5_processingWF_claude_rm_valset&adv_2025_08_1pspg_PhD_71obs.csv")
+```
+
+# cWF
+
+## Wrangling
+
+```{r}
+colnames(cWF_raw)
+
+
+# for non repeating stub in gt table 
+cWF_df_1 <- cWF_raw  %>%
+  # filter(c(`Value Set` == TRUE)) %>% #
+  mutate(Node_com = paste0(Node, " - ", `Node Name`),
+         .after = `Node Name`) %>%
+  
+  mutate(Category = factor(Category, levels = unique(Category))) %>%  
+  mutate(Node_com = factor(Node_com, levels = unique(Node_com))) %>%  
+  
+  select(Node_com, Category, Parameter, Value, Advanced, `Value Set`) %>%
+  
+  mutate(Category_NA = if_else(row_number() == 1,
+                               as.character(Category), # keep 1st
+                               ""), # rm rest
+         .by = c(Category), .after =  Category)
+```
+
+### gt
+
+```{r}
+cWF_gt_1 <- cWF_df_1 %>%
+  # select(Node_com, Category_NA, Parameter, Value, Advanced, `Value Set`) %>%
+  select(Node_com, Category_NA, Parameter, Value, Advanced) %>%
+
+  gt(
+    groupname_col = "Node_com",
+     rowname_col = "Category_NA",
+     ) %>%
+  
+  tab_header(
+    title = "2025_08_26_Steph_CWF_ComprEnhan Annotat_ReporterQuan_MSstatsTMT.pdConsensusWF",
+    subtitle = "xml file extracted in claude & pulled into R"
+      ) %>%
+  opt_align_table_header(align = "left") %>%
+  
+  tab_options(table.font.size=10,
+              row_group.font.weight = "bold") %>%
+  opt_vertical_padding(scale = 0.1)  # vert padding
+
+cWF_gt_1
+```
+
+```{r}
+# write_excel_csv(cWF_df_1, "output/2026_04_01_PD2.5_consensusgWF_claude_raw_2025_08_1pspg_PhD_92_obs.csv")
+```
