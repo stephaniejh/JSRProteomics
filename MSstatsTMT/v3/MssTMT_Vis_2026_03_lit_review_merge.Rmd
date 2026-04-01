@@ -115,7 +115,10 @@ EE_mapped_comp_adjp1 <- EE_mapped_comp %>%
 ```
 
 ```{r}
-
+Age_mapped_comp_trm <-  mapped_comp %>%
+  filter(Label == "A_YNG_vs_OLD") %>%
+  select(Label, gene, log2FC, adj.pvalue) %>%
+  rename_with( ~ paste0("A_", .x), everything()) # add prefix onto col names A_
 ```
 
 # MANUAL CURATION
@@ -140,8 +143,8 @@ rat_lit_EE <- rat_lit_re %>%
   select(Year:misc)  # checked okay & can drop 
 ```
 
-
 ### Zhang et al., 2024
+
 ```{r}
 zhang <- read_csv(
   "input/lit_review/2025_12_13_Zhang_2024_mPFC_lit_re_mapped_w_rat_ID_v1.csv") %>%
@@ -151,8 +154,6 @@ zhang <- read_csv(
 ```{r}
 
 ```
-
-
 
 # AUTO MAP
 
@@ -214,7 +215,6 @@ park <- read_csv("input/lit_review/2025_12_17_Park_2015_mRNA_lit_review_EExAging
 ------------------------------------------------------------------------
 
 # MERGE
-
 
 ```{r}
 merged <- bind_rows(rat_lit_EE, lichti, arroyo, borg, park, perez_p, zhang) %>%
@@ -311,7 +311,9 @@ perez_was_t <- perez_t %>%
 perez_was_me <- left_join(wassouf_DEG,  perez_was_p, 
                           by = join_by(gene == Gene_name)) %>%
   left_join(perez_was_t, by = join_by(gene == Gene_name)) %>%
-  left_join(was, by = join_by(gene == gene)) %>%
+  
+  
+  left_join(was, by = join_by(gene == gene)) %>% # EE vs SH
     mutate(EE_vs_SH = case_when(
     adj.pvalue < 0.05 & log2FC > 0 ~ "\u2191 *", # up sig .05
     adj.pvalue < 0.05 & log2FC < 0 ~ "\u2193 *", # down sig .05
@@ -319,18 +321,28 @@ perez_was_me <- left_join(wassouf_DEG,  perez_was_p,
     adj.pvalue <= 0.5 & log2FC  < 0 ~ "\u2193", # down sig .05
     .default = " " # ‐
   )) %>%
+  
+  left_join(Age_mapped_comp_trm, by = join_by(gene == A_gene)) %>% # YNG vs OLD
+      mutate(YNG_vs_OLD = case_when(
+    A_adj.pvalue < 0.05 & A_log2FC > 0 ~ "\u2191 *", # up sig .05
+    A_adj.pvalue < 0.05 & A_log2FC < 0 ~ "\u2193 *", # down sig .05
+    A_adj.pvalue <= 0.5 & A_log2FC > 0 ~ "\u2191", # up sig .05
+    A_adj.pvalue <= 0.5 & A_log2FC  < 0 ~ "\u2193", # down sig .05
+    .default = " " # ‐
+  )) %>%
+  
   # mutate(Wassouf_direction = if_else(str_detect()))
   arrange(adj.pvalue) 
 ```
-
-
 
 ```{r}
 perez_was_me_gt <- perez_was_me %>%
   dplyr::select(c(Direction_w, gene,
                   description,
                   mRNA_all, protein_all,
-                 EE_vs_SH, log2FC, adj.pvalue)) %>%
+                 EE_vs_SH, log2FC, adj.pvalue, # EE vs SH data
+                 YNG_vs_OLD, A_log2FC , A_adj.pvalue
+                 )) %>%
   
  gt(
     groupname_col = "Direction_w",
@@ -437,4 +449,3 @@ locations = cells_body(rows = adj.pvalue < 0.7 & adj.pvalue > 0.35 & log2FC < 0,
   
 print(perez_was_me_gt)
 ```
-
