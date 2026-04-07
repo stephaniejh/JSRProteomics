@@ -62,8 +62,8 @@ load("output/gsea_results/2026_01_24_GO_gsea_EExAge_cp_v3.4.2_t2_simplified.rda"
 # MSIGDB
 load("output/gsea_results/2026_01_12_gsea_msig_Hallmark_EExAge_mssv3.2.2_t1_cpv3.4.2_t2.rda")
 
-# MSIGDB C2 Reactome 
-load("output/gsea_results/2026_02_09_gsea_msig_c2_reactome_EExAge_mss3.2.2_t1_cp3.4.2.rda")
+# # MSIGDB C2 Reactome 
+# load("output/gsea_results/2026_02_09_gsea_msig_c2_reactome_EExAge_mss3.2.2_t1_cp3.4.2.rda")
 ```
 
 ```{r}
@@ -138,7 +138,15 @@ KEGG_tibs_df <- map_dfr(KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3$kegg_results_tib
                         as.data.frame,
                         .id = "Label")  %>%
   mutate(Description_2 = str_replace_all(Description, " and ", " & "), # & instead of and
-         .after = Description)
+         .after = Description) 
+  
+#df$col[df$col == "old_val"] <- "new_val"  | SHORTEN NAME! 
+KEGG_tibs_df$Description_2[KEGG_tibs_df$Description_2 == "Pathways of neurodegeneration - multiple diseases"] <- "Pathways of neurodegeneration - multiple"
+
+KEGG_tibs_df$Description_2[KEGG_tibs_df$Description_2 == "Chemical carcinogenesis - reactive oxygen species"] <- "Chemical carcinogenesis - ROS"
+  
+
+
 
 # MAP Msigdb Hallmarks to masterdf
 HM_tibs_df <- map_dfr(gsea_msig_Hmrk_EExAge_mss3.2.2_t1_cp3.4.2_t2$gsea_results_tib,
@@ -153,15 +161,15 @@ GO_sim_tibs_df <- map_dfr(
   .id = "Label")
 
 
-# MAP MSIG c2 REACTOME
-REACT_tibs_df <- map_dfr(
-  gsea_msig_c2_reactome_EExAge_mss3.2.2_t1_cp3.4.2$gsea_results_tib,
-  as.data.frame,
-  .id = "Label") %>%
-  mutate(Description_2 = str_replace_all(Description, "REACTOME_", ""),
-         .after = Description)  %>%
-  mutate(Description_3 = str_replace_all(Description_2, "_AND_", "_&_"), # needs 2 work
-         .after = Description_2)
+# # MAP MSIG c2 REACTOME
+# REACT_tibs_df <- map_dfr(
+#   gsea_msig_c2_reactome_EExAge_mss3.2.2_t1_cp3.4.2$gsea_results_tib,
+#   as.data.frame,
+#   .id = "Label") %>%
+#   mutate(Description_2 = str_replace_all(Description, "REACTOME_", ""),
+#          .after = Description)  %>%
+#   mutate(Description_3 = str_replace_all(Description_2, "_AND_", "_&_"), # needs 2 work
+#          .after = Description_2)
 
 
 ```
@@ -197,12 +205,12 @@ GO_sim_tibs_df_6$Label <- factor(GO_sim_tibs_df_6$Label,
                         levels = my_levels)
 
 
-# REACTOME
-REACT_tibs_df_6 <- REACT_tibs_df %>%
-   filter(!(Label %in% c("HxA_EE_OLD_vs_SH_YNG", "HxA_EE_YNG_vs_SH_OLD")))
-
-REACT_tibs_df_6$Label <- factor(REACT_tibs_df_6$Label,
-                                  levels = my_levels)
+# # REACTOME
+# REACT_tibs_df_6 <- REACT_tibs_df %>%
+#    filter(!(Label %in% c("HxA_EE_OLD_vs_SH_YNG", "HxA_EE_YNG_vs_SH_OLD")))
+# 
+# REACT_tibs_df_6$Label <- factor(REACT_tibs_df_6$Label,
+#                                   levels = my_levels)
 
 
 # # MSIGDB | "HxA_EE_OLD_vs_SH_OLD",
@@ -287,8 +295,8 @@ lolliplot <- function(data,
   # NEED TO SHUFFLE HERE & THERE BUT WORKS
     strip <- strip_themed( # green for 1st 3 (housing) & Lavender for last 3 (age)
     background_x = elem_list_rect(fill = c(
-      "#AFCC9F", "#cbdec1", "#cbdec1",
-      "#BFBBD5", "#D5D3E4", "#D5D3E4")))
+      "#AFCC9F", "#D4E4CB", "#D4E4CB",
+      "#BFBBD5", "#DDDCE9", "#DDDCE9")))
   
   
   lol <- ggplot(data,
@@ -345,7 +353,7 @@ lolliplot <- function(data,
       # strip.background.x = element_rect(fill = "#cbdec1"),
       # strip.background.x = element_rect(fill = my_level_colors),
       # strip.background.y = element_rect(fill = "grey95"),
-      strip.text.y = element_text(angle = 0, size = 8),
+      strip.text.y = element_text(angle = 0, size = 8.5),
       strip.text.x = element_text(size = 8),
       panel.spacing.y = unit(0, "lines"), # or "cm", "in", etc.
       
@@ -464,8 +472,9 @@ KEGG_lol_f6_trim <- KEGG_tibs_df_6_anno %>%
 KEGG_lol_f6_trim 
 ```
 
-```{r}
+### USED FOR MAIN THESIS
 
+```{r}
 # KEGG 3 EE TRIMMED W CAT ANNO
 KEGG_tibs_EE_3_trim <- KEGG_tibs_df_6_anno %>%
   filter(Label %in% c("H_EE_vs_SH","HxA_EE_YNG_vs_SH_YNG","HxA_EE_OLD_vs_SH_OLD")) %>%
@@ -496,6 +505,11 @@ KEGG_tibs_AGE_3_trim <- KEGG_tibs_df_6_anno %>%
     subtitle = "KEGG GSEA - Age", legend_pos = "bottom")
 
 KEGG_tibs_AGE_3_trim
+```
+
+```{r}
+# plot_grid(KEGG_tibs_EE_3_trim, KEGG_tibs_AGE_3_trim,
+#           ncol = 1, rel_heights = c(1,0.5), rel_widths = c(1, 0.8))
 ```
 
 ### GO lolliplots (6)
@@ -534,6 +548,7 @@ REACT_lol_6
 REACT_lol_EE_3 <- REACT_tibs_df_6 %>%
   filter(Label %in% c("H_EE_vs_SH","HxA_EE_YNG_vs_SH_YNG","HxA_EE_OLD_vs_SH_OLD")) %>%
   filter(p.adjust <=0.011) %>%
+  recode()
   lolliplot(subtitle = "REACTOME GSEA (via msigdbr) - Housing",
             x_1 = Description_3,
             legend_pos = "right")
@@ -1170,6 +1185,7 @@ kegg_POI  <- c(
   "rno03040", "rno03082", "rno03050", # spliceo, ATPchromatre, proteasom
   "rno03010", "rno04141", "rno03013") # ribosome, protein proc in ER, nucleocytoplasmic transport
 
+kegg_POI <- unique(KEGG_tibs_df_6$ID)
 
 # EMPTY PLOT LIST 
 kegg_volcano_list <-  vector(mode = "list")
@@ -1363,12 +1379,14 @@ for(kp in kegg_POI) {
 
 ```{r}
 # plot_grid(plotlist = kegg_volcano_list[c(10,11,6:9)], ncol = 2)
-plot_grid(plotlist = kegg_volcano_list[1:12], ncol = 2)
+# plot_grid(plotlist = kegg_volcano_list[1:12], ncol = 2)
+plot_grid(plotlist = kegg_volcano_list[55:67], ncol = 3)
 
-# ggsave("2026_02_26_KEGG_14_mapped_volcanos_300dpi.png", dpi = 300) # 11.4 x 1.96 in or 11.4 x 13.4
+# ggsave("2026_04_03_KEGG_55-67_mapped_volcano_330dpi.png", dpi = 330)
+```
 
-# ggsave("2026_03_09_KEGG_energy_6_map_volcano_300dpi.png", dpi = 300) # 11.2 x 5.92
-# ggsave("2026_03_23_KEGG_12_syn_map_volcano_300dpi_top1.png", dpi = 300) # 15.7 x 11.2
+```{r}
+# save(kegg_volcano_list, file = "output/2026_04_04_KEGG_volcano_67_EExAGE_6.rda")
 ```
 
 ------------------------------------------------------------------------
@@ -1381,16 +1399,6 @@ REACT_tibs_df_6_entrez_split <- REACT_tibs_df_6 %>%
   tidyr::unnest(core_enrich_split) %>% # unnest | to  3816 x 13
   left_join(bitr_gn_2_entrez, by = join_by(core_enrich_split == ENTREZID)) %>% #map2gene
   mutate()
-```
-
-```{r}
-# check_REACT_paths <- REACT_tibs_df_6 %>%
-#   filter(Label %in% c("H_EE_vs_SH","HxA_EE_YNG_vs_SH_YNG","HxA_EE_OLD_vs_SH_OLD")) %>%
-#   filter(p.adjust < 0.011) %>%
-#   arrange(p.adjust) %>%
-#   distinct(ID)
-# 
-# check_REACT_paths
 ```
 
 ```{r}
@@ -1647,12 +1655,64 @@ plot_grid(kegg_volcano_list$rno04014, kegg_volcano_list$rno04024,
           kegg_volcano_list$rno04022, kegg_volcano_list$rno04020,
     ncol = 1, labels = c("a","b", "c", "d"), label_colour = "grey10", label_size = 12)
 
-# ggsave("2026_03_31_sig_EEyng_KEGG_intracell_sig_mapped_volcano_330dpi.png", dpi = 330)
+# ggsave("2026_04_04_sig_EEyng_KEGG_intracell_sig_mapped_volcano_300dpi.png", dpi = 300)
+# dev.off()
+```
+
+```{r}
+
+# GET KEGG PATHVWAYS OF INTEREST 
+kegg_POI  <- c(
+  "rno04721", "rno04082", "rno04723", # syanp_ves, neuroa_lig, ret_endoca
+  "rno04727", "rno04080", "rno05033", # GABAsyn, neuroacli-Recept, nicotine
+  "rno04014", "rno04024", # Ras signalling, cAMP signalling
+  "rno04022", "rno04020", # cGMP-PKG & Calcium isngalling
+  "rno04360", # axonguidance
+  "rno00900", # terpenoid backbone synthesis
+  "rno01250", # Biosynthesis of nucleotide sugars
+  "rno00030", "rno00230", # pentose phosphate, purine metabolism
+  "rno00190", "rno00020",  # oxidati phos, TCA, 
+  "rno04714", # thermogenesis
+  "rno05012", "rno05016", "rno05020", # parkinsons, huntington, prion 
+  "rno04137", #mitophagy
+  "rno03040", "rno03082", "rno03050", # spliceo, ATPchromatre, proteasom
+  "rno03010", "rno04141", "rno03013") # ribosome, protein proc in ER, nucleocytoplasmic transport
+```
+
+#### KEGG DNA, RNA, & PROTEIN
+
+```{r}
+# KEGG ATP-dependent chromatin remodelling & nucleocytoplasmic transport
+plot_grid(kegg_volcano_list$rno03082,kegg_volcano_list$rno03013,
+          ncol = 1,
+          labels = c("a","b"),
+          label_colour = "grey10", label_size = 12)
+
+# ggsave("2026_04_04_KEGG_2_DNA_mapped_volcano_300dpi.png", dpi = 300)
+```
+
+```{r}
+# KEGG Spliceosome & Ribosome
+plot_grid(kegg_volcano_list$rno03040, kegg_volcano_list$rno03010,
+          ncol = 1,
+          labels = c("a","b"),
+          label_colour = "grey10", label_size = 12)
+
+# ggsave("2026_04_04_KEGG_2_RNA_mapped_volcano_300dpi.png", dpi = 300)
+```
+
+```{r}
+# KEGG Proteasome & Protein Processing in the ER
+plot_grid(kegg_volcano_list$rno03050, kegg_volcano_list$rno04141,
+          ncol = 1,
+          labels = c("a","b"),
+          label_colour = "grey10", label_size = 12)
+
+# ggsave("2026_04_04_KEGG_2_Protein_mapped_volcano_300dpi.png", dpi = 300)
 ```
 
 ```{r}
 # KEGG SYNAPTIC 
-  "rno04721", "rno04082", "rno04723", # syanp_ves, neuroa_lig, ret_endoca
   "rno04727", "rno04080", "rno05033", # GABAsyn, neuroacli-Recept, nicotine
   "rno04014", "rno04024", # Ras signalling, cAMP signalling
   "rno04022", "rno04020", # cGMP-PKG & Calcium isngalling
@@ -1660,7 +1720,7 @@ plot_grid(kegg_volcano_list$rno04014, kegg_volcano_list$rno04024,
 ```
 
 ```{r}
-# # syanp_ves, neuroa_lig, ret_endoca
+# # "rno04721", "rno04082", "rno04723", # syanp_ves, neuroa_lig, ret_endoca
 plot_grid(kegg_volcano_list$rno04721, kegg_volcano_list$rno04082,
           kegg_volcano_list$rno04723,
           ncol = 1, labels = c("a","b", "c"), label_colour = "grey10", label_size = 12)
@@ -1669,12 +1729,11 @@ plot_grid(kegg_volcano_list$rno04721, kegg_volcano_list$rno04082,
 ```
 
 ```{r}
-# # EE YNG GABAsyn, neuroacli-Recept, nicotine
+# # EE YNG GABAsyn, neuroacli-Recept,
 plot_grid(kegg_volcano_list$rno04727, kegg_volcano_list$rno04080,
-          kegg_volcano_list$rno05033,
-          ncol = 1, labels = c("a","b", "c"), label_colour = "grey10", label_size = 12)
+          ncol = 1, labels = c("a","b"), label_colour = "grey10", label_size = 12)
 
-# ggsave("2026_03_31_sig_EE_yng_KEGG_synaptic_mapped_volcano_330dpi.png", dpi = 330)
+# ggsave("2026_04_04_KEGG_2_GABA_Neuroactive_mapped_volcano_300dpi.png", dpi = 300)
 ```
 
 ```{r}
@@ -1685,6 +1744,39 @@ plot_grid(kegg_volcano_list$rno04360,
 
 # ggsave("2026_03_31_axonguidance_brain_dev_mapped_volcano_330dpi.png", dpi = 330)
 
+```
+
+#### KEGG Oxidative Phosphorylation \\& TCA cycle
+
+```{r}
+
+  # "rno01250", # Biosynthesis of nucleotide sugars
+  # "rno00030", "rno00230", # pentose phosphate, purine metabolism
+  # "rno00190", "rno00020",  # oxidati phos, TCA, 
+
+# KEGG Proteasome & Protein Processing in the ER
+plot_grid(kegg_volcano_list$rno00190, kegg_volcano_list$rno00020,
+          ncol = 1,
+          labels = c("a","b"),
+          label_colour = "grey10", label_size = 12)
+
+# ggsave("2026_04_04_KEGG_2_Energy_metabolism_mapped_volcano_300dpi.png", dpi = 300)
+```
+
+#### KEGG Neurodegenerative Diseases
+
+```{r}
+#  "rno05012", "rno05016", "rno05020", # parkinsons, huntington, prion 
+#  # multiple neurodegenerative diseases
+plot_grid(kegg_volcano_list$rno05012, kegg_volcano_list$rno05022,
+          kegg_volcano_list$rno05016,
+          kegg_volcano_list$rno05020,
+          ncol = 1,
+          labels = c("a","b", "c", "d"),
+          label_colour = "grey10", label_size = 12)
+
+# ggsave("2026_04_04_KEGG_4_Neurodegenerative_mapped_volcano_300dpi.png", dpi = 300)
+# dev.off()
 ```
 
 CONT HERE
@@ -1709,6 +1801,10 @@ plot_grid(plotlist = reactome_volcano_list[12:17],
           label_colour = "grey10", label_size = 12)
 
 # ggsave("2026_03_31_REACT_other_brain_mapped_volcano_330dpi.png", dpi = 330)
+```
+
+```{r}
+
 ```
 
 ------------------------------------------------------------------------
