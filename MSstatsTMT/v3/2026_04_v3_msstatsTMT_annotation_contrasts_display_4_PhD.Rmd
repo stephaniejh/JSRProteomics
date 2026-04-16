@@ -1,0 +1,212 @@
+---
+title: "2026_04_v3_msstatsTMT_annotation_contrasts_display_4_PhD"
+author: "Stephanie Huang"
+date: "2026-04-15"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## This file is for displaying the annotation & contrasts & other sample metrics
+
+Contents
+
+1.  Age Graph
+2.  Brain Weight Graph
+
+TO ADD:
+
+1.  Weight Graph
+
+------------------------------------------------------------------------
+
+### Load Packages
+
+```{r}
+library(tidyverse)
+library(gt)
+```
+
+#### ggplottheme
+
+```{r}
+my_theme <- theme(
+    axis.line = element_blank(),
+    axis.title = element_text(size = 11, color = "grey10"), 
+    # axis.title.x = element_blank(),
+    axis.text = element_text(size = 10, color ="grey10"),
+    axis.ticks = element_line(size=0.5, colour = "grey15"),
+    axis.ticks.length.y.left = unit(-0.1, 'cm'), # inwards ticks (L)
+    #axis.ticks.length.y.right = unit(-0.1, 'cm'), # inwards ticks (R)
+    axis.ticks.length.x = unit(-0.1, 'cm'), # inwards ticks lower
+    axis.text.y.right = element_blank(),
+    panel.background = element_rect(fill = "white"), #bg of plot (inner bit)
+    panel.border = element_rect(fill = NA,
+                                color = "white"), #plot borders 
+    plot.background = element_rect(fill = "white"), # bg of plot (outer)
+    panel.grid = element_blank(),
+    panel.spacing = unit(0, "cm"),  # Removes space between panel 
+    legend.position = 'bottom',
+    legend.title = element_text(size = 11, face="italic", color = "grey10"),
+    legend.margin = margin(-2,0,0,0), # space between plot & legend
+    #legend.title.align = (0.5), # centres legend title
+    legend.text = element_text(size = 10, color = "grey10"),
+    legend.box = "horizontal", 
+    legend.direction = "horizontal", 
+    legend.key.size = unit(.6, "cm"), # size of legend key icon
+    # strip.background = element_rect(color = 'grey40', fill = 'grey90'), 
+    # strip.text.x = element_text(size = 9, color = 'grey10',
+    #                             margin = margin(b = 3, t = 2)) #vert spacing\
+    strip.background = element_blank(),
+    strip.text.x = element_blank() 
+  )
+```
+
+## All 56 Samples (B1-B4 - 2021 & 2022)
+
+```{r}
+sample_df_56 <- read_csv("input/anno/EEv&SH_F&M_TMT_anno_v2_df_b_check_sorted_30JAN2025.csv")
+```
+
+```{r}
+sample_df_56 <- sample_df_56 %>%
+  mutate(Age = ifelse(PND > 100, "OLD", "YNG"), .before = PND) %>%
+  mutate(Condition = paste0(Housing, "_", Age))
+```
+
+```{r}
+summary(sample_df_56)
+```
+
+### Graph for Age Split & General Distributions
+
+*Note the one outlier that was removed is male 83 days in EE.*
+
+The key point of the graph below shows that housing is well matched in both sexes despite.
+
+Young is better matched and has a narrower window. Whereas old shows some age differences across sexes
+
+```{r fig.height=7, fig.width=11}
+age_plot_56 <- sample_df_56 %>%
+  ggplot(aes(x = PND, fill = Housing, color = Sex)) +
+  
+  geom_rect(xmin =82, xmax = 100, ymin = 0, ymax = 4.5, # YOUNG
+            fill = "#BFBBD5", alpha = 0.05, linewidth = 0.5) +
+  annotate("text", x = 85.25, y = 3.75, label = "Young (PND <100)",
+           color = "grey15", size = 3.5, fontface = "italic") +
+  
+  geom_rect(xmin =100, xmax = 122, ymin = 0, ymax = 4.5, # OLD
+            fill = "burlywood", alpha = 0.05) +
+  annotate("text", x = 119, y = 3.75, label = "Old (PND >100)",
+           color = "grey15", size = 3.5, fontface = "italic") +
+  
+  geom_histogram(position = 'identity', binwidth = 1,
+                 alpha = 0.75) +
+  #geom_vline(xintercept = 100, size = .5, color = "grey10", linetype = "dashed") +
+  scale_x_continuous(expand = c(0.001,0.001), # removes side white spaces
+                     breaks = seq(81,123, 2) #seq(lower,upper, divisions)
+                     ) +
+  #guides(y.sec = 'axis') + # adds 2nd y axis (right side)
+  scale_fill_manual(values = c("#66A61E", "#E6AB02FF")) +
+  scale_color_manual(values = c("deeppink3", "dodgerblue3")) +
+  labs(x = "Postnatal Day (PND)", y = "Count")+
+  facet_wrap(~Sex+Housing, ncol = 1) +
+  my_theme 
+  
+
+age_plot_56
+```
+
+```{r fig.height=5, fig.width=11}
+brain_weight_plot <- sample_df_56 %>%
+  ggplot(aes(x = Condition, y = mPFC, fill = Housing, color = Sex)) +
+  geom_boxplot(position = position_dodge(width = 0.7), width = 0.4,
+               alpha = 0.6, outlier.shape = NA) +
+  geom_point(position = position_jitterdodge(dodge.width = 0.7, jitter.width = 0.2),
+             shape = 1) +
+  scale_fill_manual(values = c("#66A61E", "#E6AB02FF")) +
+  scale_color_manual(values = c("deeppink3", "dodgerblue3")) +
+  guides(y.sec = 'axis') + # adds 2nd y axis (right side)
+  facet_wrap(~Sex) +
+  my_theme +
+  theme(panel.border = element_rect(fill = NA,
+                                    color = "grey10"), #plot borders 
+        strip.background = element_rect(color = 'grey10', fill = 'grey90'),
+        strip.text.x = element_text(size = 9, color = 'grey10',
+                                    margin = margin(b = 3, t = 3)), #vert spacing\
+
+    axis.ticks.length.y.right = unit(-0.1, 'cm'), # inwards ticks (R)
+    axis.text.y.right = element_text(size = 10, color ="grey10"),
+)
+
+brain_weight_plot
+```
+
+### Anno sheet
+
+```{r}
+anno_56 <- read_csv("input/anno/TMT_EE_annotation_HA_2025_08.csv")
+```
+
+```{r}
+anno_example <- anno_56 %>% #16/1
+  mutate(row_id = row_number()) %>%
+  filter(# get excerpt -> 1 from males & another from females
+    (Mixture == "B2" & Fraction == 1 & TechRepMixture == 1) |
+    (Mixture == "B3" & Fraction == 8 & TechRepMixture == 3)) %>% 
+  mutate(across(where(is.character), ~replace_na(.x, "Norm"))) %>% # replace NA with Norm in chr cols
+  #dplyr::select(!Unused) %>%
+  dplyr::select(row_id, Run, Mixture, TechRepMixture, Fraction, Channel, Condition, BioReplicate,
+                Housing, Sex, Cohort, Litter, exp_helper) 
+
+dplyr::rename(anno_example, ExpH = exp_helper) # rename col - new_name = old_name
+
+```
+
+```{r}
+# except of annotation table
+knitr::kable(anno_example)
+```
+
+```{r}
+# write_excel_csv(anno_example, "output/2026_04_16_anno_example_B1F1TR1_B3F8TR3_for_PhD_writeup.csv")
+```
+
+```{r}
+# Housing x Age
+contrast_matrix <- read.csv("input/anno/2025_09_04_HA_matrix.csv", 
+                            header = TRUE) # header must be true
+
+# contrast_matrix <- read.csv("input/anno/2025_12_31_anno_v3_HA_matrix.csv", 
+#                             header = TRUE) # same one lol | didn't need to remake... 
+```
+
+------------------------------------------------------------------------
+
+## 55 Samples (B1-B4 - 2021 & 2022) - after removing outlier TMT 129N B1
+
+```{r}
+sample_df_55 <- read_csv(
+  "input/anno/EEv&SH_F&M_TMT_anno_v3_df_b_check_sorted_2025_12_31.csv")
+```
+
+```{r}
+sample_df_55 <- sample_df_55 %>% 
+  mutate(Age = ifelse(PND > 100, "OLD", "YNG"), .before = PND) %>%
+  mutate(Condition = paste0(Housing, "_", Age))
+```
+
+```{r}
+summary(sample_df_55)
+```
+
+```{r}
+# t1 - Housing - EE vs SH 
+anno_55 <- read_csv(
+  "input/anno/TMT_EE_annotation_v3_HA_2025_12.csv")
+
+dim(anno_55) #prints dimensions of csv (1536 rows & 21 columns)
+head(anno_55) #prints first few rows of data (preview)
+```
