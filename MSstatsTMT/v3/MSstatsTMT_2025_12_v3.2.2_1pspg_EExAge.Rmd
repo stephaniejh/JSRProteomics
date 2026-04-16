@@ -11,9 +11,14 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # MSstatsTMT_2025_12_v3.2.1_1pspg EE x Age analysis (after removing outlier TMT 129N B1)
 
-2026_01_22 - Turns out removing the outlier does not do anything since MSstatsTMT corrects sufficiently (129C B2 R was divergent on the PCA.. not 129N B1) so was already corrected for -\> so fine to add back in -\> if worried, then do abundance plot check just incase but -\> version MSstatsTMT_2026_01_v3.3.1 & MSstatsTMT_2026_01_v3.3.2 after this with 56 samples. Also next verision is 1pspg & EE x Age x Beh (adding Beh because despite no sig dif in prots KEGG shows difference in behaviour helper vs behaviour).
+**2026_04_16 Note - TLDR:** More or less the same - the year/batch differences are the biggest drivers of differences (i.e. 2022, with better pipette tips & more consistency). Otherwise all variants are somewhat similar – therefore using this version for the PhD write up but will revisit for publication in the future.
 
-2025_12_31 - This version runs with 55 outlier rm (see MSstatsTMT_2025_12_v3.2.1_sp.Rmd for notes)
+Others...
+
+-   2026_01_22 - Turns out removing the outlier does not do anything since MSstatsTMT corrects sufficiently (129C B2 R was divergent on the PCA.. not 129N B1) so was already corrected for -\> so fine to add back in -\> if worried, then do abundance plot check just incase but -\> version MSstatsTMT_2026_01_v3.3.1 & MSstatsTMT_2026_01_v3.3.2 after this with 56 samples. Also next verision is 1pspg & EE x Age x Beh (adding Beh because despite no sig dif in prots KEGG shows difference in behaviour helper vs behaviour).
+-   MSstatsTMT_2026_03_v3.4.1_EExAge_55_contrasts_redo.rmd -\> "covariate" version where contrasts are specified as shown in page 14 of Kohler et al., 2024 (<https://doi.org/10.1038/s41596-024-01000-3>) & also in Olga Vitek's presentation (<https://www.youtube.com/watch?v=dwuW_U7AEX0&t=1610s>). This doesn't really do much since the groups are split evenly anyway. EE vs SH is the same 16 proteins (same order and also same ranked genelist). YNG vs OLD has 3 more significant proteins going from 226 to 229.
+
+***2025_12_31 - This version runs with 55 outlier rm (see MSstatsTMT_2025_12_v3.2.1_sp.Rmd for notes)***
 
 ```{r message=FALSE, warning=FALSE}
 # Set working directory - *Session \> Set Working Directory \> To Source File Location*
@@ -146,7 +151,7 @@ Summarises the PSMs into protein groups with abundance values.
 ```{r}
 # all defaults
 quant.msstats <- proteinSummarization(input.pd,
-                                      method="msstats",
+                                      method="msstats", #Tukey median polish w/ imputati
                                       global_norm=TRUE,
                                       reference_norm=TRUE,
                                       remove_norm_channel = TRUE,
