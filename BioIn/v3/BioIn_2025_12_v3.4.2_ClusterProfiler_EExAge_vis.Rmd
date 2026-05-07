@@ -1,0 +1,805 @@
+------------------------------------------------------------------------
+
+---
+title: "BioIn_2026_01_v3.4.2_ClusterProfiler"
+author: "Stephanie Huang"
+date: '`r Sys.Date()`'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# ClusterProfiler BioIn vis - 1pspg v3.2.2 EE x Age t1
+
+*for MSstatsTMT 1pspg v3.2.2 EE x Age t1 -(defaults) with B1 129N removed (TMT channel with too much loaded)*
+
+This script is for running the GSEA - uses for loops.
+
+This is a temporary script is for visualization of the results
+
+Outputs
+
+1.  2025_12_31
+
+2.  <https://yulab-smu.top/biomedical-knowledge-mining-book/02-Enrichment.html#gsea-algorithm>
+
+3.  <https://hbctraining.github.io/Intro-to-R-flipped/lessons/05_introR-data-wrangling.html>
+
+## Set up
+
+### Packages
+
+```{r}
+# # Install if needed 
+# if (!require("BiocManager", quietly = TRUE))
+#     install.packages("BiocManager")
+# 
+# BiocManager::install("clusterProfiler")
+# BiocManager::install("msigdbr")
+# BiocManager::install("org.Rn.eg.db")
+# BiocManager::install("enrichplot")
+# BiocManager::install("pathview")
+
+# draw cell for SwissBioPics 
+devtools::install_github("svalvaro/drawCell")
+```
+
+```{r}
+# Load Packages 
+library(tidyverse) # for dplyr, ggplot, stringr, readr etc 
+library(purrr) # map_dfr()
+library(readxl)
+library(clusterProfiler) #GSEA includes gsea, enrichplot etc.
+library(org.Rn.eg.db) # Rat genome anno pack- incl. AnnotationDbi
+library(msigdbr) # MSigDB gene sets
+library(enrichplot) # for dotplot()
+library(ggridges) # for ridgeplot()
+library(pathview) # pathview() - Kegg pathway visualisation
+
+library(gganatogram) # gganatogram CO GG
+library(drawCell) # drawing GO CC - SwissBioPics 
+library(htmlwidgets) #
+library(webshot2)
+
+library(paletteer) # colors
+library(colorspace) # colors
+library(cowplot) # plot_grid
+```
+
+### Import data
+
+Load the mapped comparisons output generated from
+
+```{r}
+# mapped_comp_v3.2.2_EExAge_t1
+load("input/protein_lists/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_comp.rda")
+
+df <- mapped_comp_v3.2.2_EExAge_t1
+```
+
+lil checks
+
+```{r}
+# lil checks
+head(df) # peak
+str(df) # structure | 7746 x 9
+colnames(df) # column names
+
+# lil checks (bit messy)
+unique(df$issue) # if = na in issue column then good. if not exclude
+check_1 <- df %>% filter(str_detect(log2FC, "Inf")) # 5 inf 
+check_2 <- df %>% filter(str_detect(Protein, "Cont")) # 0 (since already removed)
+unique(df$Label) 
+length(unique(df$Label)) #8
+```
+
+### **Clean up df & rename**
+
+```{r}
+protein_comp <- df %>%
+  filter(is.na(issue)) %>% # keeps rows with issue == na (so comparisons that are ok)
+  filter(!str_detect(log2FC, "Inf")) # remove infinity/missing fold change values
+
+# check 
+head(protein_comp) 
+colnames(protein_comp)
+
+```
+
+```{r}
+# # check 
+# unique(df$Label) 
+# # don't want "HxA_EE_YNG_vs_SH_OLD" "HxA_EE_OLD_vs_SH_YNG", so just do manually 
+# 
+# # VECTOR for labels (contrasts from MSstatsTMT analysis)
+# label_names <- c("H_EE_vs_SH", "A_YNG_vs_OLD",
+#                  "HxA_EE_YNG_vs_EE_OLD", "HxA_SH_YNG_vs_SH_OLD",
+#                  "HxA_EE_YNG_vs_SH_YNG", "HxA_EE_OLD_vs_SH_OLD")
+
+label_names <- unique(protein_comp$Label)
+
+# # CONTAINER - EMPTY VECTOR
+# gsea_KEGG_results_list <- vector(mode = "list")
+```
+
+------------------------------------------------------------------------
+
+## Testing conversion of bitr (extra)
+
+From FASTA - uniprot uniprot acc
+
+<https://yulab-smu.top/biomedical-knowledge-mining-book/utilities.html#sec-id-convert>
+
+```{r}
+protein_comp_uni_prot <- unique(protein_comp$Protein) # 8048 
+protein_comp_uni_gene <- unique(protein_comp$gene) # 8014
+```
+
+```{r}
+# Gene name 2 EntrezID | .0339 x 8104 = 272 ish
+bitr_gn_2_entrez <- bitr(protein_comp_uni_gene,
+                         fromType = "SYMBOL",
+                         toType = "ENTREZID",
+                         OrgDb = "org.Rn.eg.db") #3.39% failed to map... better
+# 'select()' returned 1:1 mapping between keys and columns
+#Warning message: In bitr(protein_comp_uni_gene, fromType = "SYMBOL", toType = "ENTREZID",:  3.39% of input gene IDs are fail to map...
+
+
+# Seems gn 2 entrez is the superior option. 
+length(unique(bitr_gn_2_entrez$SYMBOL)) # 7742
+length(unique(bitr_gn_2_entrez$ENTREZID)) # 7742
+
+# length(unique(bitr_up_2_entrez$UNIPROT)) # 7325
+# length(unique(bitr_up_2_entrez$ENTREZID)) # 7392
+```
+
+```{r}
+protein_comp_entrez <- left_join(protein_comp, bitr_gn_2_entrez,
+                                 by = join_by(gene == SYMBOL)) %>%
+  filter(!is.na(ENTREZID)) # remove non mapped - 64384 to 61952 
+```
+
+------------------------------------------------------------------------
+
+```{r}
+# #READ IN DATA
+# KEGG
+load("output/gsea_results/2026_01_12_KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3.rda") 
+
+# GO
+load("output/gsea_results/2026_01_12_GO_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t2.rda") 
+
+# MSIGDB
+load("output/gsea_results/2026_01_12_gsea_msig_Hallmark_EExAge_mssv3.2.2_t1_cpv3.4.2_t2.rda")
+
+# C8
+load("output/gsea_results/2026_01_12_gsea_msig_C8_ct_EExAge_mssv3.2.2_t1_cpv3.4.2_t2.rda")
+```
+
+------------------------------------------------------------------------
+
+## print KEGG sign dot plots
+
+```{r fig.height=13, fig.width=11}
+print(KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3$dotplots_sign) # kegg
+
+
+# print(gsea_msig_Hmrk_EExAge_cp3.4.2_mss3.2.2_t1$dotplots) # msigdb hallmarks entrez
+# print(KEGG_gsea_EExAge_cpv3.4.2t2_mssv3.2.2t1$dotplots) # kegg entrez
+```
+
+## print GO sign dot plots
+
+```{r}
+print(GO_gsea_EExAge_msstats_v3.2.2_t1_cp_v3.4.2_t2$dotplots_sign)
+```
+
+## print Msigdb Hallmarks sign dot plots
+
+```{r}
+print(gsea_msig_Hmrk_EExAge_mss3.2.2_t1_cp3.4.2_t2$dotplots_sign)
+```
+
+## print Msigdb C8 CellTypes sign dot plots
+
+```{r}
+print(gsea_msig_C8_ct_EExAge_cp3.4.2_mss3.2.2_t1$dotplots_sign)
+```
+
+# KEGG
+
+## lolliplots (alt to dotplots)
+
+```{r}
+EEvsSH_kegg_tib <- KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3[["kegg_results_tib"]][["H_EE_vs_SH"]]
+```
+
+```{r}
+enrichplot::dotplot(KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3$kegg_results$H_EE_vs_SH,
+                              showCategory = 50,
+                              font.size = 11,
+                              title = 'EE vs SH - entrez ve ',
+                # subtitle = '1pspg MSstatsTMT (v3.2.2) 2025_12_31 - gseGO_r'
+                    )
+```
+
+```{r}
+# colnames(EEvsSH_kegg_tib)
+
+custom_dopplot <- EEvsSH_kegg_tib %>%
+  ggplot(aes(x= reorder(Description, NES), 
+             y = NES,
+             fill = NES)) +
+  geom_segment(aes(x = Description,
+                   yend = NES, y = 0,
+                   alpha = p.adjust)) +
+  geom_point(aes(alpha = p.adjust, size = setSize),
+             shape = 21) +
+  scale_alpha(range = c(.9,.3), guide = 'none') + # rev alpha so darker = more sig
+  # geom_text(aes(label = gene_name), color = "grey10", size = 2.5,
+  #           position = position_stack()) +
+  geom_hline(yintercept = 0, color = 'grey20', linewidth = 0.1) +
+  scale_color_manual(breaks = c("Up", "Down"),
+                     # values = c("#dc322f", "#268bd2"),
+                     guide = 'none') + 
+  scale_size_continuous(range = c(2,9)) + # map size oflolly (set size)
+  
+  # scale_fill_continuous_diverging("Blue-Red 3") + # colorspace
+  scale_fill_continuous_diverging("Blue-Red 2") +
+  
+  labs(title = 'EE vs SH KEGG',
+       y = 'NES',
+       x = 'KEGG PATH') +
+  coord_flip() + #fliptheplot
+  # facet_wrap(~fraction, space = 'free_x', scale = 'free_x') +
+  theme_bw() +
+  theme(
+    axis.text.x = element_text(angle = 90, hjust = 1,
+                               vjust = 0.5, # 90, hj1 t/R, vj.5 cent
+                               size = 9, face = 'italic'), 
+    axis.text.y = element_text(hjust = 1, color = "grey20",
+                               size = 9, face = 'italic'), 
+    axis.title.y = element_blank(),
+    legend.position = "none"
+        ) 
+
+custom_dopplot  
+```
+
+```{r}
+YNGvsOLD_kegg_tib <- KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3[["kegg_results_tib"]][["A_YNG_vs_OLD"]]
+```
+
+```{r}
+custom_dopplot_2 <- YNGvsOLD_kegg_tib %>%
+  ggplot(aes(x= reorder(Description, NES), 
+             y = NES,
+             fill = NES)) +
+  geom_segment(aes(x = Description,
+                   yend = NES, y = 0,
+                   alpha = p.adjust)) +
+  geom_point(aes(alpha = p.adjust, size = setSize),
+             shape = 21) +
+  scale_alpha(range = c(.9,.3), guide = 'none') + # rev alpha so darker = more sig
+  # geom_text(aes(label = gene_name), color = "grey10", size = 2.5,
+  #           position = position_stack()) +
+  geom_hline(yintercept = 0, color = 'grey20', linewidth = 0.1) +
+  scale_color_manual(breaks = c("Up", "Down"),
+                     # values = c("#dc322f", "#268bd2"),
+                     guide = 'none') + 
+  scale_size_continuous(range = c(3,9)) + # map size oflolly (set size)
+  
+  # scale_fill_continuous_diverging("Blue-Red 3") + # colorspace
+  scale_fill_continuous_diverging("Blue-Red 2") +
+  
+  labs(title = 'YNG vs OLD KEGG',
+       y = 'NES',
+       x = 'KEGG PATH') +
+  coord_flip() + #fliptheplot
+  # facet_wrap(~fraction, space = 'free_x', scale = 'free_x') +
+  theme_bw() +
+  theme(
+    axis.text.x = element_text(angle = 90, hjust = 1,
+                               vjust = 0.5, # 90, hj1 t/R, vj.5 cent
+                               size = 9, face = 'italic'), 
+    axis.text.y = element_text(hjust = 1, color = "grey20",
+                               size = 9, face = 'italic'), 
+    axis.title.y = element_blank(),
+    legend.position = "none"
+        ) 
+
+custom_dopplot_2 
+```
+
+```{r}
+plot_grid(custom_dopplot, custom_dopplot_2, ncol = 1)
+```
+
+### Working with lists (side tangent
+
+-   [https://stackoverflow.com/questions/32819539/proper-way-to-access-list-elements-in-r](https://stackoverflow.com/questions/32819539/proper-way-to-access-list-elements-in-r#){.uri}
+-   [https://www.r-bloggers.com/2023/07/how-to-subset-list-objects-in-r](https://www.r-bloggers.com/2023/07/how-to-subset-list-objects-in-r/#){.uri}
+-   <https://www.reddit.com/r/rstats/comments/sd3n8k/extract_data_from_a_list_within_a_list_that_is/>
+-   <https://pratikunterwegs.github.io/tres-tidy-tutorial/working-with-lists-and-iteration.html>
+-   SOLUTION ! - purrr:::map_dfr() <https://purrr.tidyverse.org/reference/map_dfr.html>
+
+```{r}
+# baseR - nope assumes list
+# unlisted_df <- unlist(KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3$kegg_results_tib)
+
+KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3[1] # gets genelist vec (1st list set)
+
+# gets kegg_results_tib [[3]] & then A_YNG_vs_OLD [[2]]
+KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3[[3]][[2]]
+KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3[["kegg_results_tib"]][["A_YNG_vs_OLD"]]
+
+
+df_str <- KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3[["kegg_results_tib"]]
+
+```
+
+```{r}
+# SOLUTION !!! lol it really is that easy,,, 
+KEGG_tibs_df <- purrr::map_dfr(
+  KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3$kegg_results_tib,
+  as.data.frame,
+  .id = "Label") 
+```
+
+#### KEGG facet lolliplot
+
+```{r}
+# looks kinda horrifc buy honestly a good check! 
+lolly_KEGG_facet <- KEGG_tibs_df  %>%
+  ggplot(aes(x= reorder(Description, NES), 
+             y = NES,
+             fill = NES)) +
+  geom_segment(aes(x = Description,
+                   yend = NES, y = 0,
+                   alpha = p.adjust)) +
+  geom_point(aes(alpha = p.adjust, size = setSize),
+             shape = 21) +
+  scale_alpha(range = c(.9,.3), guide = 'none') + # rev alpha so darker = more sig
+  geom_hline(yintercept = 0, color = 'grey20', linewidth = 0.1) +
+  scale_color_manual(breaks = c("Up", "Down"),
+                     # values = c("#dc322f", "#268bd2"),
+                     guide = 'none') + 
+  scale_size_continuous(range = c(3,9)) + # map size oflolly (set size)
+  
+  # scale_fill_continuous_diverging("Blue-Red 3") + # colorspace
+  scale_fill_continuous_diverging("Blue-Red 2") +
+  
+  ylim(-4,4)+
+  
+  labs(title = 'All KEGG EExAge - 2026_01_21',
+       y = 'NES',
+       x = 'KEGG PATH') +
+  coord_flip() + #fliptheplot
+  facet_wrap(~Label,
+             space = 'free_x', 
+             ) +
+  theme_bw() +
+  theme(
+    axis.text.x = element_text(angle = 90, hjust = 1,
+                               vjust = 0.5, # 90, hj1 t/R, vj.5 cent
+                               size = 10, face = 'italic'), 
+    axis.text.y = element_text(hjust = 1, color = "grey20",
+                               size = 10, face = 'italic'), 
+    axis.title.y = element_blank(),
+    legend.position = "none"
+        ) 
+
+lolly_KEGG_facet
+```
+
+------------------------------------------------------------------------
+
+## Pathview test
+
+-   <https://pathview.r-forge.r-project.org/pathview.pdf>
+
+```{r}
+data(gse16873.d)
+data(gse16873.d)
+```
+
+```{r}
+# oxidative phosphorylation
+# add defailts! png
+pathview(gene.data=KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3$geneList_vec$H_EE_vs_SH,
+                pathway.id="rno00190",
+                species = 'rno',
+         out.suffix = "defaults",
+         kegg.native = T,
+         # same.layer = F #slower & on top (out of bounds?)
+         )
+```
+
+```{r}
+# neurotrophic signalling
+pathview(gene.data=KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3$geneList_vec$H_EE_vs_SH,
+                pathway.id="rno04722",
+                species = 'rno',
+         out.suffix = "defaults",
+         kegg.native = T,
+         # same.layer = F #slower & on top (out of bounds?)
+         )
+```
+
+```{r}
+# graphviz!
+pv.out <- pathview(gene.data=KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3$geneList_vec$H_EE_vs_SH,
+                pathway.id="rno00190",
+                species = 'rno',
+         out.suffix = "graphviz",
+         kegg.native = F,
+         # same.layer = F #slower & on top (out of bounds?)
+         )
+```
+
+```{r}
+# graphviz!
+pv.out <- pathview(gene.data=KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3$geneList_vec$H_EE_vs_SH,
+                pathway.id="rno04722",
+                species = 'rno',
+         out.suffix = "graphviz",
+         kegg.native = F,
+         # same.layer = F #slower & on top (out of bounds?)
+         )
+```
+
+```{r}
+# graphviz! | neuroactive ligand signalling 
+pv.out <- pathview(gene.data=KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3$geneList_vec$H_EE_vs_SH,
+                pathway.id="rno04082",
+                species = 'rno',
+         out.suffix = "graphviz",
+         kegg.native = F,
+         # same.layer = F #slower & on top (out of bounds?)
+         )
+```
+
+------------------------------------------------------------------------
+
+# GO
+
+```{r}
+# UNNESTED UNESTED - nested map_dfr() inside another
+GO_tibs_df <- purrr::map_dfr(
+  GO_gsea_EExAge_msstats_v3.2.2_t1_cp_v3.4.2_t2$GO_results_tib,
+  ~map_dfr(.x, as_tibble, .id = "GO"),
+  .id = "Label") 
+# YAY THIS WORKS! 
+```
+
+```{r}
+# baseR subsetting checks
+unique(GO_tibs_df$Description[GO_tibs_df$GO == "CC"]) # 226! 
+
+length(unique(GO_tibs_df$Description[GO_tibs_df$GO == "CC"])) # CC - 227
+length(unique(GO_tibs_df$Description[GO_tibs_df$GO == "BP"])) # BP - 368
+length(unique(GO_tibs_df$Description[GO_tibs_df$GO == "MF"])) # MF - 146
+```
+
+```{r}
+# looks kinda horrifc buy honestly a good check! 
+lolly_GO_facet <- GO_tibs_df  %>%
+  
+  filter(GO == "CC") %>% # just comment out accordingly easiest
+  
+  ggplot(aes(x= reorder(Description, NES), 
+             y = NES,
+             fill = NES)) +
+  geom_segment(aes(x = Description,
+                   yend = NES, y = 0,
+                   alpha = p.adjust)) +
+  geom_point(aes(alpha = p.adjust, size = setSize),
+             shape = 21) +
+  scale_alpha(range = c(.9,.3), guide = 'none') + # rev alpha so darker = more sig
+  geom_hline(yintercept = 0, color = 'grey20', linewidth = 0.1) +
+  scale_color_manual(breaks = c("Up", "Down"),
+                     # values = c("#dc322f", "#268bd2"),
+                     guide = 'none') + 
+  scale_size_continuous(range = c(3,9)) + # map size oflolly (set size)
+  
+  # scale_fill_continuous_diverging("Blue-Red 3") + # colorspace
+  scale_fill_continuous_diverging("Blue-Red 2") +
+  
+  ylim(-4,4)+
+  
+  labs(title = 'GO BP EExAge facet - 2026_01_21',
+       y = 'NES',
+       x = 'KEGG PATH') +
+  coord_flip() + #fliptheplot
+  facet_wrap(~Label,
+             space = 'free_x', 
+             ) +
+  theme_bw() +
+  theme(
+    axis.text.x = element_text(angle = 90, hjust = 1,
+                               vjust = 0.5, # 90, hj1 t/R, vj.5 cent
+                               size = 10, face = 'italic'), 
+    axis.text.y = element_text(hjust = 1, color = "grey20",
+                               size = 10, face = 'italic'), 
+    axis.title.y = element_blank(),
+    legend.position = "none"
+        ) 
+
+lolly_GO_facet
+```
+
+## GO simplify
+
+## Top Go
+
+-   <https://bioconductor.org/packages/release/bioc/vignettes/topGO/inst/doc/topGO_manual.html>
+-   <https://davidzhao1015.github.io/blog/2024/go-enrichment/#5-comparing-results>
+
+------------------------------------------------------------------------
+
+## GO CC mapping w gganatogram
+
+<https://github.com/jespermaag/gganatogram/tree/master?tab=readme-ov-file#readme>
+
+Cite Thul <https://www.science.org/doi/10.1126/science.aal3321>
+
+```{r}
+#gganatogram
+cell_key #gganatogram cell structures key
+
+# plot everthing
+gganatogram(data=cell_key[['cell']], outline = T, fillOutline='steelblue', organism="cell", fill="colour")  +theme_void()   + coord_fixed()
+
+gganatogram(data=cell_key[['cell']], outline = T, fillOutline='lightgray', organism="cell", fill="value")  +theme_void() +  coord_fixed() +  scale_fill_viridis()
+```
+
+```{r}
+# eehh terms are kinda hard to automatically mapped maybe just do manual anno based on most affected! 
+# need to have it as cell_key$cell as it is indexed cell_key[['cell']] above
+
+cells_plot <- cell_key$cell %>%
+  filter(organ %in% c("mitochondria", "actin_filaments",
+                      "nuclear_membrane", "microtubule_organizing_center",
+                      "plasma_membrane", "nuclearplasm", "nucleoli")) %>%
+  gganatogram(outline = T, fillOutline='steelblue', organism="cell", fill="colour")  +
+  theme_void()   + 
+  coord_fixed()
+
+cells_plot
+
+```
+
+------------------------------------------------------------------------
+
+## GO CC mapping w drawCell SwissBioPics
+
+2026_01_23 - ehhh honestly would be easier to do manual or maybe looking into API queries myself. Did manage to get a plot but not much mapped so kinda anticlimactic...
+
+drawCell:drawCell
+
+-   TaxonId - <https://www.ncbi.nlm.nih.gov/taxonomy/>
+
+-   list_sl_colors (subcellular location) - <http://current.geneontology.org/ontology/external2go/uniprotkb_sl2go>
+
+    -   <https://www.uniprot.org/locations?query=>\*
+
+-   Code for neuron is 6072
+
+-   export widget <https://stackoverflow.com/questions/40089207/how-to-arrange-html-widget-plots-in-a-grid-for-export-as-pdf>
+
+    -   <https://forum.posit.co/t/save-viewer-object-rendered-in-rstudio-as-image/32796/10>
+
+    -   <https://github.com/wch/webshot/issues/72>
+
+```{r}
+# read in mapped subcellelular infor from uniprot
+up_subcell_raw <- read_excel(
+  "input/UP_anno/UP_subcellular_locations_all_2026_01_23.xlsx")
+#   mutate(hashtags = str_split(Keywords, ";")) %>%
+#   tidyr::unnest(hashtags) # 22696
+
+# note alot here don't have GOID anyway
+colnames(up_subcell_raw)
+str(up_subcell_raw)
+```
+
+```{r}
+up_subcell <-up_subcell_raw %>%
+  # tidyr::separate_wider_delim(
+  #   cols = `Gene Ontologies`,
+  #   delim = ":", # split by : nooo has 2 : : so does not work :(
+  #   names = c("GO_ID", "GO_Name"))
+  
+  tidyr::separate_wider_regex( # use this instead! 
+    `Gene Ontologies`,
+    patterns = c(go_id = "GO:\\d+", # matches GO:0002079:
+                 ":",
+                 go_term = ".*"), # matches any char at end of string
+    cols_remove = FALSE) %>%
+  mutate(subcell_ID = str_remove(`Subcellular location ID`, "-"),
+         .after = `Subcellular location ID`) 
+# omg turns out ID frm uniprot was "SL-0181" rather than "SL0181"
+```
+
+```{r}
+GO_tibs_CC_EE <- GO_tibs_df %>%
+  filter(Label == "H_EE_vs_SH" & GO == "CC") %>%
+  left_join(up_subcell,
+            by = join_by(ID == go_id)) %>% # heaps not mapped!
+  filter(!is.na(subcell_ID)) %>%
+  mutate(Direction = if_else(NES <0 , "Down", "Up")) 
+```
+
+```{r}
+down_cols <- paletteer_dynamic("cartography::wine.pal", 15)
+up_cols <- paletteer_dynamic("cartography::turquoise.pal", 15)
+```
+
+```{r}
+# tidyerse AI
+GO_tibs_CC_EE_cols <- GO_tibs_CC_EE %>%
+  arrange(Direction, NES) %>% # sort by direc & then score
+  group_by(Direction) %>% # group by dir
+  mutate( # group wise calcs! so for each group xyz...
+    idx = row_number(),
+    colour = case_when(          
+      Direction == "Up"   ~ down_cols[idx],
+      Direction == "Down" ~ up_cols[idx]
+    )
+  ) %>%
+  ungroup() #%>%
+  # dplyr::select(-idx)
+```
+
+```{r}
+# # EE_color_CC_list <- GO_tibs_CC_EE_cols %>%
+# #   dplyr::select(subcell_ID, colour) %>%
+# #   tibble::deframe() # make named list 
+# 
+# 
+# # color_map_EE_CC <- GO_tibs_CC_EE_cols$val_4_dc
+# # neuron "6072" | "10116", # rat
+# 
+# # works but looks dissapointing...
+# my_neuron_EE <- drawCell::drawCell(organism_identifier = "6072", # neuron
+#                                    list_sl_colors = EE_color_CC_list,
+#                                    width = 1500,
+#                                    height = 500)
+# 
+# saveWidget(my_neuron_EE, "my_neuron_EE_v1.html")
+# webshot(url = "my_neuron_EE_v1.html",
+#         file = "my_neuron_EE_v1.pdf",
+#         # file = "temp.png",
+#         vwidth = 600,
+#         vheight = 300,
+#         delay = 10 # adding delay fixes problem (slow! otherwise blanks)
+#         )
+# 
+# 
+# my_cell_EE <- drawCell::drawCell(organism_identifier = "10116", # rat
+#                                    list_sl_colors = EE_color_CC_list,
+#                                    width = 1500,
+#                                    height = 500)
+# 
+# 
+# saveWidget(my_cell_EE, "my_cell_EE_v1.html")
+# webshot(url = "my_cell_EE_v1.html",
+#         file = "my_cell_EE_v1.pdf",
+#         # file = "temp.png",
+#         vwidth = 600,
+#         vheight = 300,
+#         delay = 10 # adding delay fixes problem (slow! otherwise blanks)
+#         )
+
+```
+
+```{r}
+# # mycell <- drawCell::drawCell(organism_identifier = "6072",
+# #                    list_sl_colors = list("SL0288" = "orange",
+# #                                          "SL0191" = "#1F4861",
+# #                                          "SL0259" = "forestgreen",
+# #                                          "SL0260" = "#BD88A5"),
+# #                    # width = 1500,
+# #                    # height = 500
+# #                    )
+# # 
+# # saveWidget(mycell, "temp.html")
+# # webshot(url = "temp.html",
+# #         file = "temp.pdf",
+# #         # file = "temp.png",
+# #         vwidth = 600,
+# #         vheight = 300,
+# #         delay = 10 # adding delay fixes problem (slow! otherwise blanks)
+# #         )
+# 
+# # drawCell::drawCellOutput(mycell, width = "100%", height = "400px")
+```
+
+```{r}
+# paleteer
+paletteer_d("nord::aurora")
+
+RColorBrewer::display.brewer.all()
+
+# Paletteer prints hexcode with color in console!!!! 
+paletteer_d("RColorBrewer::RdYlGn")
+paletteer_d("RColorBrewer::Spectral")
+paletteer_d("RColorBrewer::PiYG")
+paletteer_d("RColorBrewer::BrBG")
+paletteer_d("RColorBrewer::Pastel2")
+paletteer_d("RColorBrewer::Dark2")
+paletteer_d("rcartocolor::Temps")
+paletteer_d("rcartocolor::Geyser")
+paletteer_d("rcartocolor::Sunset")
+paletteer_d("rcartocolor::Emrld")
+paletteer_d("rcartocolor::OrYel")
+paletteer_d("rcartocolor::TealGrn")
+paletteer_d("rcartocolor::Teal")
+paletteer_d("rcartocolor::SunsetDark")
+paletteer_d("rcartocolor::TealRose")
+paletteer_d("rcartocolor::Prism")
+paletteer_d("rcartocolor::Antique")
+
+
+
+paletteer_dynamic("cartography::orange.pal", 15)
+paletteer_dynamic("cartography::green.pal", 15)
+paletteer_dynamic("cartography::blue.pal", 15)
+paletteer_dynamic("cartography::red.pal", 15)
+paletteer_dynamic("cartography::wine.pal", 15)
+paletteer_dynamic("cartography::turquoise.pal", 15)
+
+palettes_dynamic_names
+```
+
+```{r}
+neuron_test <- drawCell::drawCell(organism_identifier = "6072",
+                   list_sl_colors = list("SL0191" = "#586F9AFF", # nucleus
+                                         "SL0173" = "#CF597EFF", # mitochondrion
+                                         "SL0132" = "#39B185FF", # golgi apparatus
+                                         "SL0095" = "#3B738FFF", # Ebdoplasmic reticulum
+                                         "SL0101" = "#E17C05FF", # Endosome
+                                         "SL0197" = "#FEE08BFF", # Perikaryon / soma
+                                         "SL0154" = "#A8DBD9FF", # Lipid Droplet
+                                         "SL0158" = "#7CAF71FF", # Lysosome
+                                         "SL0091" = "#E6F5D0FF", # Cytosol
+                                         "SL0090" = "#E6AB02FF", # Cytoskeleton
+                                         
+                                         "SL0279" = "#D3F2A3FF", # axon
+                                         "SL0288" = "#97E196FF", # growth cone
+                                         "SL0176" = "#F1B6DAFF", #  Myelin membrane
+                                         "SL0284" = "#F9C7B8FF", # dendrite
+                                   "SL0258" = "#F3AD6AFF", # synapse
+                                     "SL0297" = "#586F9AFF", # post synaptic density?
+                                        "SL0219" = "#DB7B80FF", # postsynaptic cell mem 
+                                            "SL0284" = "#EE4D5AFF", # Dendritc Spine
+                                            "SL0285" = "#F46D43FF", # Dendritc Spine mem
+                                            "SL0530" = "#68ABB8FF", # Spine Apparatu mem
+                                              
+                                         "SL0222" = "#D1EEEAFF", # presynaptic cell mem 
+                                            "SL0519" = "#EDAD08FF", # presyn active zone
+                                            "SL0259" = "#4C90B4FF", # Synaptic Vesicle
+                                              "SL0260" = "#8FBFD7FF", # Synap Vesic Mem
+                                      "SL0039" = "#DC3977FF" # Cell membrane
+                                         ),
+                   width = 2000,
+                   height = 500
+                   )
+neuron_test
+
+# saveWidget(mycell, "temp.html")
+# webshot(url = "temp.html",
+#         file = "temp.pdf",
+#         # file = "temp.png",
+#         vwidth = 600,
+#         vheight = 300,
+#         delay = 10 # adding delay fixes problem (slow! otherwise blanks)
+#         )
+# 
+# 
+# drawCell::drawCellOutput(mycell, width = "100%", height = "400px")
+```
+
+"
