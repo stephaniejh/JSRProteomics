@@ -120,3 +120,23 @@ mapped_comp_sig_count <- mapped_comp_v3.4.1_EExAge_t1 %>%
   group_by(Label) %>%
   count()
 ```
+
+```{r}
+EE_ranked_gene_list <- mapped_comp_v3.4.1_EExAge_t1 %>% # 64392
+  filter(Label == "H_EE_vs_SH") %>% #8049
+  filter(is.na(issue)) %>% # 8048
+  mutate(ranking = sign(log2FC)*(-log10(pvalue))) %>%
+  group_by(gene) %>%
+  summarise(ranking = mean(ranking, na.rm = TRUE)) %>%
+  arrange(-ranking)
+```
+
+```{r}
+length(unique(EE_ranked_gene_list$gene)) # 8014
+length(unique(EE_ranked_gene_list$Protein)) # 8048
+```
+
+```{r}
+write_excel_csv(EE_ranked_gene_list, "output/2026_04_03_v3.4.1_msstats_redo_con_EE_vs_SH_ranked_genename_list.csv")
+```
+
