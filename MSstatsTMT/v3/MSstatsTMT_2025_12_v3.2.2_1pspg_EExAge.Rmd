@@ -313,6 +313,14 @@ mapped_comp <- left_join(test.contrasts.msstats$ComparisonResult, v3_1pspg_PD,
 #          file = "output/MSstatsTMT/comp/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_comp.rda")
 ```
 
+------------------------------------------------------------------------
+
+# Stats/Model Checks
+
+```{r}
+broom::
+```
+
 ```{r}
 sessionInfo()
 ```
