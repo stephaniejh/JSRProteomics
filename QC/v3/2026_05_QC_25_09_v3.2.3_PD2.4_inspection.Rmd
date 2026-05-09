@@ -1,0 +1,81 @@
+---
+title: "2026_05_QC_25_09_v3.2.3_PD2.4_inspection"
+author: "Stephanie Huang"
+date: "2026-05-08"
+output: github_document
+---
+
+```{2026_05_QC_PD}
+```
+
+2026_05_08 - Double checking whether the 1st protein protein in Master Protein Accession (MPA) Column is the 1st protein in the Protein Accession (PA) column of the PSMs results file – because fig301 of PD2.4 userguide shows that it sometimes isn't – intially thought Protein Accessions were ranked ordered because it is not alphabettical at least??!?!.
+
+Answer - yes matches if unique peptide. However, if more than 1 accession, then 1st protein in PA does not necessarily match the MPA – although it does most of the time. So still not sure if the order it is listed in is meaningful...
+
+NOTE - this is not a problem if you use MSstatsTMT's defaults since it removes shared peptides.
+
+```{r}
+library(tidyverse)
+```
+
+doubling checking PD2.4 PSMs Master Protein Accession is the same as Protein Accession - answer - yes it is, but only if it is a unique peptide.
+
+```{r}
+# load("output/2025_10_03_QC_v3.2.1_PSMs_4s_96f_PD_db.rda")
+fasta <- read_csv("input/anno/UP000002494_10116_Rat_Ref_Proteome_22403_1pspg_2025_04_UPfastadf.csv") 
+```
+
+```{r}
+dim(PSMs)
+str(PSMs)
+colnames(PSMs)
+
+count(PSMs, Confidence) # all high confidence
+count(PSMs, `PSM Ambiguity`) # all Unambigous
+```
+
+```{r}
+PSMs_calcs <- PSMs %>%
+  
+  mutate(Master_PA_1 = ifelse(grepl(";", `Master Protein Accessions`), # match ;
+                              sub(";.*", "", `Master Protein Accessions`), # rm ; & aft
+                              `Master Protein Accessions`), # if 1 then asis
+         .after = `Master Protein Accessions`) %>%
+  
+  separate_wider_delim(`Protein Accessions`, # split protein accession
+                       delim = "; ", # by separate ; 
+                       names_sep = "", # make as name cols as needed
+                       too_few = "align_start") %>%  # align @ start
+  
+  mutate(first_match = ifelse(Master_PA_1 == `Protein Accessions1`,
+                              TRUE, FALSE), .before = Master_PA_1)
+  
+```
+
+```{r}
+colnames(PSMs_calcs) # see how many new cols Protein Accessions1 - 65!
+
+
+summary(PSMs_calcs$first_match) # FALSE (258685), TRUE (3040912), NA's (1373)
+# interesting there are some NA's no master protein accession but there is protein accession | falses seem mainly driven by isoforms 
+```
+
+<https://www.statology.org/dplyr-left-join-select-columns/> - based on this
+
+```{r}
+PSMs_calcs_false <- PSMs_calcs %>%
+  filter(first_match == FALSE) #%>% # mismatches
+  # filter(PD_set %in% c("1pspg_2025", "sp_2025")) %>% # no isoforms
+  # filter(PD_set == "1pspg_2025") %>% 
+  # left_join(dplyr::select(fasta, uniprot_acc, gene, description), # 2 cols only
+  #           by = join_by("Master_PA_1" == "uniprot_acc")) %>%
+  # relocate(c(gene,description), .before = Confidence) %>%
+  # filter(str_detect(description, "receptor")) 
+
+```
+
+```{r}
+# no NAs so basically this is never an issue when there is only one protein accession
+# which means defaults in msstatsTMTs avoids any issues!
+sum(is.na(PSMs_calcs_false$`Protein Accessions2`))
+```
