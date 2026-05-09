@@ -7,10 +7,12 @@
 .RData
 .Ruserdata
 .rda
+.RData
 
 # added 
 # Data input & output folders
 input/*
+output/*
 output/*
 logs/* 
 plots/*
