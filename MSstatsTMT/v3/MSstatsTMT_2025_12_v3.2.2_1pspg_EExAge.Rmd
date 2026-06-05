@@ -319,9 +319,9 @@ mapped_comp <- left_join(test.contrasts.msstats$ComparisonResult, v3_1pspg_PD,
 
 # Stats/Model Checks
 
-#### 2026_06_05
+## 2026_06_05 - saved output from 
 
-Intital test
+#### 1- Intital test
 
 ```{r}
 # can do vector or pre allocate with length of fitted models?
@@ -346,7 +346,7 @@ base_table <- as.data.frame(coef(summary(test.contrasts.msstats$FittedModel$A0A0
 # broom does not work & broom.mixed can't be installed? 
 ```
 
-#### Better but still noob
+#### 2 - Better but still noob
 
 ```{r}
 tested_prot_list <- names(test.contrasts.msstats$FittedModel)
@@ -387,9 +387,7 @@ model_vec_df <- list_rbind(model_vec, names_to = "Protein_Accession")
 model_vec_df <- rownames_to_column(model_vec_df, var = "id")
 ```
 
-# 
-
-### More elegant solution
+### 3 - More elegant solution (saved ver 2026_06_05)
 
 ```{r}
 tested_prot_list <- names(test.contrasts.msstats$FittedModel)
@@ -413,6 +411,25 @@ for (m in tested_prot_list) {
 }
 
 all_coefs <- bind_rows(Filter(Negate(is.null), model_vec))
+```
+
+2026_06_05 - Merge the coefficients from MSstatsTMT models to the Uniprot FASTA
+
+2025_12_31_1pspg_test_contrasts_msstats_v3.2.2_t1_EExAge.rda + UP000002494_10116_Rat_Ref_Proteome_22403_1pspg_2025_04_UPfastadf.csv
+
+```{r}
+# joined with mapped df
+mapped_all_coefs <- left_join(all_coefs, v3_1pspg_PD, 
+                         by = join_by(protein == unique_id)) # becomes 32192 x 18 (8048 proteins x 4)
+```
+
+```{r}
+# save! 
+# write_excel_csv(mapped_all_coefs,
+#               "output/MSstatsTMT/comp/model_outputs/2026_06_05_1pspg_msstats_v3.2.2_t1_EExAge_mapped_model_coef.csv")
+
+# save(mapped_all_coefs,
+#    file = "output/MSstatsTMT/comp/model_outputs/2026_06_05_1pspg_msstats_v3.2.2_t1_EExAge_mapped_model_coef.rda")
 ```
 
 ```{r}
