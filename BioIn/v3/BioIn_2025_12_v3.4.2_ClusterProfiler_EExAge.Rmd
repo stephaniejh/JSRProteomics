@@ -432,7 +432,7 @@ for (lb in label_names){
 
 see the **BioIn_2025_09_v3.3.1_fgsea_BSS_tut.Rmd** script for more details
 
--   <https://yulab-smu.top/biomedical-knowledge-mining-book/027-universal-enrichment.html#msigdb-analysis>
+- <https://yulab-smu.top/biomedical-knowledge-mining-book/027-universal-enrichment.html#msigdb-analysis>
 
 ```{r}
 # # msigdbr helper functions
@@ -674,8 +674,8 @@ for (lb in label_names) {
 
 Try ReactomeGSA instead (R client directly recommended by Reactome)
 
--   <https://yulab-smu.top/biomedical-knowledge-mining-book/024-reactome.html>
--   <https://guangchuangyu.github.io/software/ReactomePA/>
+- <https://yulab-smu.top/biomedical-knowledge-mining-book/024-reactome.html>
+- <https://guangchuangyu.github.io/software/ReactomePA/>
 
 ```{r}
 # # test for housing EE vs SH only 
@@ -712,7 +712,7 @@ Try ReactomeGSA instead (R client directly recommended by Reactome)
 
 ## Rampon msigdbr
 
--   <https://www.gsea-msigdb.org/gsea/msigdb/mouse/geneset/RAMPON_ENRICHED_LEARNING_ENVIRONMENT_EARLY_DN.html>
+- <https://www.gsea-msigdb.org/gsea/msigdb/mouse/geneset/RAMPON_ENRICHED_LEARNING_ENVIRONMENT_EARLY_DN.html>
 
 ```{r}
 # NONE SIG!!! even with lower min size!  - ignore
