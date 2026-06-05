@@ -37,6 +37,7 @@ library(ggh4x)
 library(rayshader) # for plot_gg (3D plots)
 library(lattice) # for 3D
 library(latticeExtra) # for 3D
+library(patchwork)
 ```
 
 ## Read in data
@@ -63,7 +64,7 @@ pig_df <- read_excel(
 
 ## Wrangling & Shaping
 
--   <https://www.spsanderson.com/steveondata/posts/2025-10-20/#addressing-truly-empty-rows-with-rowsums>
+- <https://www.spsanderson.com/steveondata/posts/2025-10-20/#addressing-truly-empty-rows-with-rowsums>
 
 ```{r}
 # colnames(rat_df) # to double check spaces
@@ -74,7 +75,7 @@ housing_df_1 <- bind_rows(rat_df, mice_df, pig_df) %>%
 housing_df_2 <- housing_df_1[rowSums(is.na(housing_df_1)) != ncol(housing_df_1), ] # rm truly empty rows | x 37  
 ```
 
--   split cell into 2 cells - <https://tidyr.tidyverse.org/reference/separate_wider_delim.html>
+- split cell into 2 cells - <https://tidyr.tidyverse.org/reference/separate_wider_delim.html>
 
 ```{r}
 housing_df_3 <- housing_df_2 %>%
@@ -199,17 +200,17 @@ WT_ctrl_EE_only <- housing_df_3 %>%
 
 ## Timeline Plot (for housing start/end & duration)
 
--   <https://stackoverflow.com/questions/45245368/ggplot2-how-to-create-a-clustered-timeline>
-    -   <https://ggplot2.tidyverse.org/reference/geom_segment.html> for timeline bits
-    -   Actually use geom_rect instead (as it allows fill & color!)
--   <https://colorspace.r-forge.r-project.org/articles/hcl_palettes.html>
-    -   <https://pmassicotte.github.io/paletteer_gallery/#continuous-palettes>
-    -   Browse colors on web <https://emilhvitfeldt.github.io/r-color-palettes/discrete.html#category=>
--   <https://en.wikipedia.org/wiki/Table_of_divisors>
--   <https://github.com/wilkelab/ggtext> & <https://r-graph-gallery.com/package/ggtext.html> - element_markdown() (using ggtext & glue packages) for specifying custom axis text labels - e.g. pink for females & blue for males.
-    -   <https://stackoverflow.com/questions/72749018/color-axis-text-to-match-grouping-variable-in-ggplot>
--   OLD CODE DELETED
-    -   geom_segment - y & yend= reorder(interaction(author_year, housing_condition), study_yr_by_dur, decreasing = TRUE),
+- <https://stackoverflow.com/questions/45245368/ggplot2-how-to-create-a-clustered-timeline>
+  - <https://ggplot2.tidyverse.org/reference/geom_segment.html> for timeline bits
+  - Actually use geom_rect instead (as it allows fill & color!)
+- <https://colorspace.r-forge.r-project.org/articles/hcl_palettes.html>
+  - <https://pmassicotte.github.io/paletteer_gallery/#continuous-palettes>
+  - Browse colors on web <https://emilhvitfeldt.github.io/r-color-palettes/discrete.html#category=>
+- <https://en.wikipedia.org/wiki/Table_of_divisors>
+- <https://github.com/wilkelab/ggtext> & <https://r-graph-gallery.com/package/ggtext.html> - element_markdown() (using ggtext & glue packages) for specifying custom axis text labels - e.g. pink for females & blue for males.
+  - <https://stackoverflow.com/questions/72749018/color-axis-text-to-match-grouping-variable-in-ggplot>
+- OLD CODE DELETED
+  - geom_segment - y & yend= reorder(interaction(author_year, housing_condition), study_yr_by_dur, decreasing = TRUE),
 
 ```{r}
 # COLORS
@@ -333,9 +334,9 @@ EE_running_wheel <- housing_df_3 %>%
 knitr::kable(EE_running_wheel) # 16/22 yes |includ Novati Saucer wheel
 ```
 
--   <https://cran.r-project.org/web/packages/ggwordcloud/vignettes/ggwordcloud.html>
+- <https://cran.r-project.org/web/packages/ggwordcloud/vignettes/ggwordcloud.html>
 
--   <https://lepennec.github.io/ggwordcloud/>
+- <https://lepennec.github.io/ggwordcloud/>
 
 ```{r}
 # EE_contents_wordcloud <- EE_contents %>%
@@ -344,8 +345,8 @@ ggplot(EE_contents, aes(label = enrichment_contents_split)) +
   theme_minimal()
 ```
 
--   <https://forum.posit.co/t/case-when-mutate-str-detect/124835>
--   <https://colorspace.r-forge.r-project.org/articles/ggplot2_color_scales.html>
+- <https://forum.posit.co/t/case-when-mutate-str-detect/124835>
+- <https://colorspace.r-forge.r-project.org/articles/ggplot2_color_scales.html>
 
 ```{r}
 EE_contents_reshaped <- housing_df_3 %>%
@@ -448,7 +449,16 @@ IC_SH_wordcloud <- ggplot(IC_SH_ontents_reshaped,
 IC_SH_wordcloud
 ```
 
+<https://www.geeksforgeeks.org/r-language/change-background-color-with-plot-grid-in-r/>
+
 ```{r}
+EE_wordcloud <- EE_wordcloud + theme(
+  plot.background = element_rect(fill = "#BAE3A5", color = "grey10", alpha = 0.1))
+
+# EE_wordcloud <- EE_wordcloud + theme(
+#   plot.background = element_rect(fill = "lightblue", color = NA))
+
+
 plot_grid(EE_wordcloud,IC_SH_wordcloud, nrow = 2,
           labels = c("a", "b"))
 
@@ -456,7 +466,7 @@ plot_grid(EE_wordcloud,IC_SH_wordcloud, nrow = 2,
 
 ## Cage & no. - geom_rect + fill in later
 
--   ~~gg3D <https://htmlpreview.github.io/?https://github.com/AckerDWM/gg3D/blob/master/gg3D-vignette.html>~~
+- ~~gg3D <https://htmlpreview.github.io/?https://github.com/AckerDWM/gg3D/blob/master/gg3D-vignette.html>~~
 
 ```{r}
 cage_no_plot <- one_house_df %>%
@@ -492,11 +502,11 @@ cage_no_plot
 
 ### With Rayshader !!! works but blocky & ugly
 
--   <https://www.tylermw.com/posts/data_visualization/3d-ggplots-with-rayshader.html>
+- <https://www.tylermw.com/posts/data_visualization/3d-ggplots-with-rayshader.html>
 
-    -   <https://forum.posit.co/t/rayshader-3d-ggplots/143602>
+  - <https://forum.posit.co/t/rayshader-3d-ggplots/143602>
 
-    -   <https://www.rayshader.com/reference/plot_gg.html>
+  - <https://www.rayshader.com/reference/plot_gg.html>
 
 ```{r}
 # cage_no_plot_2 <- one_house_df %>%
@@ -528,9 +538,9 @@ cage_no_plot
 
 ### Lattice & LatticeExtra in R
 
--   <https://stackoverflow.com/questions/65837568/r-adjust-color-gradient-for-3dbarplot-using-latticeextra-cloud-in-r>
+- <https://stackoverflow.com/questions/65837568/r-adjust-color-gradient-for-3dbarplot-using-latticeextra-cloud-in-r>
 
--   <https://stackoverflow.com/questions/1406202/plotting-a-wireframe-and-a-cloud-with-lattice-in-r>
+- <https://stackoverflow.com/questions/1406202/plotting-a-wireframe-and-a-cloud-with-lattice-in-r>
 
 ```{r}
 library(latticeExtra)
@@ -607,9 +617,9 @@ plot_grid(plot_1, plot_1)
 
 ## Cage plot working with lattice!
 
--   <https://journal.r-project.org/articles/RJ-2023-071/>
-    -   <https://emilhvitfeldt.github.io/paletteer/>
-        -   <https://github.com/Nowosad/rcartocolor>
+- <https://journal.r-project.org/articles/RJ-2023-071/>
+  - <https://emilhvitfeldt.github.io/paletteer/>
+    - <https://github.com/Nowosad/rcartocolor>
 
 ```{r}
 # COLOR BLIND FRIENDLY COLORS
@@ -689,9 +699,9 @@ tr_1_house_df <- one_house_df %>%
 str(tr_1_house_df)
 ```
 
--   <https://learnr.wordpress.com/2009/07/15/ggplot2-version-of-figures-in-lattice-multivariate-data-visualization-with-r-part-5/>
+- <https://learnr.wordpress.com/2009/07/15/ggplot2-version-of-figures-in-lattice-multivariate-data-visualization-with-r-part-5/>
 
--   [https://learnr.wordpress.com/wp-content/uploads/2009/08/latbook.pdf](chrome-extension://efaidnbmnnnibpcajpcglclefindmkaj/https://learnr.wordpress.com/wp-content/uploads/2009/08/latbook.pdf){.uri}
+- [https://learnr.wordpress.com/wp-content/uploads/2009/08/latbook.pdf](chrome-extension://efaidnbmnnnibpcajpcglclefindmkaj/https://learnr.wordpress.com/wp-content/uploads/2009/08/latbook.pdf){.uri}
 
 ```{r}
 # see settings
@@ -787,7 +797,7 @@ for(cr in crosses) {
         par.main.text = list(cex = .75, font = 1), # main/title
 
         par.sub.text = list(cex = .8, font = 1), # sub
-        plot.symbol = list(cex = 2.5, col = paste0("",df_2$sex_col[1], "")),
+        plot.symbol = list(cex = 2, col = paste0("",df_2$sex_col[1], "")),
         
         panel.background = list(col = paste0("",df_2$box_col[1], ""), alpha = 0.1),
         
@@ -821,7 +831,13 @@ for(cr in crosses) {
 ![](images/clipboard-9133593.png)
 
 ```{r}
-plot_grid(plotlist = plot_3D_list, ncol = 5)#
+plot_grid(plotlist = plot_3D_list[c(1:2,6:11)], ncol = 2)#
+
+# plot_grid(plotlist = plot_3D_list, ncol = 2)#
+```
+
+```{r}
+(plot_3D_list$`Angelucci 2009 EE` + plot_3D_list$`Angelucci 2009 SH` )
 ```
 
 ```{r}
