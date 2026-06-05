@@ -1,0 +1,105 @@
+---
+title: "2026_06_MSsTMT_ModelCoef_heatmaps_v3.2.2_1pspg_EEAge"
+author: "Stephanie Huang"
+date: "2026-06-05"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+```
+
+```{r}
+#load rda or read in csvs
+load("output/MSstatsTMT/comp/model_outputs/2026_06_05_1pspg_msstats_v3.2.2_t1_EExAge_mapped_model_coef.rda")
+load("output/MSstatsTMT/comp/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_comp.rda")
+
+```
+
+```{r}
+mapped_coef <- mapped_all_coefs %>%
+  select(Estimate:model_type, gene, description) %>%
+  rename(p.val = "Pr(>|t|)", # new = old
+         std.error = "Std. Error") %>%
+  
+  mutate(Group = case_when(
+    term == "(Intercept)" ~ "EE_OLD", # Intercept anchored to EE_OLD
+    term == "GroupEE_YNG" ~ "EE_YNG",
+    term == "GroupSH_OLD" ~ "SH_OLD",
+    term == "GroupSH_YNG" ~ "SH_YNG")) %>%
+  
+  mutate(est_2 = ifelse(Group == "EE_OLD", 0, Estimate)) # if EE_OLD = 0, rest leave as
+  
+  
+```
+
+```{r}
+mapped_coef$Group <- factor(mapped_coef$Group,
+                            levels = c("EE_YNG", "EE_OLD", "SH_YNG", "SH_OLD"))
+```
+
+```{r}
+EE_sig <- mapped_comp_v3.2.2_EExAge_t1 %>%
+  filter(Label == "H_EE_vs_SH" & adj.pvalue < 0.2) %>%
+  pull(Protein)
+```
+
+- <https://r-graph-gallery.com/79-levelplot-with-ggplot2.html>
+- <https://r-graph-gallery.com/line-chart-dual-Y-axis-ggplot2.html>
+
+```{r}
+# my_prot_desc <- mapped_coef[, c("description", "gene")]
+```
+
+```{r}
+heat_map_EE <- mapped_coef %>%
+  filter(protein %in% EE_sig) %>%
+
+ggplot(aes(x = Group, y = description, fill= est_2)) + 
+ geom_tile(color = "grey10") +
+ geom_text(aes(label = paste0("est = ",round(Estimate,2), ", se = ",round(std.error,2), ", p = ",round(p.val,3))),
+           size = 2, fontface = "italic") + 
+ colorspace::scale_fill_continuous_diverging("Blue-Red") +
+ theme_minimal() +
+ theme(
+   # panel.grid = element_blank(),
+   legend.position = "none"
+   )
+
+
+heat_map_EE
+# 2026_06_05_EE_coef_heatmap_geom_tile_p.1_24.pdf # p.1 24
+# 2026_06_05_EE_coef_heatmap_geom_tile_p.05_16.pdf # p.05 16
+# 2026_06_05_EE_coef_heatmap_geom_tile_p.2_41.pdf # p.2 41
+```
+
+Age
+
+```{r}
+Age_sig <- mapped_comp_v3.2.2_EExAge_t1 %>%
+  filter(Label == "A_YNG_vs_OLD" & adj.pvalue < 0.01) %>%
+  pull(Protein)
+```
+
+```{r}
+heat_map_Age <- mapped_coef %>%
+  filter(protein %in% Age_sig) %>%
+
+ggplot(aes(x = Group, y = description, fill= est_2)) + 
+ geom_tile(color = "grey10") +
+ geom_text(aes(label = paste0("est = ",round(Estimate,2), ", se = ",round(std.error,2), ", p = ",round(p.val,3))),
+           size = 2, fontface = "italic") + 
+ colorspace::scale_fill_continuous_diverging("Blue-Red") +
+ theme_minimal() +
+ theme(
+   # panel.grid = element_blank(),
+   legend.position = "none"
+   )
+
+heat_map_Age
+# 2026_06_05_Age_coef_heatmap_geom_tile_test_p.01_74.pdf
+```
