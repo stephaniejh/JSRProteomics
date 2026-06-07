@@ -21,16 +21,16 @@ set.seed(123) # for reproducibility
 # Load Packages 
 library(tidyverse) # for dplyr, ggplot, stringr, readr, purrr, tibble, tidyr etc 
 library(readxl)
-library(clusterProfiler) #GSEA includes gsea, enrichplot etc.
+# library(clusterProfiler) #GSEA includes gsea, enrichplot etc.
 library(GOSemSim) # needed for simplify or now?
-library(org.Rn.eg.db) # Rat genome anno pack- incl. AnnotationDbi
+# library(org.Rn.eg.db) # Rat genome anno pack- incl. AnnotationDbi
 library(msigdbr) # MSigDB gene sets
-library(enrichplot) # for dotplot()
+# library(enrichplot) # for dotplot()
 library(ggridges) # for ridgeplot()
-library(pathview) # pathview() - Kegg pathway visualisation
+# library(pathview) # pathview() - Kegg pathway visualisation
 
-library(gganatogram) # gganatogram CO GG
-library(drawCell) # drawing GO CC - SwissBioPics 
+# library(gganatogram) # gganatogram CO GG
+# library(drawCell) # drawing GO CC - SwissBioPics 
 library(htmlwidgets) #
 library(webshot2)
 
@@ -275,9 +275,9 @@ up_subcell <- up_subcell_raw %>%
 
 ### Lolliplot
 
--   <https://stackoverflow.com/questions/39801041/ggplot2-have-common-facet-bar-in-outer-facet-panel-in-3-way-plot>
--   <https://stackoverflow.com/questions/19440069/ggplot2-facet-wrap-strip-color-based-on-variable-in-data-set>
--   <https://stackoverflow.com/questions/79755989/changing-facet-strip-colour-by-grouping-variable-when-using-ggh4xfacet-manual>
+- <https://stackoverflow.com/questions/39801041/ggplot2-have-common-facet-bar-in-outer-facet-panel-in-3-way-plot>
+- <https://stackoverflow.com/questions/19440069/ggplot2-facet-wrap-strip-color-based-on-variable-in-data-set>
+- <https://stackoverflow.com/questions/79755989/changing-facet-strip-colour-by-grouping-variable-when-using-ggh4xfacet-manual>
 
 ```{r}
 lolliplot <- function(data,
@@ -295,7 +295,7 @@ lolliplot <- function(data,
   # NEED TO SHUFFLE HERE & THERE BUT WORKS
     strip <- strip_themed( # green for 1st 3 (housing) & Lavender for last 3 (age)
     background_x = elem_list_rect(fill = c(
-      "#AFCC9F", "#D4E4CB", "#D4E4CB",
+      "#AFCC9F", "#D4E4CB", 
       "#BFBBD5", "#DDDCE9", "#DDDCE9")))
   
   
@@ -354,28 +354,28 @@ lolliplot <- function(data,
       # strip.background.x = element_rect(fill = my_level_colors),
       # strip.background.y = element_rect(fill = "grey95"),
       strip.text.y = element_text(angle = 0, size = 8.5),
-      strip.text.x = element_text(size = 8),
+      strip.text.x = element_text(size = 7.5),
       panel.spacing.y = unit(0, "lines"), # or "cm", "in", etc.
       
     axis.text.x = element_text(angle = 90, hjust = 1, color = "grey15",
                                vjust = 0, # 90, hj1 t/R, vj.5 cent
                                size = 9.5, face = 'italic'), 
     axis.text.y = element_text(hjust = 1, color = "grey15",
-                               size = 9.5, face = 'italic',
+                               size = 8.5, face = 'italic',
                                lineheight = .7), # <1 smaller distances breaks
     axis.title.y = element_blank(),
 
     
-    legend.margin = margin(-10,-1,-5,-1), # (top, right, bot, left) | bottom ver
+    # legend.margin = margin(-10,-1,-5,-1), # (top, right, bot, left) | bottom ver
     legend.title = element_text(face = 'italic', size =8,
                                 hjust = 1),
-    legend.key.size = grid::unit(0.4, "cm"), # posit answer to same height
+    legend.key.size = grid::unit(0.3, "cm"), # posit answer to same height
     legend.text = element_text(margin = margin(l = 0)), # marg text & key
     legend.box.just = "right", # right justify legend box
     
     # #FOR RIGHT LEGEND
-    # legend.margin = margin(0,0,0,-5), # (top, right, bot, left) | right ver
-    # legend.justification = "top", # for right ver
+    legend.margin = margin(0,0,0,-5), # (top, right, bot, left) | right ver
+    legend.justification = "top", # for right ver
     
     legend.position = legend_pos) 
     
@@ -386,12 +386,19 @@ lolliplot <- function(data,
 
 ```{r}
 HM_lol <- HM_tibs_df %>%
+ mutate(Description_2 = gsub("HALLMARK_", "", Description))  %>%
  filter(!(Label %in% c("HxA_EE_OLD_vs_SH_YNG", "HxA_EE_YNG_vs_SH_OLD"))) %>%
-  lolliplot(subtitle = "MSigDB Hallmarks", legend_pos = "right")
+  mutate(Label = forcats::fct_relevel(Label,
+                                      "H_EE_vs_SH", "HxA_EE_YNG_vs_SH_YNG",
+                                      )) %>%
+  lolliplot(subtitle = "MSigDB Hallmarks GSEA - Biological Themes",
+            x_1 = Description_2,
+            legend_pos = "right")
 
 HM_lol
 
 # exp 2026_01_31_EExAge_MSigDB_Hallmarks_v1 - 13.5 x 5
+# exp 2026_06_EExAge_MSigDB_Hallmarks_5_v3 - 10 x 4.5 
 ```
 
 ## KEGG lolliplots (6)
@@ -567,9 +574,9 @@ REACT_lol_EE_3
 
 Done a nooby lazy way maybe clean up later.
 
--   <https://www.bioconductor.org/packages/devel/bioc/vignettes/pathview/inst/doc/pathview.pdf>
--   rat kegg pathways - <https://www.kegg.jp/kegg-bin/show_organism?menu_type=pathway_maps&org=rno>
--   <https://igordot.github.io/msigdbr/articles/msigdbr-intro.html>
+- <https://www.bioconductor.org/packages/devel/bioc/vignettes/pathview/inst/doc/pathview.pdf>
+- rat kegg pathways - <https://www.kegg.jp/kegg-bin/show_organism?menu_type=pathway_maps&org=rno>
+- <https://igordot.github.io/msigdbr/articles/msigdbr-intro.html>
 
 #### Aes test
 
@@ -838,7 +845,7 @@ GO_sim_lol_3_EE
 
 ### exp - 2026_01_31_EE_3_comps_GO_CC_sim_lolli_v1
 
--   <https://emilhvitfeldt.github.io/paletteer/>
+- <https://emilhvitfeldt.github.io/paletteer/>
 
 ```{r}
 # CONTINUOUS
@@ -960,9 +967,9 @@ neuron_map_EE_cell_comp
 
 ------------------------------------------------------------------------
 
--   <https://yulab-smu.top/biomedical-knowledge-mining-book/enrichplot.html#enrichment-map>
+- <https://yulab-smu.top/biomedical-knowledge-mining-book/enrichplot.html#enrichment-map>
 
--   <https://dshizuka.github.io/networkanalysis/03_plots.html>
+- <https://dshizuka.github.io/networkanalysis/03_plots.html>
 
 ```{r}
 # WEIRD MAPPING ?!?!?! 
@@ -1147,8 +1154,8 @@ v2
 
 ### KEGG
 
--   <https://www.kegg.jp/kegg-bin/show_organism?menu_type=pathway_maps&org=rno>
--   <https://en.wikipedia.org/wiki/Shades_of_orange>
+- <https://www.kegg.jp/kegg-bin/show_organism?menu_type=pathway_maps&org=rno>
+- <https://en.wikipedia.org/wiki/Shades_of_orange>
 
 KEGG_tibs_df_6_split
 

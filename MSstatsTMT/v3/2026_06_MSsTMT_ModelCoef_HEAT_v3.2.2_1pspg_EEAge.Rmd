@@ -33,7 +33,7 @@ mapped_coef <- mapped_all_coefs %>%
     term == "GroupSH_YNG" ~ "SH_YNG")) %>%
   
   mutate(est_2 = ifelse(Group == "EE_OLD", 0, Estimate)) # if EE_OLD = 0, rest leave as
-  
+
   
 ```
 
@@ -41,6 +41,21 @@ mapped_coef <- mapped_all_coefs %>%
 mapped_coef$Group <- factor(mapped_coef$Group,
                             levels = c("EE_YNG", "EE_OLD", "SH_YNG", "SH_OLD"))
 ```
+
+
+```{r}
+mapped_coef_stats <- mapped_coef %>%
+  group_by(Group) %>%
+  summarise(sum = sum(Estimate),
+            sd = sd(Estimate),
+            mean = mean(Estimate),
+            median = median(Estimate))
+
+```
+
+
+
+
 
 ```{r}
 EE_sig <- mapped_comp_v3.2.2_EExAge_t1 %>%
