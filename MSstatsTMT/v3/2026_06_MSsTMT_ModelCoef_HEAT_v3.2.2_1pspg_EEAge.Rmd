@@ -32,34 +32,46 @@ mapped_coef <- mapped_all_coefs %>%
     term == "GroupSH_OLD" ~ "SH_OLD",
     term == "GroupSH_YNG" ~ "SH_YNG")) %>%
   
-  mutate(est_2 = ifelse(Group == "EE_OLD", 0, Estimate)) # if EE_OLD = 0, rest leave as
+  mutate(est_2 = ifelse(Group == "EE_OLD", 0, Estimate)) # if EE_OLD = 0, rest leave 
+
 
   
 ```
 
 ```{r}
 mapped_coef$Group <- factor(mapped_coef$Group,
-                            levels = c("EE_YNG", "EE_OLD", "SH_YNG", "SH_OLD"))
+                            levels = c("SH_YNG", "EE_YNG", "SH_OLD", "EE_OLD"))
 ```
-
 
 ```{r}
 mapped_coef_stats <- mapped_coef %>%
   group_by(Group) %>%
   summarise(sum = sum(Estimate),
-            sd = sd(Estimate),
             mean = mean(Estimate),
-            median = median(Estimate))
+            sd = sd(Estimate),
+            median = median(Estimate),
+            
+            sum.p = sum(p.val),
+            mean.p = mean(p.val),
+            sd.p = sd(p.val),
+            median.p = median(p.val),
+            
+            sum.se = sum(std.error),
+            mean.se = mean(std.error),
+            sd.se = sd(std.error),
+            median.se = median(std.error),
+  
+            
+            )
 
 ```
 
-
-
-
-
 ```{r}
 EE_sig <- mapped_comp_v3.2.2_EExAge_t1 %>%
-  filter(Label == "H_EE_vs_SH" & adj.pvalue < 0.2) %>%
+  filter(Label == "H_EE_vs_SH") %>%
+  # arrange(adj.pvalue) %>%
+  slice_min(adj.pvalue, n=50) %>%
+   # filter(str_detect(description, "neurotrophic|BDNF|growth|Neuritin|Protein kinase|mitogen-activated protein")) %>% 
   pull(Protein)
 ```
 
@@ -73,16 +85,23 @@ EE_sig <- mapped_comp_v3.2.2_EExAge_t1 %>%
 ```{r}
 heat_map_EE <- mapped_coef %>%
   filter(protein %in% EE_sig) %>%
+  filter(Group == "EE_YNG" & p.val < 0.05 | Group != "EE_YNG") %>%
 
-ggplot(aes(x = Group, y = description, fill= est_2)) + 
+ggplot(aes(x = Group, y = interaction(description, gene, sep = " - "), fill= est_2)) + 
  geom_tile(color = "grey10") +
  geom_text(aes(label = paste0("est = ",round(Estimate,2), ", se = ",round(std.error,2), ", p = ",round(p.val,3))),
            size = 2, fontface = "italic") + 
  colorspace::scale_fill_continuous_diverging("Blue-Red") +
+ labs(
+   title = "MSstatsTMT H_EE_vs_SH - 50 most sig proteins",
+   # title = "MSstatsTMT H_EE_vs_SH - 16 adjp0.05 sig proteins",
+   subtitle = "& coefficients EE_YNG vs EE_OLD sig diff shown (p<0.05) "
+ ) +
  theme_minimal() +
  theme(
    # panel.grid = element_blank(),
-   legend.position = "none"
+   legend.position = "none",
+   axis.title.y = element_blank()
    )
 
 
@@ -90,31 +109,112 @@ heat_map_EE
 # 2026_06_05_EE_coef_heatmap_geom_tile_p.1_24.pdf # p.1 24
 # 2026_06_05_EE_coef_heatmap_geom_tile_p.05_16.pdf # p.05 16
 # 2026_06_05_EE_coef_heatmap_geom_tile_p.2_41.pdf # p.2 41
+# 2026_06_08_EE_coef_heatmap_geom_tile_top50_w_ex.pdf 
 ```
 
 Age
 
 ```{r}
 Age_sig <- mapped_comp_v3.2.2_EExAge_t1 %>%
-  filter(Label == "A_YNG_vs_OLD" & adj.pvalue < 0.01) %>%
+  # filter(Label == "A_YNG_vs_OLD" & adj.pvalue < 0.01) %>%
+ filter(Label == "A_YNG_vs_OLD") %>%
+ slice_min(adj.pvalue, n=65) %>%
   pull(Protein)
 ```
 
 ```{r}
 heat_map_Age <- mapped_coef %>%
   filter(protein %in% Age_sig) %>%
+  filter(Group == "EE_YNG" & p.val < 0.05 | Group != "EE_YNG") %>%
 
-ggplot(aes(x = Group, y = description, fill= est_2)) + 
+ggplot(aes(x = Group, y = interaction(description, gene, sep = " - "), fill= est_2)) + 
  geom_tile(color = "grey10") +
  geom_text(aes(label = paste0("est = ",round(Estimate,2), ", se = ",round(std.error,2), ", p = ",round(p.val,3))),
            size = 2, fontface = "italic") + 
  colorspace::scale_fill_continuous_diverging("Blue-Red") +
+  labs(
+   title = "MSstatsTMT A_YNG_vs_OLD - 65 most sig proteins",
+   # title = "MSstatsTMT H_EE_vs_SH - 16 adjp0.05 sig proteins",
+   subtitle = "& coefficients EE_YNG vs EE_OLD sig diff shown (p<0.05) - age effects are indeed driven by age! "
+ ) +
  theme_minimal() +
  theme(
    # panel.grid = element_blank(),
-   legend.position = "none"
+   legend.position = "none",
+      axis.title.y = element_blank()
    )
 
 heat_map_Age
 # 2026_06_05_Age_coef_heatmap_geom_tile_test_p.01_74.pdf
+# 2026_06_08_Age_coef_heatmap_geom_tile_top65_w_ex.pdf 
+```
+
+------------------------------------------------------------------------
+
+Neurotrophins
+
+```{r}
+heat_map_neuro <- mapped_coef %>%
+  
+  filter(str_detect(gene, "Ntrk|Dlg|Camk2|Faah|Fscb1|Gad2|Gfap|Gria|Homer|Mbp|Syp|Shank|Syt|Penk|Nrn1|Gphn|Syn2|Nfasc")) %>%
+    # filter(Group == "EE_YNG" & p.val < 0.05 | Group != "EE_YNG") %>%
+  ggplot(aes(x = Group, y = description, fill= est_2)) + 
+  geom_tile(color = "grey10") +
+  geom_text(aes(label = paste0("est = ",round(Estimate,2),
+                               ", se = ",round(std.error,2),
+                               ", p = ",round(p.val,3))),
+            size = 2, fontface = "italic") + 
+  colorspace::scale_fill_continuous_diverging("Blue-Red") +
+  theme_minimal() +
+  theme(
+    # panel.grid = element_blank(),
+    legend.position = "none"
+  )
+
+heat_map_neuro
+# 2026_06_05_Age_coef_heatmap_geom_tile_test_p.01_74.pdf
+```
+
+```{r}
+heat_map_neuro <- mapped_coef %>%
+  
+  # filter(str_detect(gene, "Ntrk|Dlg|Camk2|Faah|Fscb1|Gad2|Gfap|Gria|Homer|Mbp|Syp|Shank|Syt|Penk|Nrn1|Gphn|Syn2|Nfasc")) %>%
+  filter(Group == "EE_YNG" & p.val < 0.05 | Group != "EE_YNG") %>%
+  ggplot(aes(x = Group, y = description, fill= est_2)) + 
+  geom_tile(color = "grey10") +
+  geom_text(aes(label = paste0("est = ",round(Estimate,2),
+                               ", se = ",round(std.error,2),
+                               ", p = ",round(p.val,3))),
+            size = 2, fontface = "italic") + 
+  colorspace::scale_fill_continuous_diverging("Blue-Red") +
+  theme_minimal() +
+  theme(
+    # panel.grid = element_blank(),
+    legend.position = "none"
+  )
+
+heat_map_neuro
+# 2026_06_05_Age_coef_heatmap_geom_tile_test_p.01_74.pdf
+```
+
+```{r}
+mapped_coef_counts <- mapped_coef %>%
+  group_by(Group) %>%
+  summarise(smaller = sum(Estimate < 0, na.rm = TRUE),
+            bigger = sum(Estimate > 0, na.rm = TRUE),
+            smaller.02 = sum(Estimate < -0.02, na.rm = TRUE),
+            bigger.02 = sum(Estimate > 0.02, na.rm = TRUE),
+            smaller.05 = sum(Estimate < -0.05, na.rm = TRUE),
+            bigger.05 = sum(Estimate > 0.05, na.rm = TRUE),
+            smaller.1 = sum(Estimate < -0.1, na.rm = TRUE),
+            bigger.1 = sum(Estimate > 0.1, na.rm = TRUE),
+            
+            smaller.02.se = sum(Estimate < -0.02 & std.error <0.01, na.rm = TRUE),
+            bigger.02.se = sum(Estimate > 0.02 & std.error <0.01, na.rm = TRUE),
+            smaller.05.se = sum(Estimate < -0.05 & std.error <0.025, na.rm = TRUE),
+            bigger.05.se = sum(Estimate > 0.05 & std.error <0.025, na.rm = TRUE),
+            smaller.1.se = sum(Estimate < -0.1 & std.error <0.05, na.rm = TRUE),
+            bigger.1.se = sum(Estimate > 0.1 & std.error <0.05, na.rm = TRUE)
+            )
+  
 ```
