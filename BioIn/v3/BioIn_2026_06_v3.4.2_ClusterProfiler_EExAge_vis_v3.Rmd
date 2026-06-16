@@ -1,0 +1,507 @@
+---
+title: "BioIn_2026_06_v3.4.2_ClusterProfiler_EExAge_vis_v3"
+author: "Stephanie Huang"
+date: "2026-06-12"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## MSigDB Hallmarks - Lolliplots w Categories & Mapped Volcanos
+
+## Load Packages
+
+```{r}
+# https://bioconductor.org/install/
+set.seed(123) # for reproducibility
+
+# Load Packages 
+library(tidyverse) # for dplyr, ggplot, stringr, readr, purrr, tibble, tidyr etc 
+library(clusterProfiler) #GSEA includes gsea, enrichplot etc
+library(msigdbr) # MSigDB gene sets
+
+# library(drawCell) # drawing GO CC - SwissBioPics | not in new ver R
+library(htmlwidgets) 
+library(webshot2)
+
+library(paletteer) # colors
+library(colorspace) # colors
+library(cowplot) # plot_grid
+
+library(readxl)
+library(writexl) # for excel tab export
+library(ggvenn) # vennys (old ones)
+library(scales) #label_wrap text break in lolliplots
+library(ggh4x)
+library(ggrepel) # geom_text_repel
+```
+
+## Load Data
+
+```{r}
+# mapped_comp_v3.2.2_EExAge_t1
+load("input/protein_lists/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_comp.rda")
+
+df <- mapped_comp_v3.2.2_EExAge_t1
+```
+
+```{r}
+# MSIGDB
+load("output/gsea_results/2026_01_12_gsea_msig_Hallmark_EExAge_mssv3.2.2_t1_cpv3.4.2_t2.rda")
+```
+
+### 
+
+```{r}
+# see BioIn_2025_12_v3.4.2_ClusterProfiler_EExAge_vis_testing_v1.Rmd for more info
+# & BioIn_2026_01_v3.4.2_ClusterProfiler_EExAge_vis_v2.Rmd
+
+protein_comp <- df %>%
+  filter(is.na(issue)) %>% # keeps rows with issue == na (so comparisons that are ok)
+  filter(!str_detect(log2FC, "Inf")) # remove infinity/missing fold change values
+
+# check 
+head(protein_comp) 
+colnames(protein_comp)
+
+
+# ENTREZ
+protein_comp_uni_gene <- unique(protein_comp$gene) # 8014
+
+bitr_gn_2_entrez <- bitr(protein_comp_uni_gene,
+                         fromType = "SYMBOL",
+                         toType = "ENTREZID",
+                         OrgDb = "org.Rn.eg.db") #3.39% failed to map... better
+
+
+# SEE MY LEVELS BELOW 
+my_comp_levels = c("H_EE_vs_SH",
+              "HxA_EE_YNG_vs_SH_YNG",
+              "HxA_EE_OLD_vs_SH_OLD",
+              "A_YNG_vs_OLD", 
+              "HxA_EE_YNG_vs_EE_OLD",
+              "HxA_SH_YNG_vs_SH_OLD",
+              
+              "HxA_EE_OLD_vs_SH_YNG", "HxA_EE_YNG_vs_SH_OLD"
+)
+
+
+# MAP ENTREZ TO UNIPROT PROT COMPS
+protein_comp_entrez <- left_join(protein_comp, bitr_gn_2_entrez,
+                                 by = join_by(gene == SYMBOL)) %>%
+  filter(!is.na(ENTREZID))  # remove non mapped - 64384 to 61952 
+
+
+protein_comp_entrez$Label <- factor(protein_comp_entrez$Label,
+                                  levels = my_comp_levels)
+
+```
+
+```{r}
+# MAP Msigdb Hallmarks to masterdf
+HM_tibs_df <- map_dfr(gsea_msig_Hmrk_EExAge_mss3.2.2_t1_cp3.4.2_t2$gsea_results_tib,
+                        as.data.frame,
+                        .id = "Label")
+# unique(HM_tibs_df_6$Description)
+
+# Based on Liberzon 2015 paper process categories (table 1)
+HM_tibs_df_6 <- HM_tibs_df %>%
+    filter(!(Label %in% c("HxA_EE_OLD_vs_SH_YNG", "HxA_EE_YNG_vs_SH_OLD"))) %>%
+  mutate(Category = case_when( # just doing manually from paper 
+    Description == "HALLMARK_ADIPOGENESIS" ~ "Development",
+    Description == "HALLMARK_ANDROGEN_RESPONSE" ~ "Signaling",
+    
+    Description %in% c("HALLMARK_COAGULATION",
+                       "HALLMARK_INFLAMMATORY_RESPONSE") ~ "Immune",
+    
+    Description %in% c("HALLMARK_OXIDATIVE_PHOSPHORYLATION",
+                       "HALLMARK_CHOLESTEROL_HOMEOSTASIS", 
+                       "HALLMARK_FATTY_ACID_METABOLISM") ~ "Metabolic",
+    
+    grepl("TARGETS", Description) ~ "Proliferation", # MYC & E2F Targets
+  ))
+
+
+# SEE MY LEVELS BELOW 
+HM_tibs_df_6_lvls = c("H_EE_vs_SH",
+              "HxA_EE_YNG_vs_SH_YNG",
+              "A_YNG_vs_OLD", 
+              "HxA_EE_YNG_vs_EE_OLD",
+              "HxA_SH_YNG_vs_SH_OLD"
+)
+
+HM_tibs_df_6$Label <- factor(HM_tibs_df_6$Label,
+                             levels = HM_tibs_df_6_lvls)
+
+```
+
+------------------------------------------------------------------------
+
+## MSigDB Lolliplot Redo
+
+### Lolliplot function
+
+```{r}
+lolliplot <- function(data,
+                      x_1 = Description, 
+                      x_2 = NES, 
+                      y = NES, 
+                      fill_1 = NES,
+                      alpha = p.adjust,
+                      facet_formula = ~Label,
+                      size = setSize,
+                      subtitle = NULL,
+                      legend_pos = "none") {
+  
+  # NEED TO SHUFFLE HERE & THERE BUT WORKS
+    strip <- strip_themed( # green for 1st 3 (housing) & Lavender for last 3 (age)
+    background_x = elem_list_rect(fill = c(
+      "#AFCC9F", "#D4E4CB", 
+      "#BFBBD5", "#DDDCE9", "#DDDCE9")))
+  
+  
+  lol <- ggplot(data,
+                aes(x = reorder({{x_1}},{{x_2}}),
+                    y = {{y}}
+                    )) +
+    
+    geom_segment(aes(x = {{x_1}},
+                     yend = {{y}}, y = 0,
+                     alpha = {{alpha}}
+                     )) +
+    
+    geom_point(aes(alpha = {{alpha}},
+                  size = {{size}},
+                  fill = {{fill_1}}),
+             shape = 21) +
+    # scale_alpha(range = c(.95,.3)) + # rev alpha so darker = more sig | all
+    scale_alpha(range = c(.95,.45)) + #  GO TRIM VERSION so matches others
+    geom_hline(yintercept = 0, color = 'grey20', linewidth = 0.1) +
+    scale_color_manual(breaks = c("Up", "Down"),
+                     # values = c("#dc322f", "#268bd2"),
+                     guide = 'none') + 
+    scale_size_continuous(range = c(3,9), # map size oflolly (set size)
+                          guide = guide_legend(nrow = 1)) + # 1 row
+    # scale_size_continuous(range = c(2,8),
+    #      guide = guide_legend(nrow=1)) + # map size oflolly (set size) | GO BP
+    
+    # scale_fill_continuous_diverging("Blue-Red 3") + # colorspace
+    scale_fill_continuous_diverging("Blue-Red 2") +
+    
+    scale_x_discrete(labels = scales::label_wrap(width = 50)) + # break text |
+  
+    ylim(-4,4)+
+  
+    labs(subtitle = subtitle,
+       y = 'NES' ) +
+    
+    coord_flip() + #fliptheplot
+    
+    # facet_wrap(facet_formula,
+    #          space = 'free_x') +
+     
+    # facet_grid(facet_formula, # KEGG subcategory anno! half working ....
+    #              space = "free", scales = "free") +
+    
+    facet_grid2(facet_formula,
+                strip = strip,
+                space = "free", scales = "free") +
+
+    
+    theme_bw() +
+    theme(
+      strip.text.y = element_text(angle = 0, size = 8.5),
+      strip.text.x = element_text(size = 7),
+      strip.background.y = element_rect(fill = fill_alpha("grey80", 0.5 )), 
+      panel.spacing.y = unit(0, "lines"), # or "cm", "in", etc.
+      
+    axis.text.x = element_text(angle = 90, hjust = 1, color = "grey15",
+                               vjust = 0, # 90, hj1 t/R, vj.5 cent
+                               size = 9.5, face = 'italic'), 
+    axis.text.y = element_text(hjust = 1, color = "grey15",
+                               size = 8.5, face = 'italic',
+                               lineheight = .7), # <1 smaller distances breaks
+    axis.title.y = element_blank(),
+    
+    legend.margin = margin(-10,0,-5,0), # (top, right, bot, left) | bottom ver
+    legend.title = element_text(face = 'italic', size =8,
+                                hjust = 1),
+    legend.key.size = grid::unit(0.3, "cm"), # posit answer to same height
+    legend.text = element_text(margin = margin(l = 0)), # marg text & key
+    legend.box.just = "right", # right justify legend box,
+    legend.direction = "horizontal",
+    
+    legend.position = legend_pos) 
+    
+}
+```
+
+### Plot MSig Hallmarks Lolliplot with Category Labels
+
+```{r}
+HM_lol <- HM_tibs_df_6 %>%
+ mutate(Description_2 = gsub("HALLMARK_", "", Description))  %>%
+  lolliplot(subtitle = "MSigDB Hallmarks GSEA - Biological Themes",
+            facet_formula = reorder(Category, -NES)~Label,
+            x_1 = Description_2,
+            legend_pos = "bottom")
+
+HM_lol
+
+```
+
+------------------------------------------------------------------------
+
+## MAPPED GSEA VOLCANO PLOTS - MSIGDB HALLMARKS
+
+### Split leading edge in GSEA & map 2 gene names
+
+```{r}
+HM_tibs_df_6_entrez_split <- HM_tibs_df_6 %>%  #19x12
+  mutate(core_enrich_split = str_split(core_enrichment, "/")) %>% #split by /
+  tidyr::unnest(core_enrich_split) %>% # unnest to 760 x 13
+  left_join(bitr_gn_2_entrez, # map 2 gene name via ENTREZID
+            by = join_by(core_enrich_split == ENTREZID)) 
+
+```
+
+### Set up vectors & labels for loop
+
+```{r}
+Msig_HM_POI <- unique(HM_tibs_df_6$ID) # 9 
+
+# EMPTY PLOT LIST 
+Msig_HM_volcano_list <-  vector(mode = "list")
+```
+
+### Run for loop for plots
+
+```{r}
+for(hm in Msig_HM_POI) {
+  
+  # 1 - PREPARE THE DATA
+  my_genes <- HM_tibs_df_6_entrez_split %>%
+    filter(ID == hm) %>%
+    dplyr::distinct(SYMBOL) %>%
+    tibble::deframe()
+  
+  my_title <- HM_tibs_df_6_entrez_split %>%
+    filter(ID == hm) %>%
+    dplyr::distinct(Description) %>%
+    tibble::deframe()
+  
+  my_prots <- protein_comp_entrez %>% # from MSstatsTMT protein comps w ENTREZ map
+    filter(!(Label %in% c("HxA_EE_OLD_vs_SH_YNG", "HxA_EE_YNG_vs_SH_OLD"))) %>%
+    filter(gene %in% my_genes) %>%
+    dplyr::group_by(Label) %>%
+    mutate(up = sum(log2FC > 0),
+           down = sum(log2FC < 0)) 
+  
+  prot_sums <- my_prots %>% # this is needed to avoid overplotting
+    dplyr::select(Label, up, down) %>%
+    unique()
+  
+  
+  path_sig <- HM_tibs_df_6 %>% # GET DETAILS FOR ANNOTATING SIG 
+    filter(!(Label %in% c("HxA_EE_OLD_vs_SH_YNG", "HxA_EE_YNG_vs_SH_OLD"))) %>%
+    filter(ID == hm) %>%
+    dplyr::group_by(Label) %>% 
+    mutate(sig_val = case_when(
+      p.adjust <= 0.001 ~ "***",
+      p.adjust <= 0.01 ~ "**",
+      p.adjust <= 0.05 ~ "*",
+      .default = "NA" )) # if bit there then NA (ns)
+  
+  
+  # interesting... this step needed for some reason...
+  path_sig_lab <-  path_sig %>% 
+    dplyr::select(ID, Label, sig_val, NES) %>%
+    unique() 
+  
+  my_lg_prot <- my_prots %>% #LABEL LEADING GENE???
+    arrange(adj.pvalue) %>% # not quite - 6 most sig proteins
+    slice_head(n = 6)
+  
+  
+    strip <- strip_themed( # green for 1st 3 (housing) & Lavender for last 3 (age)
+    background_x = elem_list_rect(fill = c(
+      "#AFCC9F", "#D4E4CB", "#D4E4CB",
+      "#BFBBD5", "#DDDCE9", "#DDDCE9")))
+
+    
+  # _____________________________________
+  # 2 - MAKE THE VOLCANO PLOTS!!!
+  vol_plot <- protein_comp_entrez %>%
+    filter(!(Label %in% c("HxA_EE_OLD_vs_SH_YNG", "HxA_EE_YNG_vs_SH_OLD"))) %>%
+    
+    ggplot(aes(x = log2FC, y = -log10(adj.pvalue))) +
+    
+    geom_point(aes(fill = case_when( # conditional ass for color mapping
+      adj.pvalue < 0.05 & log2FC > 0 ~ "up_adjp.05", # up sig .05
+      adj.pvalue < 0.05 & log2FC < 0 ~ "down_adjp.05", # down sig .05
+      adj.pvalue < 0.1 & log2FC > 0 ~ "up_adjp.1", # up 0.1
+      adj.pvalue < 0.1 & log2FC < 0 ~ "down_adjp.1", # down .1
+      TRUE ~ "ns" ),
+      alpha = case_when( # conditional ass for ALPHA mapping
+        adj.pvalue < 0.05 & log2FC > 0 ~ "up_adjp.05", # up sig .05
+        adj.pvalue < 0.05 & log2FC < 0 ~ "down_adjp.05", # down sig .05
+        adj.pvalue < 0.1 & log2FC > 0 ~ "up_adjp.1", # up 0.1
+        adj.pvalue < 0.1 & log2FC < 0 ~ "down_adjp.1", # down .1
+        TRUE ~ "ns" )), # catch the rest
+       size = 1.6, shape = 21, stroke = 0.01) +
+    
+    scale_fill_manual(values = c("firebrick", # coloring
+                                  "royalblue3",
+                                  "lightpink",
+                                  "lightblue3",
+                                  "grey80"),
+                       breaks = c("up_adjp.05",
+                                  "down_adjp.05",
+                                  "up_adjp.1",
+                                  "down_adjp.1",
+                                  "ns"),
+                       labels = c("\U2191 (adj.p <.05)",
+                                  "\U2193 (adj.p <.05)",
+                                  "\U2191 (adj.p <.1)",
+                                  "\U2193 (adj.p <.1)",
+                                  "ns")) +
+    scale_alpha_manual( # alpha mapping
+      values = c( # darker for more significant!
+        up_adjp.05  = 0.2,
+        down_adjp.05 = 0.2,
+        up_adjp.1   = 0.2,
+        down_adjp.1 = 0.2,
+        ns = 0.1
+      )) +
+    
+    
+    
+    geom_point(data = my_prots, # ORGANE POINTS
+               aes(x = log2FC, y = -log10(adj.pvalue)),
+               alpha = .4, size = 1.5, shape = 21,
+               fill = "#E17C05FF", color = "#FCA842FF") + 
+    
+    geom_text_repel(data =  my_lg_prot, # TOP 6 MOST SIG ANNO
+                    aes(x = log2FC, y = -log10(adj.pvalue),
+                        label = gene,
+                        color = log2FC > 0), # color mapping (see below)
+                    max.overlaps = 30, size = 2.1, # gene text on points
+                    min.segment.length = .5, segment.alpha = 0.5, segment.size = 0.2) +
+                    # nudge_x = 0.155) +
+
+    
+    # NUM SIG UP & DOWN! | use sep df, overwise overplots
+    geom_text(data = prot_sums, # up 
+              aes(label = paste0(up, " \U2191")),
+              x = 1.4, y = 5.65, size = 3.1, color = "firebrick") + 
+    geom_text(data = prot_sums, # down
+              aes(label = paste0(down, " \U2193")),
+              x = -1.45, y = 5.65, size = 3.1, color = "royalblue3") + 
+    
+    
+    geom_text(data = path_sig_lab, # GSEA SIGNIFICANCE LABEL
+              aes(label = paste0(sig_val),
+                  y = 4.9,
+                  x = ifelse(NES > 0, 1.525, -1.525), # side if neg or pos
+                  color = NES > 0), # col - TRUE FALSE 
+              size = 3.2) +
+    scale_color_manual( # based on TRUE FALSE give color! 
+      values = c(`TRUE` = "firebrick", `FALSE` = "royalblue3")) +
+    
+    
+    # limits - rm 17 (but none are leading edge - shrunken for comparisons)
+    scale_x_continuous(limits = c(-2,2),
+                       expand = c(0, 0)) +
+    scale_y_continuous(limits = c(0,6),
+                       expand = c(0.04, 0)) +
+    
+    geom_hline(yintercept = -log10(0.05),
+               linetype = "dashed", linewidth = 0.1,
+               color = "grey30") +
+    geom_hline(yintercept = -log10(0.1),linetype = "dotted",
+               linewidth = 0.1, color = "grey45") +
+    geom_vline(xintercept = c(0),linetype = "solid",
+               linewidth = 0.1, color = "grey20") +
+    
+    
+    labs(subtitle = paste0("MSigDB - ", my_title)) +
+    
+    
+    # facet_wrap(~Label, nrow = 1) + 
+    facet_wrap2(~Label, nrow = 1,
+                strip = strip
+                ) + 
+    
+    theme_bw() +
+    theme(
+      # strip.background.x = element_rect(fill = my_level_colors),
+      legend.position = "none",
+      plot.subtitle = element_text(size = 8.5, vjust = 0),
+      axis.title = element_text(size =7.5),
+      axis.text = element_text(size =7),
+      axis.ticks = element_blank(),
+      strip.text = element_text(size = 6.5),
+      panel.grid = element_blank()
+    )
+  
+  
+  print(vol_plot)
+  
+  # _____________________________________
+  # 3 - SAVE THE PLOTS
+  Msig_HM_volcano_list[[hm]] <- vol_plot
+  
+  print(paste0("Done for ", hm, "! :D"))
+  
+}
+```
+
+### Plot & Export MSigDB Hallmarks Mapped Volcanos
+
+```{r}
+# plot_grid(plotlist = Msig_HM_volcano_list, ncol = 1)
+
+# ggsave("2026_06_14_MsigDB_HM_9_volcanos_330dpi.png", dpi = 330) # 8.99 x 18.2
+# dev.off()
+```
+
+```{r}
+plot_grid(plotlist = Msig_HM_volcano_list[1], ncol = 1)
+```
+
+```{r}
+# Metabolic - 3 - oxidative phos, cholesterol, fatty acid
+plot_grid(plotlist = Msig_HM_volcano_list[c(1,3,8)], ncol = 1,
+          labels = c("a", "b", "c"),
+          label_colour = "grey10", label_size = 11)
+
+
+# ggsave("2026_06_14_MsigDB_HM_3_volcano_metabolic_330dpi.png", dpi = 330) #8.21x595
+# dev.off()
+```
+
+```{r}
+# proliferation - 2 - E2F targets & Myc Targets 1 
+plot_grid(plotlist = Msig_HM_volcano_list[c(2,5)], ncol = 1,
+          labels = c("a", "b"),
+          label_colour = "grey10", label_size = 11)
+
+# ggsave("2026_06_14_MsigDB_HM_2_volcano_proliferation_330dpi.png", dpi = 330) #8.21x4
+# dev.off()
+```
+
+```{r}
+# 4 - immume(inflamm, coagulat), development(adipogenesis), & signalling(androgen)
+plot_grid(plotlist = Msig_HM_volcano_list[c(4,6,7,9)], ncol = 1,
+          labels = c("a", "b", "c", "d"),
+          label_colour = "grey10", label_size = 11)
+
+# ggsave("2026_06_14_MsigDB_HM_4_volcano_immune_develop_signal_330dpi.png", dpi = 330) #8.21x7.84
+dev.off()
+```
+
+```{r}
+
+```
