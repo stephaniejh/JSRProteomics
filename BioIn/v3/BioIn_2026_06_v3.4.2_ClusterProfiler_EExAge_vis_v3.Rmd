@@ -20,7 +20,9 @@ set.seed(123) # for reproducibility
 # Load Packages 
 library(tidyverse) # for dplyr, ggplot, stringr, readr, purrr, tibble, tidyr etc 
 library(clusterProfiler) #GSEA includes gsea, enrichplot etc
+library(topGO) # needed for clusterProfiler's plotGOgraph() graph
 library(msigdbr) # MSigDB gene sets
+library(enrichplot) #emapplot, etc
 
 # library(drawCell) # drawing GO CC - SwissBioPics | not in new ver R
 library(htmlwidgets) 
@@ -48,11 +50,17 @@ df <- mapped_comp_v3.2.2_EExAge_t1
 ```
 
 ```{r}
-# MSIGDB
+# MSIGDB Hallmarks
 load("output/gsea_results/2026_01_12_gsea_msig_Hallmark_EExAge_mssv3.2.2_t1_cpv3.4.2_t2.rda")
+
+# GO 
+load("output/gsea_results/2026_01_12_GO_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t2.rda")
+
+# GO SIMPLIFIED
+load("output/gsea_results/2026_01_24_GO_gsea_EExAge_cp_v3.4.2_t2_simplified.rda")
 ```
 
-### 
+------------------------------------------------------------------------
 
 ```{r}
 # see BioIn_2025_12_v3.4.2_ClusterProfiler_EExAge_vis_testing_v1.Rmd for more info
@@ -75,6 +83,7 @@ bitr_gn_2_entrez <- bitr(protein_comp_uni_gene,
                          toType = "ENTREZID",
                          OrgDb = "org.Rn.eg.db") #3.39% failed to map... better
 
+# wait R 4.6 -  2026_06 - 3.72% of input gene IDs are fail to map... 
 
 # SEE MY LEVELS BELOW 
 my_comp_levels = c("H_EE_vs_SH",
@@ -98,6 +107,8 @@ protein_comp_entrez$Label <- factor(protein_comp_entrez$Label,
                                   levels = my_comp_levels)
 
 ```
+
+## Preparing MSigDB Hallmarks
 
 ```{r}
 # MAP Msigdb Hallmarks to masterdf
@@ -502,6 +513,118 @@ plot_grid(plotlist = Msig_HM_volcano_list[c(4,6,7,9)], ncol = 1,
 dev.off()
 ```
 
-```{r}
+------------------------------------------------------------------------
 
+## GO 
+
+```{r}
+# MAP GO (nested nested purrr's map_dfr) to single df 
+GO_tibs_df <- map_dfr(
+  GO_gsea_EExAge_msstats_v3.2.2_t1_cp_v3.4.2_t2$GO_results_tib,
+  ~map_dfr(.x, as_tibble, .id = "GO"),
+  .id = "Label") # 1489 x 13 
+```
+
+- <https://blog.djnavarro.net/posts/2024-12-16_regex-backreferences/>
+- <https://www.regular-expressions.info/>
+
+```{r}
+GO_tibs_df_6 <- GO_tibs_df %>%
+  filter(!(Label %in% c("HxA_EE_OLD_vs_SH_YNG", "HxA_EE_YNG_vs_SH_OLD"))) %>% #1180
+  mutate(top_core_enrichment =  gsub("^((.*?/){5}.*?)/.*", # trimmed 5 / + b4 6 /
+                                     "\\1", # gets top 6 ENTREZ ID of core enrich
+                                     core_enrichment))
+
+GO_tibs_df_6$Label <- factor(GO_tibs_df_6$Label,
+                             levels = c("H_EE_vs_SH",
+                                        "HxA_EE_YNG_vs_SH_YNG",
+                                        "HxA_EE_OLD_vs_SH_OLD",
+                                        "A_YNG_vs_OLD", 
+                                        "HxA_EE_YNG_vs_EE_OLD",
+                                        "HxA_SH_YNG_vs_SH_OLD"))
+
+# check for NAs 
+colSums(is.na(GO_tibs_df)) # 0 NAs
+colSums(is.na(GO_tibs_df_6)) #0  NAs ! 
+```
+
+```{r}
+# Let's look @ the strongest leading edge genes.
+GO_tibs_df_6_split <- GO_tibs_df_6 %>%
+  mutate(top_core_enrich_split = str_split(top_core_enrichment, "/")) %>%
+  unnest(top_core_enrich_split) %>%
+  left_join(bitr_gn_2_entrez, # map 2 gene name via ENTREZID
+            by = join_by(top_core_enrich_split == ENTREZID))
+```
+
+```{r}
+# COUNTS OF TOP DRIVER GENES (LEADING EDGES in GO)
+counts <- GO_tibs_df_6_split %>%
+  group_by(Label, GO) %>%
+  count(SYMBOL)
+```
+
+```{r}
+GO_CC_POI <- unique(GO_tibs_df_6$ID) # 705 omg! nvm too many 
+
+```
+
+- <https://bioconductor.posit.co/packages/devel/bioc/vignettes/topGO/inst/doc/topGO_manual.html#74_Visualising_the_GO_structure>
+
+- <https://github.com/YuLab-SMU/enrichplot/tree/ce94b308d0ce5e835117bacd8858aadf2b2de9bc/R>
+
+- <https://github.com/YuLab-SMU/clusterProfiler/issues/786>
+
+```{r}
+# Cluster Profiler's plotGOgraph is like topGO's plot (depends on topGO)
+plotGOgraph(GO_gsea_EExAge_msstats_v3.2.2_t1_cp_v3.4.2_t2$GO_results$H_EE_vs_SH$BP,
+            firstSigNodes = 10)
+```
+
+# TO CONTINUE - look \# cnetplot & ggtangle options to fix!
+
+```{r}
+# clusterProfiler's version of the plotGOgraph - goplot
+# see v2 clusterProfiler script for modifying emapplot - same principles here!
+goplot(GO_gsea_EExAge_msstats_v3.2.2_t1_cp_v3.4.2_t2$GO_results$A_YNG_vs_OLD$CC,
+       color = "NES", geom = "text") +
+  
+  # geom_point(aes(alpha = "p.adjust"), size=6) +
+  scale_color_continuous_diverging("Blue-Red 2", name = "NES") #+
+  # scale_fill_discrete_divergingx("Temps") +
+  # geom_cnet_label(node_label = "all", # from ggtangle
+  #                 size = 2, color = "grey10",
+  #                 fontface = "italic")
+
+#args(goplot)
+```
+
+```{r}
+enrichplot::manhattanplot(GO_gsea_EExAge_msstats_v3.2.2_t1_cp_v3.4.2_t2$GO_results$H_EE_vs_SH$MF)
+```
+
+## GO SIM 
+
+```{r}
+# MAP GO (nested nested purrr's map_dfr) to single df 
+GO_sim_tibs_df <- map_dfr(
+  GO_gsea_EExAge_cp_v3.4.2_t2_simplified$sim_GO_res_tib,
+  ~map_dfr(.x, as_tibble, .id = "GO"),
+  .id = "Label") # 690 x 13
+```
+
+```{r}
+plotGOgraph(GO_gsea_EExAge_cp_v3.4.2_t2_simplified$sim_GO_res$A_YNG_vs_OLD$CC)
+# EE_vs_SH MF one keeps giving errors (regardless of GO normal or simplified?!?!?!)
+# YNG_vs_OLD BP gives error - 'snodes' contains nodes not in graph: ‘GO:0043604’
+```
+
+```{r}
+enrichplot::ssplot(GO_gsea_EExAge_cp_v3.4.2_t2_simplified$sim_GO_res$A_YNG_vs_OLD$CC, nCluster=5) + ggtitle("ssplot (nCluster=5)")
+```
+
+```{r}
+emapplot(GO_gsea_EExAge_cp_v3.4.2_t2_simplified$sim_GO_res$A_YNG_vs_OLD$BP,
+         color = 'NES', node_label = "all") # still has annoying labels :(
+# stick to old ones...
 ```
