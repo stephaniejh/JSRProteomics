@@ -1,0 +1,35 @@
+---
+title: "2026_06_v3.2.2_curated_gene&protein_sets_v1.Rmd"
+author: "Stephanie Huang"
+date: "2026-06-18"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Library
+```{r}
+
+```
+
+```{r}
+load("input/db/rat_ref_proteome_2025_12_13_51872x295.rda")
+
+rat_ref <- rat_ref_proteome_2025_12_13
+```
+
+
+```{r}
+# colnames(rat_ref)
+
+rat_ref_myelin <- rat_ref %>%
+  filter(if_any(c(`Subcellular.location..CC.`, `Function..CC.`, Protein.names, Protein.families),
+                ~ str_detect(., regex("myelin|paranode|ranvier", ignore_case = TRUE)))) %>%
+  select(Entry,`Gene.Names..primary.`, `Protein.names`, `Protein.families`, `Subcellular.location..CC.`,
+         `Gene.Ontology..cellular.component.`, `Developmental.stage`,
+          "Keywords"   ) 
+```
+
+
