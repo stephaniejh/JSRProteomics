@@ -2022,11 +2022,11 @@ myelin_plot <- mapped_psum %>%
                      "Srebf2", "Cyp46a1", "Abca1", "Abca2",
                      "Mag", "Mog", "Caspr1", "Kcna1", "Kcna2",
                      "Cntnap1", "Cntnap2", "Ank3", "Scn8a",
-                     "Gfap",
-                     "Npy", "Penk", "Vip", "Cck" , "Sst",
-                     "Slc17a7", "Slc17a6", "Gad1", "Gad2",
-                     "Shank3", "Gria1" , "Gria2", "Gria3", "Gria4",
-                     "Dlg4", "Gphn", "Hcn1", "Hcn2", "Pvalb", "Nrxn2",
+                     "Gfap", "Mobp", "Omg",
+                     # "Npy", "Penk", "Vip", "Cck" , "Sst",
+                     # "Slc17a7", "Slc17a6", "Gad1", "Gad2",
+                     # "Shank3", "Gria1" , "Gria2", "Gria3", "Gria4",
+                     # "Dlg4", "Gphn", "Hcn1", "Hcn2", "Pvalb", "Nrxn2",
                      "Camk2a", "Syn1", "Fscn1"
                      )) %>%
   
