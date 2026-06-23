@@ -1758,7 +1758,7 @@ EE_syn_check <- mapped_psum %>%
   scale_alpha_manual(values = c(.6,.75)) +
   scale_color_manual(values = c("#d33682", "#268bd2")) +
   # guides(y.sec = 'axis') + # adds 2nd y axis (right side)
-  facet_wrap(~gene, ncol = 7, scale = "free_y") +
+  facet_wrap(~gene, ncol = 9, scale = "free_y") +
   my_theme +
   theme(
      axis.text.y = element_text(size = 9, color ="grey10"),
@@ -2018,17 +2018,30 @@ myelin_plot <- mapped_psum %>%
   
   
   # filter(Protein %in% EE_facet_up_prot_list) %>%
-  filter(gene %in% c("Mbp", "Apoe", "Nfasc", "Plp1", 
-                     "Srebf2", "Cyp46a1", "Abca1", "Abca2",
-                     "Mag", "Mog", "Caspr1", "Kcna1", "Kcna2",
-                     "Cntnap1", "Cntnap2", "Ank3", "Scn8a",
-                     "Gfap", "Mobp", "Omg",
-                     # "Npy", "Penk", "Vip", "Cck" , "Sst",
-                     # "Slc17a7", "Slc17a6", "Gad1", "Gad2",
-                     # "Shank3", "Gria1" , "Gria2", "Gria3", "Gria4",
-                     # "Dlg4", "Gphn", "Hcn1", "Hcn2", "Pvalb", "Nrxn2",
-                     "Camk2a", "Syn1", "Fscn1"
-                     )) %>%
+  
+  # filter(gene %in% c(
+  #   # "Mbp", "Apoe", "Nfasc", "Plp1",
+  #   # "Srebf2", "Cyp46a1", "Abca1", "Abca2",
+  #   # "Mag", "Mog", "Caspr1", "Kcna1", "Kcna2",
+  #   # "Cntnap1", "Cntnap2", "Ank3", "Scn8a",
+  #   # "Gfap", "Mobp", "Omg",
+  #   # "Npy", "Penk", "Vip", "Cck" , "Sst",
+  #   # "Slc17a7", "Slc17a6", "Gad1", "Gad2",
+  #   # "Shank3", "Gria1" , "Gria2", "Gria3", "Gria4",
+  #   # "Dlg4", "Gphn", "Hcn1", "Hcn2", "Pvalb", "Nrxn2",
+  #   "Ngfr", "Ntf3", "Bdnf", "Sort1", "Ntrk2",
+  #   # "Vgf","Egf", "Fgf1", "Nrn1", 
+  #   "Furin", "Tnfrsf16", "Plat", "Rtn4r", "Rtn4",
+  #   "Ntrk1", "Ntrk3", "Ngf", "Mmp3", "Mmp7", "Tnfrsf1b"
+  #   # "Camk2a", "Syn1", "Fscn1"
+  # )) %>%
+  
+  
+  # 
+  # filter(gene %in% unique_growth_factors) %>%
+
+  
+  # filter(str_detect(gene, "Syt|Stxbp|Sort1")) %>%
   
   
   
@@ -2057,7 +2070,7 @@ myelin_plot <- mapped_psum %>%
   
   # labs(title = "\U2191 Upregulated in EE ") +
   # 
-  facet_wrap(~gene, ncol = 5, scale = "free_y") +
+  facet_wrap(~gene, ncol = 10, scale = "free_y") +
   # facet_wrap2(~gene+Sex, ncol = 4) +
   my_theme +
   theme(
