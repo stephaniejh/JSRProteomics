@@ -27,9 +27,31 @@ rat_ref <- rat_ref_proteome_2025_12_13
 rat_ref_myelin <- rat_ref %>%
   filter(if_any(c(`Subcellular.location..CC.`, `Function..CC.`, Protein.names, Protein.families),
                 ~ str_detect(., regex("myelin|paranode|ranvier", ignore_case = TRUE)))) %>%
-  select(Entry,`Gene.Names..primary.`, `Protein.names`, `Protein.families`, `Subcellular.location..CC.`,
+  dplyr::select(Entry,`Gene.Names..primary.`, `Protein.names`, `Protein.families`, `Subcellular.location..CC.`,
          `Gene.Ontology..cellular.component.`, `Developmental.stage`,
           "Keywords"   ) 
+```
+
+
+```{r}
+rat_ref_neurotrophin <- rat_ref %>%
+    filter(if_any(c(`Subcellular.location..CC.`, `Function..CC.`, Protein.names, Protein.families),
+                ~ str_detect(., regex("bdnf|neurotrophin|neuritin|p75|Trk|matrix metalloproteinase", ignore_case = TRUE)))) %>%
+  dplyr::select(Entry,`Gene.Names..primary.`, `Protein.names`, `Protein.families`, `Subcellular.location..CC.`,
+         `Gene.Ontology..cellular.component.`, `Developmental.stage`,
+          "Keywords"   ) 
+```
+
+```{r}
+rat_ref_growth_factor <- rat_ref %>%
+    filter(if_any(c(Protein.names, Protein.families),
+                ~ str_detect(., regex("growth factor", ignore_case = TRUE)))) %>%
+  dplyr::select(Entry,`Gene.Names..primary.`, `Protein.names`, `Protein.families`, `Subcellular.location..CC.`,
+         `Gene.Ontology..cellular.component.`, `Developmental.stage`,
+          "Keywords"   ) 
+
+
+unique_growth_factors <- unique(rat_ref_growth_factor$Gene.Names..primary.)
 ```
 
 
