@@ -3,24 +3,30 @@ title: "MssTMT_Vis_2026_01_v3.2.2_1pspg_EExAge"
 output: html_document
 ---
 
-## Setup
+# Setup
 
 ```{r}
+#
 #load packages
 library(tidyverse)
+library(readxl)
 library(pheatmap)
-library(msigdbr)
+library(pcaMethods) # for various pca()
+
+# library(msigdbr)
+
 library(cowplot)
 library(ggh4x) # scalenested
+
 library(gt)
 library(ggrepel) #  for geom_text_repel()
+
 library(colorspace)
 library(RColorBrewer)
 library(paletteer)
 library(ggnewscale) # additional color/fill scale new_scale_fill()
 library(ggvenn) # vennys (old ones)
-# library(pcaMethods) # for various pca()
-library(readxl)
+
 library(htmlwidgets) #
 library(webshot2)
 library(ggpmisc) # for line of best fit equation on ggplot
@@ -30,31 +36,22 @@ library(ggpmisc) # for line of best fit equation on ggplot
 
 ```{r}
 #psum
-
-# load("input/results/psum/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_psum.rda") # laptop
-load("input/MSstatsTMT/psum/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_psum.rda") # Jen
+load("input/MSstatsTMT/psum/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_psum.rda") # 
 
 #comp
-#load("input/results/comp/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_comp.rda") # laptop
-load("input/MSstatsTMT/comp/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_comp.rda") # Jen
-
-#load("input/results/psum/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_psum.rda") # laptop
-load("input/MSstatsTMT/psum/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_psum.rda") # Jen
-
-#comp
-#load("input/results/comp/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_comp.rda") # laptop
-load("input/MSstatsTMT/comp/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_comp.rda") # Jen
-
+load("input/MSstatsTMT/comp/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_comp.rda") # 
 
 #anno
 anno <- read_csv("input/anno/EEv&SH_F&M_TMT_anno_v3_df_b_check_sorted_2025_12_31.csv") 
 # double check later!
 ```
 
-### Map/Fix names
+## Map/Fix names - aka + bunch of extra annotation info!
+
+### For Protein Summarisation Data
 
 ```{r}
-# map details & shorten name
+# Map details & shorten name
 mapped_psum <- left_join(mapped_psum_v3.2.2_EExAge,
                                        anno,
                                        by = join_by(
@@ -62,11 +59,16 @@ mapped_psum <- left_join(mapped_psum_v3.2.2_EExAge,
                                          Mixture == Mixture,
                                          Channel == Channel)) %>%
   dplyr::rename(Condition = Condition.x , Housing_c_anno = Condition.y) %>%
-  mutate(Age = ifelse(PND > 100, "OLD", "YNG"))
+  mutate(Age = ifelse(PND > 100, "OLD", "YNG")) %>%
+  mutate(Age = factor(Age, levels = c("YNG", "OLD"))) %>% # so YNG is 1st
+  mutate(across(c(Housing, Sex, Year, Cohort, Litter, exp_helper),
+         as.factor)) # auto alphabetical order (not really needed?)
   
 #Check 
 colnames(mapped_psum)
 ```
+
+##### lil checks
 
 ```{r}
 # lil checks
@@ -85,6 +87,8 @@ unique(mapped_comp_v3.2.2_EExAge_t1$Label)
 length(unique(mapped_comp_v3.2.2_EExAge_t1$Label)) #8
 ```
 
+### For Group Comparison Data
+
 ```{r}
 # shorten name & clean up! 
 mapped_comp <- mapped_comp_v3.2.2_EExAge_t1 %>%
@@ -95,7 +99,7 @@ mapped_comp <- mapped_comp_v3.2.2_EExAge_t1 %>%
   # make gene label for significant! 
   mutate(sig_g_label = if_else(adj.pvalue <= .1, gene, NA)) %>%
   
-  # make one for no of sig up & down for each comaprison group/label
+  # make one for no. of sig up & down for each comaprison group/label
   group_by(Label) %>%
   mutate(sig_no_up_lab = sum(adj.pvalue < 0.05 & log2FC > 0), # up
          sig_no_down_lab = sum(adj.pvalue < 0.05 & log2FC < 0)) %>%  #  down
@@ -107,10 +111,12 @@ head(mapped_comp)
 colnames(mapped_comp)
 dim(mapped_comp) # 64384 x 22
 
-unique_check <- mapped_comp %>% 
+unique_check_mapcomp <- mapped_comp %>% 
   dplyr::select(Label, sig_no_down_lab, sig_no_up_lab) %>%
   unique() # yep matches up! 
 ```
+
+#### df - significant comparisons
 
 ```{r}
 mapped_comp_sig <- mapped_comp %>%
@@ -120,6 +126,8 @@ dim(mapped_comp_sig) # 458 x 21
 ```
 
 # Plotting Comp
+
+#### Theme
 
 ```{r}
 my_theme <- theme(
@@ -151,7 +159,7 @@ my_theme <- theme(
 
 ```
 
-# General QC Plots
+# QC Plots - TO DO - MOVE TO OTHER SCRIPT! 
 
 ## Heatmap
 
@@ -216,7 +224,7 @@ pca_cc <- pca(t(pca_matrix)) # transposed (so 55 scores)
 # Do this way instead. for some reason the doing it directly results
 pca_scores_cc <- scores(pca_cc)
 
-merged_pca_cc <- merge(prots_anno, pca_scores_cc, by = 0) # row names set for by = 0 
+merged_pca_cc <- merge(prots_anno, pca_scores_cc, by = 0) # row names set 4 by = 0 
 
 ggplot(merged_pca_cc,
        aes(x = PC1, y = PC2,
@@ -240,7 +248,9 @@ ggplot(merged_pca_cc,
 
 ------------------------------------------------------------------------
 
-## Volcano
+# Volcano
+
+Bit messy atm
 
 - Big Volcano - When doing all -\> Error in UseMethod("depth") : no applicable method for 'depth' applied to an object of class "NULL (takes 10 years on laptop) ➝ due to geom_text_repel() trying to plot the ns ones ➝ fixed if make a just sig gene/protein column
 
@@ -430,56 +440,14 @@ dev.off()
 
 # psumplots
 
-mt theme
-
-#### Colors
-
-```{r}
-# COLOR BLIND FRIENDLY COLORS
-palette.colors() #Okabe-Ito 9 - discrete colors
-palette.colors(10, recycle = TRUE) #Recycles 1st to get 10
-hcl.colors(9, palette = "Purple-Green") # seq/div (continuous)
-hcl.colors(8, palette = "Blues 3") # seq/div (continuous)
-palette.pals() # prints all available 
-palette("Tableau 10")
-
-# colorspace hcl
-colorspace::swatchplot(qualitative_hcl(5, palette = "Dark 3")) #
-colorspace::hclplot(diverging_hcl(10, palette = "Lisbon")) # multicolors
-hcl_palettes("sequential (multi-hue)", n = 7, plot = TRUE)
-qualitative_hcl(4, palette = "Dark 3")
-divergingx_palettes(n = 7, plot = TRUE)
-# colorspace::specplot()
-
-# paleteer
-paletteer_d("nord::aurora")
-
-display.brewer.all() #RColorBrewer
-
-# Paletteer prints hexcode with color in console!!!! 
-paletteer_d("RColorBrewer::RdYlGn")
-paletteer_d("RColorBrewer::Spectral")
-paletteer_d("RColorBrewer::PiYG")
-paletteer_d("RColorBrewer::BrBG")
-paletteer_d("RColorBrewer::Pastel2")
-paletteer_d("RColorBrewer::Dark2")
-paletteer_d("rcartocolor::Temps")
-paletteer_d("rcartocolor::Geyser")
-paletteer_d("rcartocolor::Sunset")
-paletteer_d("rcartocolor::Emrld")
-paletteer_d("rcartocolor::OrYel")
-```
-
 EE vs SH
 
 - <https://stats.oarc.ucla.edu/r/modules/subsetting-data/>
-
-<!-- -->
-
 - <https://en.wikipedia.org/wiki/List_of_Crayola_crayon_colors>
 
 ```{r}
-colors <- c("#8CB585","#A8D9A0", "#D4C07E", "#FEE697", "#E6AB02FF",
+# IGNORE FOR NOW - OLD
+temp_colors <- c("#8CB585","#A8D9A0", "#D4C07E", "#FEE697", "#E6AB02FF",
             "#66A61EFF" )
 # Banana Mania (#FBE7B2), Sunglow (#FFCC33), 	Dandelion (#FED85D)
 # Maximum Green (#5E8C31)| Asparagus #7BA05B, Middle Green Yellow (#ACBF60)
@@ -635,11 +603,9 @@ EE_main_psum_plot_list <- vector(mode = "list")
 ```{r}
 for (p in EE_main_p_sig_list){
   
-  #OPERATIONS
   #SET UP/CALC
   bp_df <- mapped_psum %>% #from psums
   filter(Protein == p) 
-  
   
   bp_labs <- EE_main_sig_df %>% # using the filter mapped_comp list 
     filter(Protein == p) %>%
@@ -650,8 +616,7 @@ for (p in EE_main_p_sig_list){
     summarise(n_unique = n_distinct(BioReplicate)) %>%
     pull(n_unique)
   
-  
-  
+  #________________________
   # MAKE PLOT
   bp <- boxplot_function( 
        data = bp_df,
@@ -664,33 +629,24 @@ for (p in EE_main_p_sig_list){
        title = paste0(bp_labs$gene, " - ", bp_labs$description),
        subtitle = paste0(bp_labs$Direction, "regulated in EE (",
                          bp_labs$uniprot_acc, " ", bp_labs$database,
-                         " - observed in ", obs_in, " samples)"
-                         )
+                         " - observed in ", obs_in, " samples)")
        )
   
   print(bp)
 
-  
-  # SAVIHG PLOTS
+  #________________
+  # SAVIHG PLOTS - separates up vs down regulated
     if (bp_labs$Direction[1] == "Up") {
       EE_main_psum_plot_list$Up[[p]] <- bp
 
     } else{
       EE_main_psum_plot_list$Down[[p]] <- bp
     }
-
-
   
 }
 ```
 
-Save list of plots
-
-```{r}
-save()
-```
-
-#### cowplots
+#### EE psum cowplots
 
 saved everything for EE sig (16 prots)
 
@@ -703,12 +659,6 @@ plot_grid(plotlist = EE_main_psum_plot_list$Down[6:10], ncol = 1)
 plot_grid(plotlist = EE_main_psum_plot_list$Up, ncol = 1,
           rel_heights = c(1,0.75,1,1,1,1) )
 # maybe need to export again, a bit squished | 7.5 x 10.5 in
-```
-
-```{r}
-# FINISH HERE!!!
-# EE_psum_facet <- mapped_psum %>%
-#   filter(protein_existence)
 ```
 
 ------------------------------------------------------------------------
@@ -731,22 +681,20 @@ Age_main_20_psum_plot_list <- vector(mode = "list")
 ```{r}
 for (p in Age_main_p_sig_list){
   
-  #OPERATIONS
   # SET UP/ CALC
   bp_df <- mapped_psum %>% #from psums
   filter(Protein == p) 
   
-  
   bp_labs <- top_20_sig_Age_df %>% # using the filter mapped_comp list 
     filter(Protein == p) %>%
     slice(1) 
-  
   
   obs_in <- mapped_psum %>% #get no. biorep observed
   filter(Protein == p) %>%
     summarise(n_unique = n_distinct(BioReplicate)) %>%
     pull(n_unique)
   
+  #_______________
   # MAKE PLOT
   bp <- boxplot_function( 
        data = bp_df,
@@ -759,13 +707,12 @@ for (p in Age_main_p_sig_list){
        title = paste0(bp_labs$gene, " - ", bp_labs$description),
        subtitle = paste0(bp_labs$Direction, "regulated in YNG (",
                          bp_labs$uniprot_acc, " ", bp_labs$database,
-                         " - observed in ", obs_in, " samples)"
-                         )
+                         " - observed in ", obs_in, " samples)")
        )
   
   print(bp)
 
-  
+  #_______________
   # SAVIHG PLOTS
     if (bp_labs$Direction[1] == "Up") {
       Age_main_20_psum_plot_list$Up[[p]] <- bp
@@ -773,8 +720,6 @@ for (p in Age_main_p_sig_list){
     } else{
       Age_main_20_psum_plot_list$Down[[p]] <- bp
     }
-
-
   
 }
 ```
@@ -804,95 +749,24 @@ plot_grid(plotlist = Age_main_20_psum_plot_list$Up[6:10], ncol = 1) # 7.5 x 10.5
 
 ## EE FACET
 
-```{r}
-# boxplot_function_facet <- function(data, x , y, # function inputs
-#                              fill = Housing,
-#                              # alpha = NULL,
-#                              shape_color = TechRepMixture,
-#                              shape_fill = NULL,
-#                              facet_formula = ~Age+Cohort+Litter+Sex , # default
-#                              legend_pos = "bottom", 
-#                              title = NULL, # need to set as NULL?
-#                              subtitle = NULL) {
-#   
-#   #set up polot ^ assign 2 p
-#   p <- ggplot(data, aes({{x}},{{y}},
-#               )) +
-#     
-#     # make box plot
-#     geom_boxplot(aes(fill = {{fill}}),
-#                  width = 0.55, size = 0.7, median.linewidth = 0.5, 
-#                  position = position_dodge(width = 0.7),
-#                  outlier.shape = NA,
-#                  color = "grey10", alpha = 0.7) +
-#     
-#     stat_summary(fun=mean, geom="point", position = position_dodge(width = 0.7),
-#                shape=4, size = .8, stroke = 0.2, color ="grey10") + #displays mean 
-#     
-#     # scale_alpha_discrete(guide = 'none', range = c(0.65, 0.75)) +
-#     # scale_fill_manual(values = c("#66A61EFF", "#E6AB02FF")) + # housing colors 
-#     
-#    scale_fill_manual(
-#      values = alpha(c("#B3D38F", "#F3D581"), 0.3)) + # housing colors 
-#     # scale_shape_manual(values = c(1, 3, 4)) + # techreplicate (3)
-#     
-# 
-#     # New SCALE with NEW GEOM 
-#     ggnewscale::new_scale_fill() +
-#       geom_point(aes(fill = {{shape_fill}}, color = {{shape_color}}),
-#       size = 1, shape = 21, stroke = .1, 
-#       position = position_jitterdodge(dodge.width = 0.4, jitter.width = 0.02)) +
-#     #2nd scale
-#     scale_color_manual(values = c("#003a6d","#31135e","#510224")) + # IBM
-#     scale_fill_manual(values = alpha(c("#eee8d5", "#b58900", "#C06A0B", "#cb4b16",
-#                                        "#D43F23", "#dc322f", "#D83459", "#d33682",
-#                                        "#A054A3", "#6c71c4", "#497ECB", "#268bd2",
-#                                        "#2896B5", "#2aa198", "#589D4C", "#859900",
-#                                        "#586e75"), 0.5)) + # solarised mix
-#     
-#     
-#     # FACET
-#     ggh4x::facet_nested(facet_formula) +
-#     
-#     labs(title = title, subtitle = subtitle) + # TITLE & SUBTITLE
-#     
-#     guides(color = "none",
-#            fill = guide_legend(nrow=1, byrow=TRUE)) +
-#     
-#     # theme (maybe just add theme from above or beeter self contained like this?)
-#     theme(
-#     plot.title = element_text(size = 10.5, color = "grey10"),
-#     plot.subtitle = element_text(size = 9, color = "grey10", face = "italic"),
-#     axis.line = element_blank(),
-#     axis.title = element_text(size = 9, color = "grey10"), 
-#     axis.text = element_text(size = 7.5, color ="grey10"),
-#     axis.ticks = element_line(size=0.1, colour = "grey15", linewidth = .3),
-#     
-#     panel.background = element_rect(fill = "white"), #bg of plot (inner)
-#     
-#     panel.border = element_rect(fill = NA, color = "grey10"), #plot borders
-#     plot.background = element_rect(fill = "white"), # bg of plot (outer)
-#     panel.grid = element_blank(),
-#     panel.spacing = unit(0, "cm"),  # Removes space between panel 
-#     
-#     legend.position = legend_pos, # LEGEND POSITON
-#     
-#     legend.title = element_text(size = 9, face="italic", color = "grey10"),
-#     legend.margin = margin(-5,0,0,0), # space between plot & legend
-#     #legend.title.align = (0.5), # centres legend title
-#     legend.text = element_text(size = 8.5, color = "grey10"),
-#     legend.box = "horizontal", 
-#     legend.direction = "horizontal", 
-#     legend.key.size = unit(0.5, "cm"), # size of legend key icon
-#     strip.background = element_rect(color = 'grey10', fill = 'grey90'), 
-#     strip.text.x = element_text(size = 8.5, color = 'grey10',
-#                                 margin = margin(b = 2, t = 1.5)) #vert spacing
-#   )
-#     
-# }
-```
-
 - <https://forum.posit.co/t/reordering-plot-based-on-another-dataframe/26467/3>
+
+```{r}
+my_psum_facet_theme <- my_theme +
+  theme(
+    axis.text.y = element_text(size = 7.5, color ="grey10"),
+    axis.text.x = element_text(size = 7, color ="grey10"),
+    axis.title.x = element_blank(),
+    panel.spacing = unit(0.2, "cm"),  # Removes space between panel 
+    legend.margin = margin(0,0,10,0), # space between plot & legend
+    axis.ticks = element_line(size=0.1, colour = "grey15"),
+    panel.border = element_rect(fill = NA,color = "grey10"), #plot borders
+    strip.background = element_rect(color = 'grey10', fill = 'grey90'),
+    strip.text = element_text(face = "italic"),
+    panel.grid.major = element_line(color = "grey95"),
+    panel.grid.minor = element_line(color = "grey99"),
+  )
+```
 
 ```{r}
 # EE UP
@@ -903,12 +777,9 @@ EE_facet_up_prot_list <- mapped_comp %>%
 
 EE_facet_up_plot <- mapped_psum %>%
   
-  mutate(Condition = forcats::fct_reorder(Condition, PND)) %>% # reoder by PND (no)
-  
+  # mutate(Condition = forcats::fct_reorder(Condition, PND)) %>% # reorder by PND 
   
   filter(Protein %in% EE_facet_up_prot_list) %>%
-
-  
   
   ggplot(aes(x = interaction(Age, Housing, 
                              sep = "\n", # space
@@ -933,48 +804,31 @@ EE_facet_up_plot <- mapped_psum %>%
   labs(title = "\U2191 Upregulated in EE ") +
   
   facet_wrap(~gene, ncol = 6, scale = "free_y") +
-  my_theme +
-  theme(
-    axis.text.y = element_text(size = 7.5, color ="grey10"),
-    axis.text.x = element_text(size = 7, color ="grey10"),
-    axis.title.x = element_blank(),
-    panel.spacing = unit(0.2, "cm"),  # Removes space between panel 
-    legend.margin = margin(0,0,10,0), # space between plot & legend
-    axis.ticks = element_line(size=0.1, colour = "grey15"),
-    panel.border = element_rect(fill = NA,color = "grey10"), #plot borders
-    strip.background = element_rect(color = 'grey10', fill = 'grey90'),
-      panel.grid.major = element_line(color = "grey95"),
-        panel.grid.minor = element_line(color = "grey99"),
-  )
-
+  my_psum_facet_theme 
 
 EE_facet_up_plot
 ```
 
 ```{r}
-# EE down
+# EE down 
 EE_facet_down_prot_list <- mapped_comp %>%
   filter(Label == "H_EE_vs_SH" & adj.pvalue < 0.05 & Direction == "Down") %>%
   arrange(adj.pvalue) %>%
   pull(Protein)
 
-
+# PLOT ______________
 EE_facet_down_plot <- mapped_psum %>%
-  
-  mutate(Condition = forcats::fct_reorder(Condition, PND)) %>% # reoder by PND (no)
   
   filter(Protein %in% EE_facet_down_prot_list) %>%
   
   mutate(gene = ifelse(Protein == "Q5U2Q3", "NA (Ester hydrolase ...)",
-                       gene)) %>%
+                       gene)) %>% # because no name available :(
   
   ggplot(aes(x = interaction(Age, Housing, 
                              sep = "\n", # space
                              lex.order = TRUE),
              y = Abundance,
              fill = Housing, alpha = Age, color = Sex)) +
-  
-  
  
   geom_boxplot(width = 0.6, size = 0.7, linewidth = 0.3,
                position = position_dodge(width = 0.7),
@@ -982,9 +836,9 @@ EE_facet_down_plot <- mapped_psum %>%
                color = "grey10") +
   stat_summary(fun=mean, geom="point", position = position_dodge(width = 0.7),
                shape=4, size = 1, stroke = 0.5, color ="grey10") +
-   geom_point( size = .7, shape = 1, stroke = .3, 
-             position = position_jitterdodge(dodge.width = 0.4, jitter.width = 0.2)) +
-
+   geom_point(size = .7, shape = 1, stroke = .3, 
+             position = position_jitterdodge(dodge.width = 0.4,
+                                             jitter.width = 0.2)) +
   
   scale_fill_manual(values = c("#66A61EFF", "#E6AB02FF")) + # housing colors
   scale_alpha_manual(values = c(.65,.8)) +
@@ -995,20 +849,8 @@ EE_facet_down_plot <- mapped_psum %>%
     labs(title = "\U2193 Downregulated in EE ") +
   
   facet_wrap(~gene, ncol = 5, scales = "free_y") +
-  my_theme +
-  theme(
-    axis.text.y = element_text(size = 7.5, color ="grey10"),
-    axis.text.x = element_text(size = 7, color ="grey10"),
-    axis.title.x = element_blank(),
-    panel.spacing = unit(0.9, "cm"),  # Removes space between panel 
-    legend.margin = margin(0,0,0,0), # space between plot & legend
-    axis.ticks = element_line(size=0.1, colour = "grey15"),
-    panel.border = element_rect(fill = NA, color = "grey10"), #plot borders
-    strip.background = element_rect(color = 'grey10', fill = 'grey90'), 
-          panel.grid.major = element_line(color = "grey95"),
-        panel.grid.minor = element_line(color = "grey99"),
-  )
-
+  my_psum_facet_theme
+  # theme_bw()
 
 EE_facet_down_plot
 ```
