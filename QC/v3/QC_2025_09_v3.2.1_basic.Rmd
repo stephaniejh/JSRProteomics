@@ -454,11 +454,11 @@ no_p_shared_pep_plot
 
 Correlation between sequence length & no. proteins
 
--   [[https://r-graph-gallery.com/50-51-52-scatter-plot-with-ggplot2.html]{.smallcaps}](https://r-graph-gallery.com/50-51-52-scatter-plot-with-ggplot2.html){.uri}
+- [[https://r-graph-gallery.com/50-51-52-scatter-plot-with-ggplot2.html]{.smallcaps}](https://r-graph-gallery.com/50-51-52-scatter-plot-with-ggplot2.html){.uri}
 
--   [[https://www.sthda.com/english/articles/32-r-graphics-essentials/131-plot-two-continuous-variables-scatter-graph-and-alternatives/]{.smallcaps}](https://www.sthda.com/english/articles/32-r-graphics-essentials/131-plot-two-continuous-variables-scatter-graph-and-alternatives/){.uri}
+- [[https://www.sthda.com/english/articles/32-r-graphics-essentials/131-plot-two-continuous-variables-scatter-graph-and-alternatives/]{.smallcaps}](https://www.sthda.com/english/articles/32-r-graphics-essentials/131-plot-two-continuous-variables-scatter-graph-and-alternatives/){.uri}
 
-    -   Some interesting options e.g. ggMarginal [ggextra] & ggscatterhist() [ggpubr]
+  - Some interesting options e.g. ggMarginal [ggextra] & ggscatterhist() [ggpubr]
 
 ```{r fig.height=7, fig.width=7}
 
@@ -574,7 +574,7 @@ intensity_bp_2
 
 ------------------------------------------------------------------------
 
-### 2026_01_26 - AMPA 
+### 2026_01_26 - AMPA
 
 ```{r}
 EExAge_56_anno <- read_csv("input/anno/2026_01_22_mssTMT_EExAGE_anno_HA_56.csv") %>%

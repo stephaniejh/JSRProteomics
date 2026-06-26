@@ -407,7 +407,7 @@ hu_merge <- hu_merge %>%
 ```{r}
 me_and_hu <- hu_merge  %>%
   
-  select(c(alt_lab, Region, Method, Exp_type,
+  dplyr::select(c(alt_lab, Region, Method, Exp_type,
            Used_name, description, gene, Hu.2013,
            EE_vs_SH, log2FC, adj.pvalue)) %>%
   
@@ -914,7 +914,7 @@ park_merge <- park_merge %>%
 
 ```
 
--   Even when looking at other comparisons (A_YNG_vs_OLD, HxA_EE_YNG_vs_EE_OLD, HxA_SH_YNG_vs_SH_OLD) there is very little overlap! So results are just very different in general.
+- Even when looking at other comparisons (A_YNG_vs_OLD, HxA_EE_YNG_vs_EE_OLD, HxA_SH_YNG_vs_SH_OLD) there is very little overlap! So results are just very different in general.
 
 ```{r}
 me_and_park <- head(park_merge, 50) %>%
@@ -1040,12 +1040,17 @@ PPPs <- mapped_comp %>%
     .default = " " # ‐
   )) %>%
   arrange(adj.pvalue)
+
+# unique(PPPs$description)
 ```
 
 ```{r}
+# yes general observation is that H_EE_vs_SH shows down reg (both kinases & phosphotase)
+# yes generally youbg shows more up (that EE),
+# also EEyng_vs_EEold (more positive) 
 PPPs_gt <- PPPs %>%
   group_by(Label) %>%
-  slice_min(adj.pvalue, n = 20, with_ties = FALSE) %>%
+  slice_min(adj.pvalue, n = 35, with_ties = FALSE) %>%
   # head(PPPs,500) %>%
   dplyr::select(c(Label, gene, description, EE_vs_SH,
                   log2FC, adj.pvalue)) %>%
