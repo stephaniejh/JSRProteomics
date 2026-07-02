@@ -9,6 +9,8 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+- [ ] 2026_07_02 - check why no p-value for perez_transcriptomics? (protein sheet has everything but not the transcriptomics sheet, although significant & other metrics there - check lit_reivew exp sheet!
+
 ```{r}
 #load packages
 library(tidyverse)
@@ -276,8 +278,9 @@ up <- c('Trpc6',
 
 ```{r}
 
-wassouf_DEG <- data.frame(Direction_w  = c(rep("Wassouf - Up", 22), rep("Wassouf - Down", 15)),
+wassouf_DEG <- data.frame(Direction_w  = c(rep("Wassouf 2018 - Up \u2191 in EE (Hip - mRNA)", 22), rep("Wassouf 2018 - Down \u2193 in EE (Hip - mRNA)", 15)),
                             gene = c(up, down)) 
+
 was <- EE_mapped_comp %>%
   filter(gene %in% c(up, down))
 
@@ -285,28 +288,37 @@ perez_was_p <- perez_p %>%
   filter(Gene_name %in% c(up, down)) %>%
   filter(Condition == "all") %>%
     mutate(protein_all =  case_when(
-    Significant == "yes" & In_EE == "up" ~ "\u2191 *",
-    Significant == "yes" & In_EE == "down" ~ "\u2193 *",
-    Significant == "no" & In_EE == "up" ~ "\u2191",
-    Significant == "no" & In_EE == "down" ~ "\u2193",
-    In_EE == "Same" ~ "-",
-    .default = " "
+    # Significant == "yes" & In_EE == "up" ~ "\u2191 *", # OLD VERSION
+    # Significant == "yes" & In_EE == "down" ~ "\u2193 *",
+    # Significant == "no" & In_EE == "up" ~ "\u2191",
+    # Significant == "no" & In_EE == "down" ~ "\u2193",
+    # In_EE == "Same" ~ "-",
+    pvalue < 0.05 & Fold_change > 0 ~ "\u2191 *", # up sig .05
+    pvalue < 0.05 & Fold_change < 0 ~ "\u2193 *", # down sig .05
+    pvalue <= 0.11 & Fold_change > 0 ~ "\u2191 .", # up sig .1
+    pvalue <= 0.11 & Fold_change < 0 ~ "\u2193 .", # down sig .1
+    pvalue <= 0.51 & Fold_change > 0 ~ "\u2191", # up (~p0.03-05)
+    pvalue <= 0.51 & Fold_change < 0 ~ "\u2193", # down 
+    In_EE == "Same" ~ "-"
+    # .default = " "
    )) %>%
   select(Gene_name, protein_all)
 
 perez_was_t <- perez_t %>%
   filter(Gene_name %in% c(up, down)) %>%
   filter(Condition == "all") %>%
-  mutate(mRNA_all =  case_when(
+  mutate(mRNA_all =  case_when( # why no p-value for perez_t?
     Significant == "yes" & In_EE == "up" ~ "\u2191 *",
     Significant == "yes" & In_EE == "down" ~ "\u2193 *",
     Significant == "no" & In_EE == "up" ~ "\u2191",
     Significant == "no" & In_EE == "down" ~ "\u2193",
     In_EE == "Same" ~ "-",
-    .default = " "
+    # .default = " "
    )) %>%
   select(Gene_name, mRNA_all)
+```
 
+```{r}
 
 perez_was_me <- left_join(wassouf_DEG,  perez_was_p, 
                           by = join_by(gene == Gene_name)) %>%
@@ -354,6 +366,7 @@ perez_was_me_gt <- perez_was_me %>%
     cols_label(
     # description = "Protein Description",
     EE_vs_SH = "EE",
+    YNG_vs_OLD = "YNG",
     adj.pvalue = "adj.p") %>%
   
   tab_source_note(source_note = "Comparison to Park et al. 2015 - EE x Age SAGEseq Transcriptomics (Hippocampus; male mice). Of the 469 (59 in EE young & 410 in EE old) significant genes identified, 263 were successfully mapped onto proteins in the current dataset, with the top 30 most significant in the H_EE_vs_SH comparison shown here. ") %>%
@@ -384,9 +397,11 @@ perez_was_me_gt <- perez_was_me %>%
       )) %>%
   
   
-tab_spanner(label = "Perez_2024",
-      columns = c(mRNA_all, protein_all))  %>%
-tab_spanner(label = "H_EE_vs_SH", columns = c(EE_vs_SH, log2FC, adj.pvalue)) %>%
+  tab_spanner(label = "Perez_2024",
+              columns = c(mRNA_all, protein_all))  %>%
+  tab_spanner(label = "H_EE_vs_SH", columns = c(EE_vs_SH, log2FC, adj.pvalue)) %>%
+  tab_spanner(label = "A_YNG_vs_OLD", columns = c(YNG_vs_OLD, A_log2FC,
+                                                A_adj.pvalue)) %>%
 
   
 tab_style( # ARROYO
@@ -428,12 +443,12 @@ tab_style( # My COLUMN
   tab_style( # My COLUMN
     style = list(cell_fill(color = "#FEEEF3"),
                  cell_text(color = "#d33682")),
-locations = cells_body(rows = adj.pvalue < 0.7 & adj.pvalue > 0.35 & log2FC > 0 ,
+ locations = cells_body(rows = adj.pvalue < 0.7 & adj.pvalue > 0.35 & log2FC > 0,
                            columns = c(EE_vs_SH, log2FC, adj.pvalue))) %>%
   tab_style( 
     style = list(cell_fill(color = "#EFF6FD"),
                  cell_text(color = "#2380c1")),
-locations = cells_body(rows = adj.pvalue < 0.7 & adj.pvalue > 0.35 & log2FC < 0,
+ locations = cells_body(rows = adj.pvalue < 0.7 & adj.pvalue > 0.35 & log2FC < 0,
                            columns = c(EE_vs_SH, log2FC, adj.pvalue))) %>%
   
  tab_style( # My COLUMN - very NON SIG - DIRECTIONAL COLOR
@@ -448,4 +463,249 @@ locations = cells_body(rows = adj.pvalue < 0.7 & adj.pvalue > 0.35 & log2FC < 0,
   
   
 print(perez_was_me_gt)
+```
+
+------------------------------------------------------------------------
+
+#### Better meth? - perez_was_me_2
+
+- <https://tidyr.tidyverse.org/reference/pivot_wider.html#ref-examples>
+- <https://gt.rstudio.com/reference/tab_spanner_delim.html>
+- <https://stackoverflow.com/questions/79559857/conditionally-color-cells-based-on-different-column-in-gt>
+- <https://thegraphcourses.org/courses/epirep/topics/enhancing-gt-tables/>
+- <https://stackoverflow.com/questions/61435048/conditional-formatting-of-multiple-columns-in-gt-table?rq=3>
+
+```{r}
+was_2 <- mapped_comp %>%
+  ungroup() %>% 
+  filter(Label %in% c("H_EE_vs_SH", "A_YNG_vs_OLD")) %>%
+  select(Protein:log2FC, adj.pvalue, description, gene) %>% # ! for pivot_wider
+  filter(gene %in% c(up, down)) %>%
+      mutate(Symbols = case_when(
+    adj.pvalue < 0.05 & log2FC > 0 ~ "\u2191 *", # up sig .05
+    adj.pvalue < 0.05 & log2FC < 0 ~ "\u2193 *", # down sig .05
+    adj.pvalue <= 0.11 & log2FC > 0 ~ "\u2191 .", # up sig .1
+    adj.pvalue <= 0.11 & log2FC  < 0 ~ "\u2193 .", # down sig .1
+    adj.pvalue <= 0.51 & log2FC > 0 ~ "\u2191", # up (~p0.03-05)
+    adj.pvalue <= 0.51 & log2FC  < 0 ~ "\u2193", # down 
+    .default = " ")) %>%
+  pivot_wider(names_from = Label,
+              # names_sep = ".",
+              values_from = c(Symbols, log2FC, adj.pvalue),
+              names_glue = "{Label}.{.value}") # need this order for gt
+
+perez_was_me_2 <- left_join(wassouf_DEG,  perez_was_p,
+                          by = join_by(gene == Gene_name)) %>%
+  left_join(perez_was_t, by = join_by(gene == Gene_name)) %>%
+
+  left_join(was_2, by = join_by(gene == gene)) %>%
+
+  arrange(H_EE_vs_SH.adj.pvalue)
+
+colnames(perez_was_me_2)
+```
+
+```{r}
+# temp - my colors
+# new is Azure & Barbie pink
+up_colors <- c("#d33682", "#fddde6", "#FEEEF3")
+new_up_colors <- c("#d33682", "#DA1884", "#fddde6", "#FEEEF3", "#fccad8")
+down_colors <- c("#2380c1", "#DBECFC" )
+new_down_colors <- c("#0080FF", "#c9e2fa", "#C0DDF9", "#b7d8f8")
+```
+
+```{r}
+perez_was_me_gt_2 <- perez_was_me_2 %>%
+  dplyr::select(c(Direction_w, gene,
+                  description,
+                  mRNA_all, protein_all,
+                # selection of order matters for tab_spanner_delim
+                 H_EE_vs_SH.Symbols, H_EE_vs_SH.log2FC, H_EE_vs_SH.adj.pvalue, 
+                 A_YNG_vs_OLD.Symbols, A_YNG_vs_OLD.log2FC, A_YNG_vs_OLD.adj.pvalue
+                 )) %>%
+  
+ gt(
+    groupname_col = "Direction_w",
+    rowname_col = "gene"
+  ) %>%
+
+  fmt_number(decimals = 2)  %>%
+  
+    cols_label(
+    description = "Protein Description",
+    H_EE_vs_SH.Symbols = "EE",
+    A_YNG_vs_OLD.Symbols = "YNG",
+    # adj.pvalue = "adj.p"
+    ) %>%
+  
+
+  tab_style(
+    style = list(
+      cell_text(style = "italic",  size = px(12.5))
+      ),
+    locations = cells_stub()) %>%
+
+    tab_options(table.font.size=11.5) %>%
+    opt_vertical_padding(scale = 0.3) %>% # vert padding
+  
+  tab_spanner_delim( delim = ".",
+                    split = "first", limit = 1) %>%
+
+
+  tab_spanner(label = "Perez 2024 (Hip)",
+              columns = c(mRNA_all, protein_all))  %>%
+
+
+ #_________UP___________________________
+  tab_style( # UP & ADJ P SIG!
+    style = list(cell_fill(color = "#fccad8"),
+                 cell_text(color = "#DA1884")),
+    locations = list(
+      cells_body(rows = mRNA_all == "\u2191 *",
+                 columns = c(mRNA_all)), 
+      cells_body(rows = protein_all == "\u2191 *",
+                 columns = c(protein_all)),
+      cells_body(rows =  H_EE_vs_SH.Symbols == "\u2191 *",
+                 columns = c(H_EE_vs_SH.Symbols, H_EE_vs_SH.log2FC,
+                             H_EE_vs_SH.adj.pvalue)),
+      cells_body(rows =  A_YNG_vs_OLD.Symbols == "\u2191 *",
+                 columns = c(A_YNG_vs_OLD.Symbols, A_YNG_vs_OLD.log2FC,
+                             A_YNG_vs_OLD.adj.pvalue))
+    )
+  ) %>%
+  
+    tab_style( #_Up_adj.p_0.1
+    style = list(cell_fill(color = "#fddde6"),
+                 cell_text(color = "#d33682")),
+    locations = list(
+      cells_body(rows = mRNA_all == "\u2191 .",
+                 columns = c(mRNA_all)), 
+      cells_body(rows = protein_all == "\u2191 .",
+                 columns = c(protein_all)),
+      cells_body(rows =  H_EE_vs_SH.Symbols == "\u2191 .",
+                 columns = c(H_EE_vs_SH.Symbols, H_EE_vs_SH.log2FC,
+                             H_EE_vs_SH.adj.pvalue)),
+      cells_body(rows =  A_YNG_vs_OLD.Symbols == "\u2191 .",
+                 columns = c(A_YNG_vs_OLD.Symbols, A_YNG_vs_OLD.log2FC,
+                             A_YNG_vs_OLD.adj.pvalue))
+    )
+  ) %>%
+  
+    tab_style( #_Up___non_sig_but_non_adjp_0.05ish
+    style = list(cell_fill(color = "#FEEEF3"),
+                 cell_text(color = "#d33682")),
+    locations = list(
+      cells_body(rows = mRNA_all == "\u2191",
+                 columns = c(mRNA_all)), 
+      cells_body(rows = protein_all == "\u2191",
+                 columns = c(protein_all)),
+      cells_body(
+        rows =  H_EE_vs_SH.adj.pvalue > 0.11 & H_EE_vs_SH.adj.pvalue < 0.51 &  H_EE_vs_SH.log2FC > 0,
+        columns = c(H_EE_vs_SH.Symbols, H_EE_vs_SH.log2FC,
+                    H_EE_vs_SH.adj.pvalue)),
+      cells_body(rows =  A_YNG_vs_OLD.adj.pvalue > 0.11 & A_YNG_vs_OLD.adj.pvalue < 0.51 & A_YNG_vs_OLD.log2FC > 0,
+                 columns = c(A_YNG_vs_OLD.Symbols, A_YNG_vs_OLD.log2FC,
+                             A_YNG_vs_OLD.adj.pvalue)))
+  ) %>%
+  
+  
+  tab_style( # 
+    style = list(cell_text(color = "#d33682")),
+    locations = list(
+      cells_body(rows =  H_EE_vs_SH.adj.pvalue > 0.51 & H_EE_vs_SH.log2FC > 0.04,
+        columns = c(H_EE_vs_SH.Symbols, H_EE_vs_SH.log2FC,
+                    H_EE_vs_SH.adj.pvalue)),
+  cells_body(rows = A_YNG_vs_OLD.adj.pvalue > 0.51 & A_YNG_vs_OLD.log2FC > 0.04,
+                 columns = c(A_YNG_vs_OLD.Symbols, A_YNG_vs_OLD.log2FC,
+                             A_YNG_vs_OLD.adj.pvalue))
+    )
+  ) %>%
+  
+  #_________UP___________________________
+  tab_style( # Down & ADJ P SIG!
+    style = list(cell_fill(color = "#C0DDF9"),
+                 cell_text(color = "#0080FF")),
+    locations = list(
+      cells_body(rows = mRNA_all == "\u2193 *",
+                 columns = c(mRNA_all)), 
+      cells_body(rows = protein_all == "\u2193 *",
+                 columns = c(protein_all)),
+      cells_body(rows =  H_EE_vs_SH.Symbols == "\u2193 *",
+                 columns = c(H_EE_vs_SH.Symbols, H_EE_vs_SH.log2FC,
+                             H_EE_vs_SH.adj.pvalue)),
+      cells_body(rows =  A_YNG_vs_OLD.Symbols == "\u2193 *",
+                 columns = c(A_YNG_vs_OLD.Symbols, A_YNG_vs_OLD.log2FC,
+                             A_YNG_vs_OLD.adj.pvalue))
+    )
+  ) %>%
+  
+      tab_style( #__Down_adj.p_0.1
+    style = list(cell_fill(color = "#DBECFC"),
+                 cell_text(color = "#2380c1")),
+    locations = list(
+      cells_body(rows = mRNA_all == "\u2193 .",
+                 columns = c(mRNA_all)), 
+      cells_body(rows = protein_all == "\u2193 .",
+                 columns = c(protein_all)),
+      cells_body(rows =  H_EE_vs_SH.Symbols == "\u2193 .",
+                 columns = c(H_EE_vs_SH.Symbols, H_EE_vs_SH.log2FC,
+                             H_EE_vs_SH.adj.pvalue)),
+      cells_body(rows =  A_YNG_vs_OLD.Symbols == "\u2193 .",
+                 columns = c(A_YNG_vs_OLD.Symbols, A_YNG_vs_OLD.log2FC,
+                             A_YNG_vs_OLD.adj.pvalue))
+    )
+  ) %>%
+  
+  tab_style( #___Down__but__non_sigish
+    style = list(cell_fill(color = "#EFF6FD"),
+                 cell_text(color = "#2380c1")),
+    locations = list(
+       cells_body(rows = mRNA_all == "\u2193",
+                 columns = c(mRNA_all)), 
+      cells_body(rows = protein_all == "\u2193",
+                 columns = c(protein_all)),
+      cells_body(
+        rows =  H_EE_vs_SH.adj.pvalue > 0.11 & H_EE_vs_SH.adj.pvalue < 0.51 &  H_EE_vs_SH.log2FC < 0,
+        columns = c(H_EE_vs_SH.Symbols, H_EE_vs_SH.log2FC,
+                    H_EE_vs_SH.adj.pvalue)),
+      cells_body(rows =  A_YNG_vs_OLD.adj.pvalue > 0.11 & A_YNG_vs_OLD.adj.pvalue < 0.51 & A_YNG_vs_OLD.log2FC < 0,
+                 columns = c(A_YNG_vs_OLD.Symbols, A_YNG_vs_OLD.log2FC,
+                             A_YNG_vs_OLD.adj.pvalue)))
+  ) %>%
+  
+  
+  tab_style( #___Down__but_very_non_sig
+    style = list(cell_text(color = "#2380c1")),
+    locations = list(
+      cells_body(rows =  H_EE_vs_SH.adj.pvalue > 0.51 & H_EE_vs_SH.log2FC < -0.04,
+        columns = c(H_EE_vs_SH.Symbols, H_EE_vs_SH.log2FC,
+                    H_EE_vs_SH.adj.pvalue)),
+  cells_body(rows = A_YNG_vs_OLD.adj.pvalue > 0.51 & A_YNG_vs_OLD.log2FC < -0.04,
+                 columns = c(A_YNG_vs_OLD.Symbols, A_YNG_vs_OLD.log2FC,
+                             A_YNG_vs_OLD.adj.pvalue))
+    )
+  ) %>%
+  
+  #____NAs____Grey_out_NA_values________
+    tab_style( # Down & ADJ P SIG!
+    style = list(cell_text(color = "grey70", size = 9)),
+    locations = list(
+      cells_body(rows = is.na(description),
+        columns = c(description, H_EE_vs_SH.Symbols,
+                    H_EE_vs_SH.log2FC, H_EE_vs_SH.adj.pvalue, 
+                    A_YNG_vs_OLD.Symbols, A_YNG_vs_OLD.log2FC,
+                    A_YNG_vs_OLD.adj.pvalue)),
+      cells_body(rows = is.na(protein_all),
+        columns = c(protein_all))
+    )
+  )
+
+
+print(perez_was_me_gt_2)
+```
+
+#### Best meth? - perez_was_me_3
+
+```{r}
+
 ```
