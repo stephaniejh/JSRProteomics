@@ -40,7 +40,18 @@ rat_ref_neurotrophin <- rat_ref %>%
   dplyr::select(Entry,`Gene.Names..primary.`, `Protein.names`, `Protein.families`, `Subcellular.location..CC.`,
          `Gene.Ontology..cellular.component.`, `Developmental.stage`,
           "Keywords"   ) 
+
+
+unique_neurotrophin <- unique(rat_ref_neurotrophin$Gene.Names..primary.)
 ```
+
+```{r}
+# BDNF STRING-DB Interactors
+# https://string-db.org/cgi/network?taskId=bv7cE0w9aR2Y&sessionId=bwBMkcc7kFNo
+BDNF_STRING <- c("Bdnf", "Ngfr", "Ntrk1",  "Ntrk2",  "Ntrk3",  "Sort1", "Ntf4",
+                 "Gdnf", "Ntf3", "Cntf", "Creb1")
+```
+
 
 ```{r}
 rat_ref_growth_factor <- rat_ref %>%
@@ -54,4 +65,11 @@ rat_ref_growth_factor <- rat_ref %>%
 unique_growth_factors <- unique(rat_ref_growth_factor$Gene.Names..primary.)
 ```
 
+```{r}
+rat_ref_neurogenesis <- rat_ref %>%
+  filter(str_detect(Keywords, regex("neurogenesis", ignore_case = TRUE))) %>%
+    dplyr::select(Entry,`Gene.Names..primary.`, `Protein.names`, `Protein.families`, `Subcellular.location..CC.`,
+         `Gene.Ontology..cellular.component.`, `Developmental.stage`,
+          "Keywords"   ) 
+```
 
