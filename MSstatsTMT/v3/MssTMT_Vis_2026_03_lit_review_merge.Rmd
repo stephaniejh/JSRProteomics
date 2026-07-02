@@ -11,11 +11,19 @@ knitr::opts_chunk$set(echo = TRUE)
 
 - [ ] 2026_07_02 - check why no p-value for perez_transcriptomics? (protein sheet has everything but not the transcriptomics sheet, although significant & other metrics there - check lit_reivew exp sheet!
 
+- [ ] 2026_07_02 - Clean up cases from manual mice sheet
+
+- [ ] 2026_07_02 - Add extras Paban, Novati, etc? Wassouf?
+
+- [ ] 2026_07_02  - Delete redundant - mapped_comp vs mapped_comp_sym
+
 ```{r}
 #load packages
 library(tidyverse)
 library(gt)
 library(readxl)
+library(purrr) # for map()
+library(tidyselect) # for contains()
 ```
 
 ## Load Files
@@ -80,8 +88,16 @@ mapped_comp <- mapped_comp_v3.2.2_EExAge_t1 %>%
                                "\u2193")) %>% # else down arrow
   
   mutate(protein_existence = as.character(protein_existence)) # as char so no decimal
-  
-  
+
+mapped_comp$Label <- factor(mapped_comp$Label,
+                            levels = c( "H_EE_vs_SH",
+                                        "HxA_EE_YNG_vs_SH_YNG",
+                                        "HxA_EE_OLD_vs_SH_OLD",
+                                        "A_YNG_vs_OLD", 
+                                        "HxA_EE_YNG_vs_EE_OLD",
+                                        "HxA_SH_YNG_vs_SH_OLD",
+                                        "HxA_EE_YNG_vs_SH_OLD",
+                                        "HxA_EE_OLD_vs_SH_YNG"))   
 
 # # check 
 # head(mapped_comp) 
@@ -99,6 +115,196 @@ mapped_comp <- mapped_comp_v3.2.2_EExAge_t1 %>%
 mapped_comp_2 <- mapped_comp %>%
   left_join(rat_ref_trm,
              by = join_by(Protein == Entry))
+```
+
+------------------------------------------------------------------------
+
+### WOMBO COMBO tables (02 July 2026)
+
+```{r}
+mapped_comp_sym <- mapped_comp %>%
+  select(Protein:log2FC, adj.pvalue, description, gene) %>% # ! for pivot_wider
+  # filter(Label %in% c("H_EE_vs_SH", "A_YNG_vs_OLD")) %>%
+  # filter(!(Label %in% c("HxA_EE_OLD_vs_SH_YNG", "HxA_EE_YNG_vs_SH_OLD"))) %>%
+      mutate(sym = case_when(
+    adj.pvalue < 0.05 & log2FC > 0 ~ "\u2191 *", # up sig .05
+    adj.pvalue < 0.05 & log2FC < 0 ~ "\u2193 *", # down sig .05
+    adj.pvalue <= 0.11 & log2FC > 0 ~ "\u2191 .", # up sig .1
+    adj.pvalue <= 0.11 & log2FC  < 0 ~ "\u2193 .", # down sig .1
+    adj.pvalue <= 0.51 & log2FC > 0 ~ "\u2191", # up (~p0.03-05)
+    adj.pvalue <= 0.51 & log2FC  < 0 ~ "\u2193", # down 
+    .default = " ")) %>%
+  rename(adjp = adj.pvalue) %>%
+  pivot_wider(names_from = Label,
+              # names_sep = ".",
+              values_from = c(sym, log2FC, adjp),
+              names_glue = "{Label}.{.value}", # need this order for gt
+              names_vary = "slowest", # clusters by columns by order! ez4gt!
+              names_sort = TRUE # sorts by order of levels in label factor!
+              ) 
+```
+
+```{r}
+# conditional color mapping for gt (based off of Claude example some w/mods)
+# labels of interest
+my_labels <- c("H_EE_vs_SH", "HxA_EE_YNG_vs_SH_YNG", "HxA_EE_OLD_vs_SH_OLD",
+               "A_YNG_vs_OLD", "HxA_EE_YNG_vs_EE_OLD","HxA_SH_YNG_vs_SH_OLD")
+
+#___# WOMBO COMBO FUNCTION SET UP
+# using purrr's map function 
+cell_locations <- function(my_labels, my_pattern) {
+  purrr::map(my_labels, function(prefix) { 
+    sym_col <- paste0(prefix, ".sym") # so H_EE_vs_SH.sym etc
+    fc_col <- paste0(prefix, ".log2FC")
+    adjp_col <- paste0(prefix, ".adjp") 
+    
+    row_condition <- if (is.function(my_pattern)) { # if given my_pattern is func
+      my_pattern(sym_col, fc_col)
+    } else { # ELSE - my_pattern is not a function but a provided string (symbol)
+      rlang::expr(.data[[!!sym_col]] == !!my_pattern) 
+    } # need rlang::expr! & !! when using .data - evals later in gt when given df
+
+    cells_body(
+      rows = !!row_condition,
+      columns = all_of(c(sym_col, fc_col, adjp_col))) # gt cols 2 app 
+  })
+}
+```
+
+```{r}
+#__CODING_FOR_CONDITIONAL_COLORS
+# UP - from most sig to least
+up_sig_05_loc <- cell_locations(my_labels, "\u2191 *")
+up_sig_1_loc <- cell_locations(my_labels, "\u2191 .")
+up_5_loc <- cell_locations(my_labels, "\u2191")
+up_fc_loc <- cell_locations(my_labels, function(sym_col, fc_col) {
+  rlang::expr(.data[[!!sym_col]] == " " & .data[[!!fc_col]] > 0.05)
+})
+
+# DOWN - from most sig to least
+down_sig_05_loc <- cell_locations(my_labels, "\u2193 *")
+down_sig_1_loc <- cell_locations(my_labels, "\u2193 .")
+down_5_loc <- cell_locations(my_labels, "\u2193")
+down_fc_loc <- cell_locations(my_labels, function(sym_col, fc_col) {
+  rlang::expr(.data[[!!sym_col]] == " " & .data[[!!fc_col]] < -0.05)
+})
+```
+
+#### wombocombogt
+
+Comment in & out depending on data/comparisons of interest!
+
+```{r}
+wombo_combo_tab <- mapped_comp_sym %>%
+
+  select(description:HxA_SH_YNG_vs_SH_OLD.adjp) %>%
+  
+  # ____COMMENT IN OUR OUT DEPENDING ON TABLE! ____________________
+  # #_______v1_EE_main___
+  # mutate(EE_dir = if_else(H_EE_vs_SH.log2FC > 0, "Up \u2191 in EE",
+  #                         "Down \u2193 in EE")) %>%
+  # arrange(H_EE_vs_SH.adjp) %>%
+  
+ #_______v2_YNG_main___
+   mutate(YNG_dir = if_else(A_YNG_vs_OLD.log2FC > 0, "Up \u2191 in YNG",
+                          "Down \u2193 in YNG")) %>%
+  arrange(A_YNG_vs_OLD.adjp) %>%
+  
+  #_____
+  head(250) %>%
+  
+
+ gt(
+    # groupname_col = "EE_dir", # v1 -EE main
+    groupname_col = "YNG_dir", # v2 - YNG main
+    
+    rowname_col = "gene"
+  ) %>%
+
+  
+ #____STYLING____SAME_FOR_ALLL_____-no_touchy!________________
+  fmt_number(decimals = 2)  %>%
+
+  tab_style(
+    style = list(cell_text(style = "italic",  size = px(12.5))),
+    locations = cells_stub()) %>%
+
+  tab_options(table.font.size=11,
+               row_group.font.size = 13) %>%
+  opt_vertical_padding(scale = 0.3) %>% # vert padding
+  
+  tab_spanner_delim( delim = ".",
+                    split = "first", limit = 1) %>%
+   tab_style(
+    style = cell_text(size = "90%"),
+    locations = cells_column_spanners()) %>%
+  
+     tab_style(
+    style = cell_text(size = "90%", style = "italic", color = "#464646"),
+    locations = cells_column_labels()) %>%
+  
+    cols_label(
+    description = "",
+    H_EE_vs_SH.sym = "EE",
+    HxA_EE_YNG_vs_SH_YNG.sym = "EE Y",
+    HxA_EE_OLD_vs_SH_OLD.sym = "EE O",
+    A_YNG_vs_OLD.sym = "YNG",
+    HxA_EE_YNG_vs_EE_OLD.sym = "EE Y",
+    HxA_SH_YNG_vs_SH_OLD.sym = "SH Y",
+    ) %>%
+  
+  
+  
+  #______UP_____________
+  tab_style( # UP & ADJ P SIG!
+    style = list(cell_fill(color = "#fccad8"), cell_text(color = "#FF0099")),
+    locations = up_sig_05_loc) %>%
+  
+  tab_style( 
+    style = list(cell_fill(color = "#fddde6"), cell_text(color = "#d33682")),
+    locations = up_sig_1_loc ) %>%
+  
+  tab_style( 
+    style = list(cell_fill(color = "#FEEEF3"), cell_text(color = "#d33682")),
+    locations = up_5_loc) %>%
+  
+  tab_style(style = list(cell_text(color = "#d33682")),
+            locations = up_fc_loc) %>%
+  
+  #______DOWN_____________
+  tab_style(
+    style = list(cell_fill(color = "#C0DDF9"), cell_text(color = "#0080FF")),
+    locations = down_sig_05_loc) %>%
+  
+  tab_style(
+    style = list(cell_fill(color = "#DBECFC"),
+                 cell_text(color = "#2380c1")),
+    locations = down_sig_1_loc) %>%
+  
+  tab_style( 
+    style = list(cell_fill(color = "#EFF6FD"), cell_text(color = "#2380c1")),
+    locations = down_5_loc) %>%
+  
+  
+  #___SPANNER_COLORS____________
+  tab_style(style = list(cell_fill(color = "#AFCC9F")),
+      locations = cells_column_spanners(spanners = contains("H_EE_vs_SH"))) %>%
+  tab_style(style = list(cell_fill(color = "#D4E4CB"),
+                         cell_borders(sides = c("left","right"),
+                                      color = "#B9B9B9")),
+        locations = cells_column_spanners(
+          spanners = matches("HxA_EE_YNG_vs_SH_YNG|HxA_EE_OLD_vs_SH_OLD"))) %>%
+  
+  tab_style(style = cell_fill(color = "#BFBBD5"),
+      locations = cells_column_spanners(spanners = contains("A_YNG_vs_OLD"))) %>%
+  tab_style(style = list(cell_fill(color = "#DDDCE9"),
+                         cell_borders(sides = "left", color = "#B9B9B9")),
+        locations = cells_column_spanners(
+          spanners = matches("HxA_EE_YNG_vs_EE_OLD|HxA_SH_YNG_vs_SH_OLD"))) 
+  
+  
+
+wombo_combo_tab #print
 ```
 
 ------------------------------------------------------------------------
@@ -125,7 +331,7 @@ Age_mapped_comp_trm <-  mapped_comp %>%
 
 # MANUAL CURATION
 
-RAT
+### RAT
 
 ```{r}
 # drop spacing rows & convery *** to pvalue numbers instead. 
@@ -145,16 +351,41 @@ rat_lit_EE <- rat_lit_re %>%
   select(Year:misc)  # checked okay & can drop 
 ```
 
+### MICE
+
+```{r}
+# drop spacing rows & convery *** to pvalue numbers instead. 
+unique(mice_lit_re$pvalue)
+unique(mice_lit_re$Author) # get names -> filter for complete cases for now
+unique(mice_lit_re$N_tested) #
+
+mice_lit_EE <- mice_lit_re %>%
+  filter(Author %in% c("Nithianantharajah", "Naka", "Hu")) %>%
+  tidyr::drop_na(Year, Author) %>% # rm empty spacing rows
+  rename(pvalue_old = pvalue) %>%
+  mutate(pvalue =  as.numeric(case_when(
+    pvalue_old == "*" ~ "0.049",
+    pvalue_old == "**" ~ "0.00999",
+    pvalue_old == "***" ~ "0.00099",
+    .default = pvalue_old # NA as NA 
+  )), .after = pvalue_old) %>%
+  relocate(pvalue_old, .before = Year) %>% # checked okay 
+  mutate(misc = as.character(misc)) %>%
+  mutate(N_tested = case_when( # convert from chr 2 num - for bind_rows later
+    N_tested == "6-8" ~ "7", 
+    N_tested == "10-11" ~ "10.5",
+    N_tested == "7-8" ~ "7.5",
+    .default = N_tested)) %>%
+  mutate(N_tested = as.numeric(N_tested)) %>%
+  select(Year:misc)  # checked okay & can drop 
+```
+
 ### Zhang et al., 2024
 
 ```{r}
 zhang <- read_csv(
   "input/lit_review/2025_12_13_Zhang_2024_mPFC_lit_re_mapped_w_rat_ID_v1.csv") %>%
     select(Year:misc) # 31/62
-```
-
-```{r}
-
 ```
 
 # AUTO MAP
@@ -219,61 +450,42 @@ park <- read_csv("input/lit_review/2025_12_17_Park_2015_mRNA_lit_review_EExAging
 # MERGE
 
 ```{r}
-merged <- bind_rows(rat_lit_EE, lichti, arroyo, borg, park, perez_p, zhang) %>%
+merged <- bind_rows(rat_lit_EE, mice_lit_EE,
+                    lichti, arroyo, borg, park, perez_p, zhang) %>%
   filter(!is.na(Gene_name)) # removes empty gene name rows (unmapped ones)
 ```
 
 ```{r}
 gene_counts <- merged %>%
   group_by(Gene_name) %>%
-  count(Author)
-```
+  count(Author) %>%
+  count(Gene_name)
 
-```{r}
 adjp_overlap <- merged %>%
   filter(Gene_name %in% EE_mapped_comp_adjp1)
 ```
 
 ```{r}
-# PErez
- down <- c('Tle2',
-'Coro6',
-'Echdc2',
-'Ebf4',
-'Tmsb10',
-'Stmn1',
-'Camk2n2',
-'Sbsn',
-'Arx',
-'Nap1l5',
-'Cdh22',
-'Ccdc136',
-'Gng4',
-'Myoc' ,
-'Dpp10')
+merged_proteins <- merged %>% 
+  filter(Exp_type == "Protein")
+```
 
-up <- c('Trpc6',
-'Plk5',
-'Lct',
-'Aldh1a1',
-'Bdnf',
-'Iqgap2',
-'Egr3',
-'Sema5a',
-'Sipa1l3',
-'Pdyn',
-'Lrrc10b',
-'Dagla',
-'Rasd1',
-'Lingo3',
-'Tanc1',
-'Nptx2',
-'Kif17',
-'Klk8',
-'Ptgs2',
-'Bok',
-'Fosb',
-'Syt12')
+```{r}
+# calculation accounts for multi per paper - so no. is based on unique papers
+gene_counts_proteins <- merged_proteins %>%
+  group_by(Gene_name) %>%
+  count(Author) %>% # 1st step
+  count(Gene_name) # 2nd step -> gets no. by papers
+```
+
+```{r}
+# Perez 2024's comparison to Wassouf 2018 (from figure )
+down <- c('Tle2', 'Coro6', 'Echdc2', 'Ebf4', 'Tmsb10', 'Stmn1', 'Camk2n2', 'Sbsn',
+           'Arx', 'Nap1l5', 'Cdh22', 'Ccdc136', 'Gng4', 'Myoc', 'Dpp10')
+
+up <- c('Trpc6', 'Plk5', 'Lct', 'Aldh1a1', 'Bdnf', 'Iqgap2', 'Egr3',
+        'Sema5a', 'Sipa1l3', 'Pdyn', 'Lrrc10b', 'Dagla', 'Rasd1', 'Lingo3',
+        'Tanc1', 'Nptx2', 'Kif17', 'Klk8', 'Ptgs2', 'Bok', 'Fosb', 'Syt12')
 ```
 
 ```{r}
@@ -474,6 +686,7 @@ print(perez_was_me_gt)
 - <https://stackoverflow.com/questions/79559857/conditionally-color-cells-based-on-different-column-in-gt>
 - <https://thegraphcourses.org/courses/epirep/topics/enhancing-gt-tables/>
 - <https://stackoverflow.com/questions/61435048/conditional-formatting-of-multiple-columns-in-gt-table?rq=3>
+- <https://gt.rstudio.com/reference/cells_column_spanners.html>
 
 ```{r}
 was_2 <- mapped_comp %>%
@@ -709,3 +922,16 @@ print(perez_was_me_gt_2)
 ```{r}
 
 ```
+
+------------------------------------------------------------------------
+
+# 1 - Neurotrophins & Intracellular
+
+```{r}
+```
+
+```{r}
+Hu_list <- 
+```
+
+# 2 - Transcription & Translation
