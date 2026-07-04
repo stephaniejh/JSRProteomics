@@ -17,13 +17,13 @@ Nice study! :)
 
 # Proteomics
 
--   Their provided dfs have the uniprot accession from mice. So mapped those to the mouse_ref (uniprot df), to get gene names which were then mapped to the rat gene gene names (where uniprot infor was pulled) to get rat proteins & other details.
+- Their provided dfs have the uniprot accession from mice. So mapped those to the mouse_ref (uniprot df), to get gene names which were then mapped to the rat gene gene names (where uniprot infor was pulled) to get rat proteins & other details.
 
--   NOTE: some exported randomly have **Q6LED0 Histone H3.1 in the exported sheets? not sure why? look into?**
+- NOTE: some exported randomly have **Q6LED0 Histone H3.1 in the exported sheets? not sure why? look into?**
 
-    -   Nothing to do with group & ungroup() - doesn't fix (tested 2025_12_27)
+  - Nothing to do with group & ungroup() - doesn't fix (tested 2025_12_27)
 
--   Code is a bit of a mess (maybe clean up later in a new version).
+- Code is a bit of a mess (maybe clean up later in a new version).
 
 ## Set up
 
@@ -774,6 +774,7 @@ colnames(RNA_df_map_rat_combined)
 ```{r}
 # for lit review table 
 lit_review_transcriptomics <- RNA_df_map_rat_combined %>%
+  rename(orig_pvalue = pvalue) %>% #2026_07 - rename because orig RNA file has both pvalue & padj cols
   mutate(
     Year = 2024,
     Author = 'Perez',
@@ -800,7 +801,7 @@ lit_review_transcriptomics <- RNA_df_map_rat_combined %>%
       log2FoldChange <= -2.5 ~ '---',
       ),
     Significant = ifelse(padj <= 0.05, 'yes', 'no'),
-    pvalue = padj,
+    pvalue = padj, #2026_07 - fixed now!
     N_tested = ' ',
     Stats_adj = 'adjusted',
     Note = ' ',
@@ -851,8 +852,12 @@ split_RNA_df_map_rat$combined <- lit_review_transcriptomics
 
 ```{r}
 # # write transcriptomics lit review out excel 
-# write_xlsx(split_RNA_df_map_rat,
+# write_xlsx(split_RNA_df_map_rat, # OLD VERSION 
 #            path = "output/2025_12_27_Perez_2024_transcriptomics_lit_review_all_v1.xlsx")
+
+# # NEW VERSION 2026_07_04
+# write_xlsx(split_RNA_df_map_rat, # NEW FIXED PVALUE COL! 
+#            path = "output/2026_07_04_Perez_2024_transcriptomics_lit_review_all_v2.xlsx")
 ```
 
 #### Significant only for export
@@ -871,8 +876,8 @@ split_RNA_df_map_rat_sig  <- map(split_RNA_df_map_rat, ~filter(.x, padj <= 0.05)
 
 ### gt sig mRNA
 
--   <https://gt.albert-rapp.de/styling>
--   <https://www.danieldsjoberg.com/gt-and-gtsummary-presentation/#1>
+- <https://gt.albert-rapp.de/styling>
+- <https://www.danieldsjoberg.com/gt-and-gtsummary-presentation/#1>
 
 ```{r}
 split_RNA_df_map_rat_sig$combined |> 
