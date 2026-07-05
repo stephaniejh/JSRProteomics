@@ -1,0 +1,413 @@
+---
+title: "MssTMT_Vis_2026_07_geneset_gt_tables_wombocombos"
+author: "Stephanie Huang"
+date: "2026-07-05"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This script is the automation of the wombocombo tables from the MssTMT_Vis_2026_03_lit_review_merge
+
+It runs a loop for the genesets of interest and makes a gt table for each in the wombo combo style with 6 comparisons.
+
+```{r}
+#load packages
+library(tidyverse)
+library(gt)
+library(readxl)
+library(purrr) # for map()
+library(tidyselect) # for contains()
+library(msigdbr) # genesets
+```
+
+## Load Files
+
+You can also embed plots, for example:
+
+```{r}
+#psum
+load("input/MSstatsTMT/psum/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_psum.rda") 
+
+#comp
+load("input/MSstatsTMT/comp/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_comp.rda") 
+
+# uniprot rat ref proteome anno
+load("input/db/rat_ref_proteome_2025_12_13_51872x295.rda")
+
+#anno
+anno <- read_csv("input/anno/EEv&SH_F&M_TMT_anno_v3_df_b_check_sorted_2025_12_31.csv") 
+# double check later!
+
+# import 
+mice_lit_re <- read_excel(
+  "input/lit_review/2026_01_13_EE_omics_lit_review_mRNA_Proteins.xlsx",
+           sheet = 'mice_proteins_mRNA')
+
+rat_lit_re <- read_excel(
+  "input/lit_review/2026_01_13_EE_omics_lit_review_mRNA_Proteins.xlsx",
+           sheet = 'rat_proteins_mRNA')
+```
+
+## Wrangle
+
+```{r}
+# trim uniprot ann
+colnames(rat_ref_proteome_2025_12_13)
+
+rat_ref_trm <- rat_ref_proteome_2025_12_13 %>%
+  dplyr::select(Entry, Protein.families, Keywords,
+  Subcellular.location..CC.,
+  Activity.regulation, Catalytic.activity, Cofactor, Developmental.stage:Pathway,
+  Gene.Names)
+```
+
+```{r}
+# see lil checks in other vis folder - 
+# shorten name & clean up! 
+mapped_comp <- mapped_comp_v3.2.2_EExAge_t1 %>%
+  
+  filter(is.na(issue)) %>% # keeps rows with issue == na (so comps that are ok)
+  filter(!str_detect(log2FC, "Inf")) %>% # remove infinity/missing FC values
+  
+  # make gene label for significant! 
+  mutate(sig_g_label = if_else(adj.pvalue <= .1, gene, NA)) %>%
+  
+  # make one for no of sig up & down for each comaprison group/label
+  group_by(Label) %>%
+  mutate(sig_no_up_lab = sum(adj.pvalue < 0.05 & log2FC > 0), # up
+         sig_no_down_lab = sum(adj.pvalue < 0.05 & log2FC < 0)) %>%  #  down
+  
+  mutate(Direction = if_else(log2FC > 0, "Up", "Down")) %>%
+  mutate(Direction_2 = if_else(Direction == "Up", "\u2191", # up arrow
+                               "\u2193")) %>% # else down arrow
+  
+  mutate(protein_existence = as.character(protein_existence)) # as char so no decim
+
+mapped_comp$Label <- factor(mapped_comp$Label,
+                            levels = c( "H_EE_vs_SH",
+                                        "HxA_EE_YNG_vs_SH_YNG",
+                                        "HxA_EE_OLD_vs_SH_OLD",
+                                        "A_YNG_vs_OLD", 
+                                        "HxA_EE_YNG_vs_EE_OLD",
+                                        "HxA_SH_YNG_vs_SH_OLD",
+                                        "HxA_EE_YNG_vs_SH_OLD",
+                                        "HxA_EE_OLD_vs_SH_YNG"))   
+```
+
+## 
+
+------------------------------------------------------------------------
+
+### TEST WOMBO COMBO tables
+
+```{r}
+mapped_comp_sym <- mapped_comp %>%
+  select(Protein:log2FC, adj.pvalue, description, gene) %>% # ! for pivot_wider
+  # filter(Label %in% c("H_EE_vs_SH", "A_YNG_vs_OLD")) %>%
+  # filter(!(Label %in% c("HxA_EE_OLD_vs_SH_YNG", "HxA_EE_YNG_vs_SH_OLD"))) %>%
+      mutate(sym = case_when(
+    adj.pvalue < 0.05 & log2FC > 0 ~ "\u2191 *", # up sig .05
+    adj.pvalue < 0.05 & log2FC < 0 ~ "\u2193 *", # down sig .05
+    adj.pvalue <= 0.11 & log2FC > 0 ~ "\u2191 .", # up sig .1
+    adj.pvalue <= 0.11 & log2FC  < 0 ~ "\u2193 .", # down sig .1
+    adj.pvalue <= 0.51 & log2FC > 0 ~ "\u2191", # up (~p0.03-05)
+    adj.pvalue <= 0.51 & log2FC  < 0 ~ "\u2193", # down 
+    .default = " ")) %>%
+  rename(adjp = adj.pvalue) %>%
+  pivot_wider(names_from = Label,
+              # names_sep = ".",
+              values_from = c(sym, log2FC, adjp),
+              names_glue = "{Label}.{.value}", # need this order for gt
+              names_vary = "slowest", # clusters by columns by order! ez4gt!
+              names_sort = TRUE # sorts by order of levels in label factor!
+              ) 
+```
+
+```{r}
+# conditional color mapping for gt (based off of Claude example some w/mods)
+# labels of interest - comment in & out 
+# 6 - EITHER
+my_labels <- c("H_EE_vs_SH", "HxA_EE_YNG_vs_SH_YNG", "HxA_EE_OLD_vs_SH_OLD",
+               "A_YNG_vs_OLD", "HxA_EE_YNG_vs_EE_OLD","HxA_SH_YNG_vs_SH_OLD")
+# 2 - OR 
+# my_labels <- my_labels <- c("H_EE_vs_SH", "A_YNG_vs_OLD")
+
+#______________________________
+#___# WOMBO COMBO FUNCTION SET UP
+# using purrr's map function 
+cell_locations <- function(my_labels, my_pattern) {
+  purrr::map(my_labels, function(prefix) { 
+    sym_col <- paste0(prefix, ".sym") # so H_EE_vs_SH.sym etc
+    fc_col <- paste0(prefix, ".log2FC")
+    adjp_col <- paste0(prefix, ".adjp") 
+    
+    row_condition <- if (is.function(my_pattern)) { # if given my_pattern is func
+      my_pattern(sym_col, fc_col, adjp_col)
+    } else { # ELSE - my_pattern is not a function but a provided string (symbol)
+      rlang::expr(.data[[!!sym_col]] == !!my_pattern) 
+    } # need rlang::expr! & !! when using .data - evals later in gt when given df
+
+    cells_body(
+      rows = !!row_condition,
+      columns = all_of(c(sym_col, fc_col, adjp_col))) # gt cols 2 app 
+  })
+}
+
+
+#__CODING_FOR_CONDITIONAL_COLORS
+# UP - from most sig to least
+up_sig_05_loc <- cell_locations(my_labels, "\u2191 *")
+up_sig_1_loc <- cell_locations(my_labels, "\u2191 .")
+up_5_loc <- cell_locations(my_labels, "\u2191")
+up_fc_loc <- cell_locations(my_labels, function(sym_col, fc_col, adjp_col) {
+  rlang::expr(.data[[!!sym_col]] == " " & .data[[!!fc_col]] > 0.04 & .data[[!!adjp_col]] < .99)
+})
+
+# DOWN - from most sig to least
+down_sig_05_loc <- cell_locations(my_labels, "\u2193 *")
+down_sig_1_loc <- cell_locations(my_labels, "\u2193 .")
+down_5_loc <- cell_locations(my_labels, "\u2193")
+down_fc_loc <- cell_locations(my_labels, function(sym_col, fc_col, adjp_col) {
+  rlang::expr(.data[[!!sym_col]] == " " & .data[[!!fc_col]] < -0.04 & .data[[!!adjp_col]] < .99)
+})
+```
+
+#### Base version - wombocombogt
+
+Checks aesthetics and style 1st \| Comment in & out depending on data/comparisons of interest!
+
+```{r}
+wombo_combo_tab <- mapped_comp_sym %>%
+
+  select(c(gene, description, H_EE_vs_SH.sym:HxA_SH_YNG_vs_SH_OLD.adjp)) %>%
+  
+  filter(gene %in%  ALL_neurotrophins_genes) %>%
+  
+  # ____COMMENT IN OUR OUT DEPENDING ON TABLE! ____________________
+  # #_______v1_EE_main___
+  # mutate(EE_dir = if_else(H_EE_vs_SH.log2FC > 0, "Up \u2191 in EE",
+  #                         "Down \u2193 in EE")) %>%
+  # arrange(H_EE_vs_SH.adjp) %>%
+  
+ #_______v2_YNG_main___
+   mutate(YNG_dir = if_else(A_YNG_vs_OLD.log2FC > 0, "Up \u2191 in YNG",
+                          "Down \u2193 in YNG")) %>%
+  arrange(A_YNG_vs_OLD.adjp) %>%
+  # 
+  #_____
+  # add row number after organisation
+  mutate(row_id = as.character(row_number())) %>%
+
+  head(250) %>%
+  
+
+ gt(
+    # groupname_col = "EE_dir", # v1 -EE main
+    groupname_col = "YNG_dir", # v2 - YNG main
+    rowname_col = "row_id"
+    # rowname_col = "gene"
+  ) %>%
+
+  
+ #____STYLING____SAME_FOR_ALLL_____-no_touchy!________________
+  fmt_number(decimals = 2)  %>%
+  
+    tab_spanner_delim( delim = ".", # SPLIT 2 SPANNER HEADS
+                    split = "first", limit = 1) %>%
+  
+   cols_label(
+    description = "",
+    gene = "",
+    H_EE_vs_SH.sym = "EE",
+    HxA_EE_YNG_vs_SH_YNG.sym = "EE Y",
+    HxA_EE_OLD_vs_SH_OLD.sym = "EE O",
+    A_YNG_vs_OLD.sym = "YNG",
+    HxA_EE_YNG_vs_EE_OLD.sym = "EE Y",
+    HxA_SH_YNG_vs_SH_OLD.sym = "SH Y",
+    ) %>%
+
+  
+  
+  tab_style( # STUB STYLE
+    style = list(cell_text(size = px(9), color = "#B3B3B3")),
+    locations = cells_stub()) %>%
+
+  
+  tab_options(# GENERAL TABLE OPTIONS
+    table.font.size=11.5, # GENERAL TABLE OPTIONS
+    row_group.font.size = 13,
+
+
+    # ehhh not sure worth changing....
+    # table_body.hlines.width = px(0.3), # horizontal rules 
+    # row_group.border.top.width = px(0.5), # below colum labs above grouper hrule
+    # row_group.border.bottom.width = px(0.5), # below grouper hrule
+    # row_group.border.top.color = "#d33682" # use 2 check where
+  ) %>%
+  opt_vertical_padding(scale = 0.3) %>% # vert padding
+  
+   # opt_interactive() %>% # do later for scrollable display! 
+
+  cols_align(
+    align = "center",
+    columns = !1:2) %>%
+  
+  tab_style( # Spanner styling 
+    style = cell_text(size = "90%"),
+    locations = cells_column_spanners()) %>%
+  
+  
+  tab_style( # Cell column styling! 
+    style = cell_text(size = "90%", style = "italic", color = "#808080"),
+    locations = cells_column_labels()) %>%
+  
+    tab_style( # Prevent breaking of value columns!
+    style = cell_text(whitespace = "nowrap"),
+    locations = cells_body(columns = !1:2)) %>%
+  
+  
+  tab_style( # gene name column styling
+    style = cell_text(size = px(12.5), style = "italic"),
+    locations = cells_body(columns = gene)) %>%
+  
+  
+  #______UP_____________
+  tab_style( # UP & ADJ P SIG!
+    style = list(cell_fill(color = "#fccad8"), cell_text(color = "#FF0099")),
+    locations = up_sig_05_loc) %>%
+  
+  tab_style( 
+    style = list(cell_fill(color = "#fddde6"), cell_text(color = "#d33682")),
+    locations = up_sig_1_loc ) %>%
+  
+  tab_style( 
+    style = list(cell_fill(color = "#FEEEF3"), cell_text(color = "#d33682")),
+    locations = up_5_loc) %>%
+  
+  tab_style(style = list(cell_text(color = "#d33682")),
+            locations = up_fc_loc) %>%
+  
+  #______DOWN_____________
+  tab_style(
+    style = list(cell_fill(color = "#C0DDF9"), cell_text(color = "#0080FF")),
+    locations = down_sig_05_loc) %>%
+  
+  tab_style(
+    style = list(cell_fill(color = "#DBECFC"),
+                 cell_text(color = "#2380c1")),
+    locations = down_sig_1_loc) %>%
+  
+  tab_style( 
+    style = list(cell_fill(color = "#EFF6FD"), cell_text(color = "#2380c1")),
+    locations = down_5_loc) %>%
+  
+    tab_style(style = list(cell_text(color = "#2380c1")),
+            locations = down_fc_loc) %>%
+  
+  
+  
+  #___SPANNER_COLORS____________
+  tab_style(style = list(cell_fill(color = "#AFCC9F")),
+      locations = cells_column_spanners(spanners = contains("H_EE_vs_SH"))) %>%
+  tab_style(style = list(cell_fill(color = "#D4E4CB"),
+                         cell_borders(sides = c("left","right"),
+                                      color = "#D3D3D3")),
+        locations = cells_column_spanners(
+          spanners = matches("HxA_EE_YNG_vs_SH_YNG|HxA_EE_OLD_vs_SH_OLD"))) %>%
+  
+  tab_style(style = cell_fill(color = "#BFBBD5"),
+      locations = cells_column_spanners(spanners = contains("A_YNG_vs_OLD"))) %>%
+  tab_style(style = list(cell_fill(color = "#DDDCE9"),
+                         cell_borders(sides = "left", color = "#D3D3D3")),
+        locations = cells_column_spanners(
+          spanners = matches("HxA_EE_YNG_vs_EE_OLD|HxA_SH_YNG_vs_SH_OLD"))) 
+  
+
+  
+
+wombo_combo_tab #print
+```
+
+------------------------------------------------------------------------
+
+## Wombocombo loop
+
+### Look \@ Genesets of interest from above
+
+## MSigDBR Genesets
+
+<https://igordot.github.io/msigdbr/articles/msigdbr-intro.html>
+
+```{r}
+#msigdbr_collections()
+genesets <- msigdbr(species = "rat", collection = "C2")
+genesets_KEGG <- msigdbr(species = "rat", collection = "C2", subcollection = "CP:KEGG_LEGACY")
+```
+
+```{r}
+gene_checker <- genesets %>%
+  filter(gene_symbol == "Rras2") 
+
+# RASAL1, RASAL, & Rasal1 not found in any genesets of C2 
+```
+
+```{r}
+geneset_checker <- genesets %>%
+  filter(str_detect(gs_description, regex("Neurotrophi", ignore_case = TRUE)))
+```
+
+```{r}
+ALL_neurotrophins <- genesets %>%
+    filter(str_detect(gs_name, regex("WP_BDNF_SIGNALING_IN_NEURODEVELOPMENT", ignore_case = TRUE))) 
+
+ALL_neurotrophins_genes <- ALL_neurotrophins %>% pull(gene_symbol)
+
+WP_BDNF <- genesets %>%
+  filter(gs_collection_name == "WikiPathways") %>%
+   filter(str_detect(gs_description,"BDNF")) %>%
+  pull(gs_name) %>%
+  unique()
+
+```
+
+------------------------------------------------------------------------
+
+```{r}
+
+# Genesets_OI <- c() # see above
+EExAGE <- c("EE", "YNG") # either sort by young or EE 
+
+combo_genesets_gt_list <- vector(mode = "list")
+```
+
+```{r}
+for (gs in WP_BDNF){ #!
+  
+  my_genes <- genesets %>%
+    filter(gs_name == gs) %>%
+    pull(gene_symbol)
+  
+  my_gs_des <- genesets %>%
+    filter(gs_name == gs) %>%
+    distinct(gs_description)
+  
+  my_gs_dets <- genesets %>%
+    filter(gs_name == gs) %>%
+    mutate(comb_name = paste0(gs_subcollection, " - ", gs_name,
+                              " (", gs_id, ")  - ", gs_url)) %>%
+    distinct(comb_name)
+  
+  print(paste0(my_gs_des, " - ", my_gs_name))
+  
+  
+  for (lab in EExAGE){ #! 
+    
+    
+    
+  }
+  
+}
+```
