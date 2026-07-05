@@ -11,7 +11,8 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Library
 ```{r}
-
+library(tidyverse)
+library(msigdbr)
 ```
 
 ```{r}
@@ -72,4 +73,18 @@ rat_ref_neurogenesis <- rat_ref %>%
          `Gene.Ontology..cellular.component.`, `Developmental.stage`,
           "Keywords"   ) 
 ```
+
+https://igordot.github.io/msigdbr/articles/msigdbr-intro.html
+
+```{r}
+#msigdbr_collections()
+genesets <- msigdbr(species = "rat", collection = "C2", subcollection = "CP:KEGG_LEGACY")
+```
+
+```{r}
+KEGG_neurotrophins <- genesets %>%
+  filter(gs_description == "Neurotrophin signaling pathway") %>%
+  pull(gene_symbol)
+```
+
 
