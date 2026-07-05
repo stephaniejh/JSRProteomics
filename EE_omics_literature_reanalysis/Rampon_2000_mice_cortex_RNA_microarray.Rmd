@@ -1,0 +1,75 @@
+---
+title: "Rampon_2000_mice_cortex_RNA_microarray"
+output: html_document
+---
+
+```{r}
+
+```
+
+```{r}
+library(tidyverse)
+library(readxl)
+library(writexl)
+library(gt)
+```
+
+```{r}
+df <- read_excel("input/Rampon_2000_mRNA_uniprot_mapped_v2_ena_ebi_added_19dec_by_name_search_2026_03.xlsx") 
+```
+
+```{r}
+colnames(df)
+str(df)
+df %>% gt
+```
+
+```{r}
+# for lit review table 
+lit_review_RNA <- df %>%
+  rename(Gene_name_old = Gene_name,
+         Fold_change_old = Fold_Change) %>% 
+  mutate(fold_no = as.numeric(if_else(fold_no == "NC", "0", fold_no))) %>%
+  mutate(
+    Year = 2000,
+    Author = 'Rampon',
+    Animal = 'Mice',
+    Condition = paste0(Phase," - ", Duration),
+    Region = 'Cortex',
+    Whole = 'Yes',
+    Exp_type = 'mRNA',
+    Method = 'Microarray',
+    Used_name = Gene_name_old,
+    Mod = " ",
+    Mod_type = " ",
+    Gene_name = uniprot_gene, # genename from uniprot
+    Comparison = 2, # 2 - EE vs SH
+    In_EE = Direction,
+    Fold_change = fold_no, # fold_no - numeric col with correct - sign! 
+    Arrows = case_when( # dplyr case when, instead of ifelse
+      fold_no > 2.5 ~ '+++',
+      fold_no > 1 ~ '++',
+      fold_no > .05 ~ '+',
+      fold_no > -.05 ~ '=',
+      fold_no > -1 ~ '-',
+      fold_no > -2.5 ~ '--',
+      fold_no <= -2.5 ~ '---',
+      ),
+    Significant = ifelse(Fold_change_old != "NC", 'yes', 'no'), 
+    pvalue = " ", #no pvalues provided
+    N_tested = '3', # seems to be 3 per time group per housing condition (pg 1)
+    Stats_adj = ' ', 
+    Note = notes,
+    Full_name = uniprot_prot_name,
+    Uniprot_rat_accession = uniprot_acc,
+    Uniprot_entry_name = uniprot_entry,
+    Uniprot_link = uniprot_link,
+    Wikipedia_link = 	wiki_link,
+    Curation_method = ...4, # note on curation method
+    Class_group = Category, #Catgegory as provided in table/fig of paper
+    Other_link = ebi_link, # ebi ena link
+    Other_comments = 'misc shows combined gene_ensembl info from their df',
+    misc = paste0(SYMBOL, '_', ENSEMBL)
+  ) %>%
+  arrange(Condition, desc(In_EE), pvalue, Fold_change)
+```
