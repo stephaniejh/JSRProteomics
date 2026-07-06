@@ -9,7 +9,7 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-- [ ] 2026_07_02 - check why no p-value for perez_transcriptomics? (protein sheet has everything but not the transcriptomics sheet, although significant & other metrics there - check lit_reivew exp sheet!
+- [x] 2026_07_02 - check why no p-value for perez_transcriptomics? (protein sheet has everything but not the transcriptomics sheet, although significant & other metrics there - check lit_reivew exp sheet!
 
 - [ ] 2026_07_02 - Clean up cases from manual mice sheet
 
@@ -65,11 +65,15 @@ rat_lit_re <- read_excel(
 # trim uniprot ann
 colnames(rat_ref_proteome_2025_12_13)
 
-rat_ref_trm <- rat_ref_proteome_2025_12_13 %>%
+rat_ref_trm <- rat_ref_proteome_2025_12_13 %>% # trim ver - 18 cols
   dplyr::select(Entry, Protein.families, Keywords,
   Subcellular.location..CC.,
   Activity.regulation, Catalytic.activity, Cofactor, Developmental.stage:Pathway,
   Gene.Names)
+
+rat_ref_trm_trm <- rat_ref_trm  %>% # mini-er ver - 7 cols
+  dplyr::select(Entry, Protein.families, Keywords,
+  Subcellular.location..CC., Developmental.stage, Function..CC., Pathway)
 ```
 
 ```{r}
@@ -125,6 +129,7 @@ mapped_comp_2 <- mapped_comp %>%
 ------------------------------------------------------------------------
 
 ## MSigDBR Genesets
+
 Ehhh moved to MssTMT_Vis_2026_07_geneset_gt_tables_wombocombos script instead
 
 <https://igordot.github.io/msigdbr/articles/msigdbr-intro.html>
@@ -188,15 +193,17 @@ mapped_comp_sym <- mapped_comp %>%
               names_glue = "{Label}.{.value}", # need this order for gt
               names_vary = "slowest", # clusters by columns by order! ez4gt!
               names_sort = TRUE # sorts by order of levels in label factor!
-              ) 
+              ) %>%
+  left_join(rat_ref_trm_trm, 
+            by = join_by("Protein" == "Entry"))
 ```
 
 ```{r}
 # conditional color mapping for gt (based off of Claude example some w/mods)
 # labels of interest - comment in & out 
 # 6 - EITHER
-# my_labels <- c("H_EE_vs_SH", "HxA_EE_YNG_vs_SH_YNG", "HxA_EE_OLD_vs_SH_OLD",
-#                "A_YNG_vs_OLD", "HxA_EE_YNG_vs_EE_OLD","HxA_SH_YNG_vs_SH_OLD")
+#my_labels <- c("H_EE_vs_SH", "HxA_EE_YNG_vs_SH_YNG", "HxA_EE_OLD_vs_SH_OLD",
+#               "A_YNG_vs_OLD", "HxA_EE_YNG_vs_EE_OLD","HxA_SH_YNG_vs_SH_OLD")
 # 2 - OR 
 my_labels <- my_labels <- c("H_EE_vs_SH", "A_YNG_vs_OLD")
 
@@ -1029,6 +1036,8 @@ print(perez_was_me_gt_2)
 
 # 1 - Neurotrophins & Intracellular
 
+### Hu 2013
+
 ```{r}
 # NOTE PROTEIN MORE ACCURATE THAN GENES
 Hu_2013 <- merged %>%
@@ -1068,7 +1077,7 @@ me_and_hu_gt <- me_and_hu %>%
     rowname_col = "gene"
   ) %>%
 
-  gtExtras::gt_theme_nytimes() %>%
+  # gtExtras::gt_theme_nytimes() %>%
   
   fmt_number(decimals = 2)  %>%
   
@@ -1086,8 +1095,12 @@ me_and_hu_gt <- me_and_hu %>%
     # HxA_EE_YNG_vs_EE_OLD.sym = "EE Y",
     # HxA_SH_YNG_vs_SH_OLD.sym = "SH Y",
     ) %>%
-
   
+    tab_header(
+    title = md("Comparison to **Hu et al., 2013** across Housing & Age"),
+    subtitle = md("`2026_07_06` - `Does not include Phosphoproteins from study.`")) %>%
+  
+
   tab_style( # STUB STYLE
     style = list(cell_text(size = px(10), color = "#B3B3B3", style = "italic")),
     locations = cells_stub()) %>%
@@ -1097,21 +1110,8 @@ me_and_hu_gt <- me_and_hu %>%
     table.font.size=12, # GENERAL TABLE OPTIONS
     row_group.font.size = 13,
 
-
-    # ehhh not sure worth changing....
-    # table_body.hlines.width = px(0.3), # horizontal rules 
-    # row_group.border.top.width = px(0.5), # below colum labs above grouper hrule
-    # row_group.border.bottom.width = px(0.5), # below grouper hrule
-    # row_group.border.top.color = "#d33682" # use 2 check where
-    
-    
-    
-    
-    # table.border.top.width = px(0.5),
-    # table.border.bottom.width = px(0.5),
-    # table_body.hlines.width = px(0.5),
-    # table_body.vlines.width = px(0.5)
-
+    table.border.top.width = px(1.5),
+    table.border.bottom.width = px(2)
   ) %>%
   opt_vertical_padding(scale = 0.3) %>% # vert padding
   
@@ -1146,6 +1146,7 @@ me_and_hu_gt <- me_and_hu %>%
     style = cell_text(size = px(10)), 
     locations = cells_body(columns = c(Region, Exp_type, Method))
   ) %>%
+  
   
   
   #______UP_____________
@@ -1237,9 +1238,199 @@ me_and_hu_gt <- me_and_hu %>%
 me_and_hu_gt  #print
 ```
 
+### Protein Kinases & Phosphatases \| Ras Related
+
 ```{r}
-NT_checks <- merged %>% 
-  filter(str_detect(Gene_name, "Bdnf|Ntrk2|Ntrk3|Ntf3|Ngf")) 
+smol_GTPase_fam <- mapped_comp_sym %>%
+  filter(str_detect(Protein.families, regex("Small GTPase superfamily")) |str_detect(description, "RAS protein")) %>%
+    # filter(str_detect(Protein.families, regex("Ras family", ignore_case = TRUE)) | str_detect(description, "RAS protein")) %>%
+  pull(gene)
+
+
+Kinase_Phos_fam <- mapped_comp_sym %>%
+    filter(str_detect(Protein.families, regex("Kinase|Phosphatase", ignore_case = TRUE))) %>%
+  pull(gene)
+```
+
+```{r}
+NT_ras_kin_pho_gt <- mapped_comp_sym %>%
+  
+  #   mutate(Type = case_when( # KINASE & PHOSPHATASE 
+  #   str_detect(Protein.families, regex("Kinase", ignore_case = TRUE)) ~ "Kinase",
+  #   str_detect(Protein.families, regex("Phosphatase", ignore_case = TRUE)) ~ "Phosphatase"
+  # )) %>%
+  
+  
+    mutate(Type = case_when( # Small GTPase Superfamily
+    str_detect(Protein.families, regex("Ras family")) ~ "Ras family", # incl Di-Ras
+    str_detect(description, "RAS protein") ~ "Ras family", # Rasal1 & Rasal2
+    str_detect(Protein.families, regex("Arf family")) ~ "Arf family",
+    str_detect(Protein.families, regex("Rab family")) ~ "Rab family",
+    str_detect(Protein.families, regex("Rho family")) ~ "Rho family",
+    .default = "Ran, Rheb, RGK, & SAR1 family" # remaining less frequent ones
+    )) %>%
+  # mutate(Protein.families = str_replace(Protein.families, "Small GTPase superfamily, ", "")) %>% 
+  
+  select(c(gene, description, Type,  H_EE_vs_SH.sym:HxA_SH_YNG_vs_SH_OLD.adjp)) %>%
+  # select(c(gene, description, Type,  H_EE_vs_SH.sym:H_EE_vs_SH.adjp, 
+  #          A_YNG_vs_OLD.sym:A_YNG_vs_OLD.adjp)) %>%
+
+  # filter(gene %in%  Kinase_Phos_fam) %>% 
+  filter(gene %in% smol_GTPase_fam) %>% 
+  filter(!(is.na(gene))) %>%
+  
+  
+  # ____COMMENT IN OUR OUT DEPENDING ON TABLE! ____________________
+  # mutate(Type = case_when(
+  #   str_detect(description, regex("Kinase", ignore_case = TRUE)) ~ "Kinase",
+  #   str_detect(description, regex("Phosphatase", ignore_case = TRUE)) ~ "Phosphatase"
+  # )) %>%
+
+  
+  # #_______v1_EE_main___
+  # mutate(EE_dir = if_else(H_EE_vs_SH.log2FC > 0, "Up \u2191 in EE",
+  #                         "Down \u2193 in EE")) %>%
+  
+  # arrange(H_EE_vs_SH.adjp) %>%
+
+ #_______v2_YNG_main___
+   # mutate(YNG_dir = if_else(A_YNG_vs_OLD.log2FC > 0, "Up \u2191 in YNG",
+   #                        "Down \u2193 in YNG")) %>%
+  arrange(A_YNG_vs_OLD.adjp) %>%
+  
+  #_____
+  # add row number after organisation
+  mutate(row_id = as.character(row_number())) %>%
+
+  head(50) %>%
+  
+
+ gt(
+    # groupname_col = "EE_dir", # v1 -EE main
+    # groupname_col = "YNG_dir", # v2 - YNG main
+   groupname_col = "Type", # Protein Type
+    rowname_col = "row_id"
+    # rowname_col = "gene"
+  ) %>%
+
+  
+ #____STYLING____SAME_FOR_ALLL_____-no_touchy!________________
+  fmt_number(decimals = 2)  %>%
+  
+    tab_spanner_delim( delim = ".", # SPLIT 2 SPANNER HEADS
+                    split = "first", limit = 1) %>%
+  
+   cols_label(
+    description = "",
+    gene = "",
+    H_EE_vs_SH.sym = "EE",
+    HxA_EE_YNG_vs_SH_YNG.sym = "EE Y",
+    HxA_EE_OLD_vs_SH_OLD.sym = "EE O",
+    A_YNG_vs_OLD.sym = "YNG",
+    HxA_EE_YNG_vs_EE_OLD.sym = "EE Y",
+    HxA_SH_YNG_vs_SH_OLD.sym = "SH Y",
+    
+    ) %>%
+  
+  tab_header(
+    title = md("Comparison of **Small GTPase Superfamily Proteins** across Housing & Age Comparisons"),
+    subtitle = md("`2026_07_06` - `Done by Filtering Protein.families - Small GTPase superfamily | description - RAS protein`")) %>%
+   
+  tab_style( # STUB STYLE
+    style = list(cell_text(size = px(9), color = "#B3B3B3")),
+    locations = cells_stub()) %>%
+
+  
+  tab_options(# GENERAL TABLE OPTIONS
+    table.font.size=11.5, # GENERAL TABLE OPTIONS
+    row_group.font.size = 13,
+  ) %>%
+  opt_vertical_padding(scale = 0.3) %>% # vert padding
+
+
+  cols_align(
+    align = "center",
+    columns = !1:2) %>%
+  
+  tab_style( # Spanner styling 
+    style = cell_text(size = "90%"),
+    locations = cells_column_spanners()) %>%
+  
+  
+  tab_style( # Cell column styling! 
+    style = cell_text(size = "90%", style = "italic", color = "#808080"),
+    locations = cells_column_labels()) %>%
+  
+    tab_style( # Prevent breaking of value columns!
+    style = cell_text(whitespace = "nowrap"),
+    locations = cells_body(columns = !1:2)) %>%
+  
+  
+  tab_style( # gene name column styling
+    style = cell_text(size = px(12.5), style = "italic"),
+    locations = cells_body(columns = gene)) %>%
+  
+  
+  #______UP_____________
+  tab_style( # UP & ADJ P SIG!
+    style = list(cell_fill(color = "#fccad8"), cell_text(color = "#FF0099")),
+    locations = up_sig_05_loc) %>%
+  
+  tab_style( 
+    style = list(cell_fill(color = "#fddde6"), cell_text(color = "#d33682")),
+    locations = up_sig_1_loc ) %>%
+  
+  tab_style( 
+    style = list(cell_fill(color = "#FEEEF3"), cell_text(color = "#d33682")),
+    locations = up_5_loc) %>%
+  
+  tab_style(style = list(cell_text(color = "#d33682")),
+            locations = up_fc_loc) %>%
+  
+  #______DOWN_____________
+  tab_style(
+    style = list(cell_fill(color = "#C0DDF9"), cell_text(color = "#0080FF")),
+    locations = down_sig_05_loc) %>%
+  
+  tab_style(
+    style = list(cell_fill(color = "#DBECFC"),
+                 cell_text(color = "#2380c1")),
+    locations = down_sig_1_loc) %>%
+  
+  tab_style( 
+    style = list(cell_fill(color = "#EFF6FD"), cell_text(color = "#2380c1")),
+    locations = down_5_loc) %>%
+  
+    tab_style(style = list(cell_text(color = "#2380c1")),
+            locations = down_fc_loc) %>%
+  
+  
+  
+  #___SPANNER_COLORS____________
+  tab_style(style = list(cell_fill(color = "#AFCC9F")),
+      locations = cells_column_spanners(spanners = contains("H_EE_vs_SH"))) %>%
+  tab_style(style = list(cell_fill(color = "#D4E4CB"),
+                         cell_borders(sides = c("left","right"),
+                                      color = "#D3D3D3")),
+        locations = cells_column_spanners(
+          spanners = matches("HxA_EE_YNG_vs_SH_YNG|HxA_EE_OLD_vs_SH_OLD"))) %>%
+  
+  tab_style(style = cell_fill(color = "#BFBBD5"),
+      locations = cells_column_spanners(spanners = contains("A_YNG_vs_OLD"))) %>%
+  tab_style(style = list(cell_fill(color = "#DDDCE9"),
+                         cell_borders(sides = "left", color = "#D3D3D3")),
+        locations = cells_column_spanners(
+          spanners = matches("HxA_EE_YNG_vs_EE_OLD|HxA_SH_YNG_vs_SH_OLD")))
+
+
+NT_ras_kin_pho_gt #print
+# NT_ras_kin_pho_RAS
+```
+
+```{r}
+
 ```
 
 # 2 - Transcription & Translation
+
+# 3 - Transcription & Translation
