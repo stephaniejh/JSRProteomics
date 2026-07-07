@@ -202,10 +202,10 @@ mapped_comp_sym <- mapped_comp %>%
 # conditional color mapping for gt (based off of Claude example some w/mods)
 # labels of interest - comment in & out 
 # 6 - EITHER
-#my_labels <- c("H_EE_vs_SH", "HxA_EE_YNG_vs_SH_YNG", "HxA_EE_OLD_vs_SH_OLD",
-#               "A_YNG_vs_OLD", "HxA_EE_YNG_vs_EE_OLD","HxA_SH_YNG_vs_SH_OLD")
+my_labels <- c("H_EE_vs_SH", "HxA_EE_YNG_vs_SH_YNG", "HxA_EE_OLD_vs_SH_OLD",
+              "A_YNG_vs_OLD", "HxA_EE_YNG_vs_EE_OLD","HxA_SH_YNG_vs_SH_OLD")
 # 2 - OR 
-my_labels <- my_labels <- c("H_EE_vs_SH", "A_YNG_vs_OLD")
+# my_labels <- my_labels <- c("H_EE_vs_SH", "A_YNG_vs_OLD")
 
 #______________________________
 #___# WOMBO COMBO FUNCTION SET UP
@@ -254,7 +254,8 @@ Comment in & out depending on data/comparisons of interest!
 ```{r}
 wombo_combo_tab <- mapped_comp_sym %>%
 
-  select(c(gene, description, H_EE_vs_SH.sym:HxA_SH_YNG_vs_SH_OLD.adjp)) %>%
+  select(c(gene, description, H_EE_vs_SH.sym:HxA_SH_YNG_vs_SH_OLD.adjp,
+           Protein.families, Function..CC.)) %>%
   
   filter(gene %in%  ALL_neurotrophins_genes) %>%
   
@@ -325,7 +326,7 @@ wombo_combo_tab <- mapped_comp_sym %>%
 
   cols_align(
     align = "center",
-    columns = !1:2) %>%
+    columns = c(!1:2, 23:24)) %>%
   
   tab_style( # Spanner styling 
     style = cell_text(size = "90%"),
@@ -338,7 +339,7 @@ wombo_combo_tab <- mapped_comp_sym %>%
   
     tab_style( # Prevent breaking of value columns!
     style = cell_text(whitespace = "nowrap"),
-    locations = cells_body(columns = !1:2)) %>%
+    locations = cells_body(columns = c(!1:2, 23:24))) %>%
   
   
   tab_style( # gene name column styling
@@ -558,7 +559,10 @@ merged <- bind_rows(rat_lit_EE, mice_lit_EE,
     Significant == "no" & In_EE == "up" ~ "\u2191",
     Significant == "no" & In_EE == "down" ~ "\u2193",
     In_EE == "same" ~ "-",
-  ))
+  )) %>%
+  mutate(Author_Year = paste0(Author, "_", Year), .before = Year) %>%
+  mutate(Author_Year_Condition = paste0(Author, "_", Year, "_", Condition),
+         .before = Year)
 
 length(unique(merged$Author))
 unique(merged$Author)
@@ -1236,6 +1240,62 @@ me_and_hu_gt <- me_and_hu %>%
   
 
 me_and_hu_gt  #print
+```
+
+```{r}
+Hu_gene_list <- merged %>%
+  filter(Author == "Hu") %>%
+  pull(Gene_name) %>% #21
+  unique() # 16 
+
+# along with Hu_list from above (proteins acc)
+
+Hu_and_others <- merged %>%
+  filter(Uniprot_rat_accession %in% Hu_list | Gene_name %in% Hu_gene_list | Gene_name %in% c("Mapk3", "Rasal1", "Nras", "Camk2b", "Rras")) %>%
+  filter(Author %in% c("Lichti", "Perez", "Park")) %>%
+  select(Author_Year_Condition, Exp_type, Gene_name, Fold_change, Significant,
+  pvalue, Uniprot_rat_accession, sym) %>%
+   pivot_wider(names_from = Author_Year_Condition,
+              # names_sep = ".",
+              values_from = c(sym, Fold_change, pvalue),
+              names_glue = "{Author_Year_Condition}.{.value}", # need this order for gt
+              names_vary = "slowest", # clusters by columns by order! ez4gt!
+              names_sort = TRUE # sorts by order of levels in label factor!
+              ) 
+```
+
+```{r}
+Hu_and_others_gt <- Hu_and_others %>%
+
+  # select(c(gene, Used_name, description, Region, Exp_type, Method, sym,
+  #          H_EE_vs_SH.sym:HxA_SH_YNG_vs_SH_OLD.adjp, observed)) %>% # full 6
+
+    # select(c(gene, Used_name, description, Region, Exp_type, Method, sym,
+    #        H_EE_vs_SH.sym:H_EE_vs_SH.adjp, A_YNG_vs_OLD.sym:A_YNG_vs_OLD.adjp,
+    #        observed)) %>% # 2
+
+ gt(
+    groupname_col = "Exp_type", # 
+    rowname_col = "Gene_name"
+  ) %>%
+
+  # gtExtras::gt_theme_nytimes() %>%
+  
+  fmt_number(decimals = 2)  %>%
+  
+    tab_spanner_delim( delim = ".", # SPLIT 2 SPANNER HEADS
+                    split = "first", limit = 1) %>%
+  
+    tab_options(# GENERAL TABLE OPTIONS
+    table.font.size=11, # GENERAL TABLE OPTIONS
+    row_group.font.size = 13,
+
+    table.border.top.width = px(1.5),
+    table.border.bottom.width = px(2)
+  ) 
+
+
+Hu_and_others_gt 
 ```
 
 ### Protein Kinases & Phosphatases \| Ras Related
