@@ -1242,6 +1242,8 @@ me_and_hu_gt <- me_and_hu %>%
 me_and_hu_gt  #print
 ```
 
+### Checking Hu & I against others
+
 ```{r}
 Hu_gene_list <- merged %>%
   filter(Author == "Hu") %>%
