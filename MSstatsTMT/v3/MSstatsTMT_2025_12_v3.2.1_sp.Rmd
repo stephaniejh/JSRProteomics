@@ -21,37 +21,37 @@ Findings - about the same honestly. Batch effects is heavily driven by year it s
 
 Details
 
--   Super basic run of MSstatsTMT. Just to check the effect of removing 129N B1 [outlier with too much loading]{.underline} (honestly, about the same) using the SwissProt database (canonical only \~8215).
--   Defaults, with Master Protein Accession (removed contaminants in MPA col)
-    -   Model fitting for 4562 proteins
+- Super basic run of MSstatsTMT. Just to check the effect of removing 129N B1 [outlier with too much loading]{.underline} (honestly, about the same) using the SwissProt database (canonical only \~8215).
+- Defaults, with Master Protein Accession (removed contaminants in MPA col)
+  - Model fitting for 4562 proteins
 
 Tests
 
--   Housing - EE vs SH
+- Housing - EE vs SH
 
-    -   [***t1***]{.underline} - v3.2.1_t1 - is Condition EE vs SH only - all defaults pairwise SwissProt, uses master protein accession with columns containing contaminant removed. ➝ results in 10 sig proteins (adj \<=0.05)
-    -   [***t2***]{.underline} - v3.2.1_t1 - is the same as above, except moderated = TRUE ➝ results in 9 sig proteins (adj \<=0.05)
-        -   About the same as above?
+  - [***t1***]{.underline} - v3.2.1_t1 - is Condition EE vs SH only - all defaults pairwise SwissProt, uses master protein accession with columns containing contaminant removed. ➝ results in 10 sig proteins (adj \<=0.05)
+  - [***t2***]{.underline} - v3.2.1_t1 - is the same as above, except moderated = TRUE ➝ results in 9 sig proteins (adj \<=0.05)
+    - About the same as above?
 
--   Cohort - 3a vs 3b vs 4 (defaults, like t1)
+- Cohort - 3a vs 3b vs 4 (defaults, like t1)
 
-    -   [t3]{.underline} - 3.1.2_t3_cohort
-    -   Similar to previous - 3a vs 4 & 4 vs 3b l,ots of significant
+  - [t3]{.underline} - 3.1.2_t3_cohort
+  - Similar to previous - 3a vs 4 & 4 vs 3b l,ots of significant
 
--   Behaviour - exp vs help (defaults, like t1)
+- Behaviour - exp vs help (defaults, like t1)
 
-    -   [t4]{.underline} - 3.1.2_t4_behaviour
-    -   Like before, no significant differences (volcano flatline)
+  - [t4]{.underline} - 3.1.2_t4_behaviour
+  - Like before, no significant differences (volcano flatline)
 
--   Sex - M vs F (defaults, like t1)
+- Sex - M vs F (defaults, like t1)
 
-    -   [t5]{.underline} - 3.1.2_t5_sex
-    -   Most significant differences -\> driven by batch effect of year.
+  - [t5]{.underline} - 3.1.2_t5_sex
+  - Most significant differences -\> driven by batch effect of year.
 
--   Litter - lots e.g. S329 vs s423
+- Litter - lots e.g. S329 vs s423
 
-    -   [t6]{.underline} - 3.1.2_t6_litter
-    -   Similar to previous (most patterns driven by cohort/age)
+  - [t6]{.underline} - 3.1.2_t6_litter
+  - Similar to previous (most patterns driven by cohort/age)
 
 ```{r setup, include = FALSE}
 knitr::opts_chunk$set(
@@ -790,7 +790,9 @@ input.pd.t7 <- PDtoMSstatsTMTFormat(input = raw.pd.nmc,
 
 ^Summarises the PSMs into protein groups with abundance values.^
 
-^[Takes only 9 min on Jen]{.smallcaps}^
+[^1]{.smallcaps}\^
+
+[^1]: Takes only 9 min on Jen
 
 ```{r}
 # # all defaults
