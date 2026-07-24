@@ -9,9 +9,16 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## 2026_02_18
+### Quick graphs for pairwise counts & pairwise volcano plots!
 
-### Quick graphs for pairwise counts & pairwise volcano plots - a little messy clean up later!
+2026_02_18 & 2026_07_24 - for PhD write up
+
+***General notes***
+
+1.  Sex/Batch - there are lots of "oneConditionMissing" in the NA column, these are largely from running across years & the gradient issue.
+2.  
+
+## Setup & Load
 
 ```{r}
 library(tidyverse)
@@ -19,6 +26,7 @@ library(readr)
 library(ggrepel) #  for geom_text_repel()
 library(colorspace)
 library(cowplot)
+library(gt)
 ```
 
 ```{r}
@@ -46,64 +54,118 @@ pw_cohort <- read_csv("output/MSstatsTMT/comp/2025_12_31_sp_test_pairwise_msstat
 pw_housing <- read_csv("output/MSstatsTMT/comp/2025_12_31_sp_test_pairwise_msstats_v3.1.2_t1_housing.csv")
 ```
 
+## Merge Data
+
 ```{r}
-com_df <- bind_rows(list(house = pw_housing,
-                         sex = pw_sex,
-                         cohort = pw_cohort,
-                         behav = pw_beh,
-                         litter = pw_litter),
-                    .id = "pairwise_comp")
+# combined df of all conditions
+com_df <- bind_rows(list(Housing = pw_housing,
+                         Sex = pw_sex,
+                         Cohort = pw_cohort,
+                         ExpH = pw_beh,
+                         Litter = pw_litter),
+                    .id = "pairwise.comp") %>%
+  left_join(up_fasta,
+            by = join_by(Protein == uniprot_acc))
+  
+```
+
+```{r}
+# # WRITE OUT MERGED & MAPPED! (note - raw & unfiltered!)
+# write_excel_csv(com_df,
+#                 "output/2025_12_31_sp_test_pairwise_msstats_v3.1.2_all_merge_map.csv")
+# save(com_df,
+#      file = "output/2025_12_31_sp_test_pairwise_msstats_v3.1.2_all_merge_map.rda")
+```
+
+```{r}
+# Load in here if needed. 
 ```
 
 ### A bit messy...
 
 ```{r}
-com_df_mapped <- left_join(com_df, up_fasta,
-                           by = join_by(Protein == uniprot_acc)) %>%
+com_df_mapped <- com_df %>%
   
+  # Filtering 
   filter(is.na(issue)) %>% # no issues  
-  filter(is.numeric(adj.pvalue)) %>% 
-  filter(!is.na(adj.pvalue)) %>% # fixes NA issue?
-    # make gene label for significant! 
-  mutate(sig_g_label = if_else(adj.pvalue <= .1, gene, NA)) %>%
+  filter(is.numeric(adj.pvalue)) %>%  
+  filter(!is.na(adj.pvalue)) %>% # fixes NA issue? 
+  select(!c(...1, issue)) %>% # rm extra cols
   
-  # make one for no of sig up & down for each comaprison group/label
+  #___FOR_VOLCANO_ANNOTATION_______________
+  # Make Gene Label for Sig
+  mutate(sig_g_label = if_else(adj.pvalue <= .1, # can text label if up to adj.pvlue 
+                               gene, NA)) %>%
+  # Make one for no of sig up & down for each comaprison group/label
   group_by(Label) %>%
+  mutate(Direction = if_else(log2FC > 0, "Up", "Down")) %>%
   mutate(sig_no_up_lab = sum(adj.pvalue < 0.05 & log2FC > 0), # up
          sig_no_down_lab = sum(adj.pvalue < 0.05 & log2FC < 0)) %>%  #  down
   
-  mutate(Direction = if_else(log2FC > 0, "Up", "Down"))
+  #___FOR_TALLY_TABLE_&_NUMBER_REPORTED______________
+  # Make Tally/combined 
+  mutate(sig_no = sig_no_up_lab + sig_no_down_lab, # total sig per label
+         smodel_no = n(), # no.sucessful modelled proteins by label -since issue rm abv
+         model_no = 4562) %>% # no_modelled (no removals)
+  ungroup()
+
+colnames(com_df_mapped)
 ```
 
 ```{r}
-com_df_mapped_fam <- com_df_mapped %>%
-  left_join(rat_ref_trm, by = join_by(Protein == Entry))
+# # massive merged df! 
+# com_df_mapped_fam <- com_df_mapped %>%
+#   left_join(rat_ref_trm, by = join_by(Protein == Entry))
 ```
 
 ```{r}
-com_df_mapped_sig <- com_df_mapped_fam  %>%
-  filter(is.na(issue)) %>% # no issues  
-  select(!c(...1, issue)) %>%
-  filter(adj.pvalue  < 0.05) 
+# com_df_mapped_sig <- com_df_mapped_fam  %>%
+#   select(!c(...1, issue)) %>%
+#   filter(adj.pvalue  <= 0.05) 
 ```
 
 ```{r}
-# abit messy?
-sig_counts <- com_df_mapped_fam %>%
-  mutate(sig = if_else(adj.pvalue < 0.05, 1, 0, missing = 0)) %>%
-  #count(sig) # yes matches sig
-  group_by(pairwise_comp, Label) %>%
-  count(sig) %>%
-  ungroup() 
+# sig counts table 
+sig_counts <- com_df_mapped %>%
+  select(pairwise.comp, Label, sig_no_up_lab:model_no) %>%
+  group_by(pairwise.comp, Label) %>% # not needed?
+  unique() %>%
+  mutate(smodel_per = round(smodel_no/model_no*100,2), # per of successful modelled
+         sig_per = round(sig_no/model_no*100,2), #
+         sig_per_up = round(sig_no_up_lab/model_no*100,2), #
+         sig_per_down = round(sig_no_down_lab/model_no*100,2)) #
 
-sig_counts_fil <- sig_counts %>%
-  group_by(pairwise_comp, Label) %>%
-  filter(if(any(sig == 1)){
-    sig == 1 
-  } else {TRUE}) %>%
-  mutate(n = if_else(sig == 0, 0, n))
+# sig_counts
+colnames(sig_counts)
 
-sig_counts
+sig_counts$pairwise.comp <- factor(sig_counts$pairwise.comp,
+                                   levels = c("Housing", "ExpH", "Cohort", "Litter", "Sex"))
+```
+
+4562
+
+```{r}
+sig_counts_gt <- sig_counts %>%
+  select(pairwise.comp, Label,
+         sig_no, sig_per,
+         sig_no_up_lab, sig_per_up,
+         sig_no_down_lab, sig_per_down,
+         smodel_no, smodel_per) %>% # org cols
+  
+
+  gt(
+    groupname_col = "pairwise.comp",
+    rowname_col = "Label"
+  ) %>%
+  
+    opt_vertical_padding(scale = 0.3) %>% # vert padding
+
+   tab_options(# GENERAL TABLE OPTIONS
+    table.font.size = 12
+  ) 
+
+
+sig_counts_gt
 ```
 
 ### Count of Significant proteins by pairwise comparison
