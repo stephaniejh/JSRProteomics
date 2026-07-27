@@ -11,7 +11,14 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ### Quick graphs for pairwise counts & pairwise volcano plots!
 
-2026_02_18 & 2026_07_24 - for PhD write up
+2026_02_18 (v1 - drafts) & 2026_07_24-27 /(v2)- for PhD write up
+
+Contents
+
+- **Wrangling/Data**
+- **Plots**
+  - 
+  - Volcano Plots
 
 ***General notes***
 
@@ -27,26 +34,31 @@ library(ggrepel) #  for geom_text_repel()
 library(colorspace)
 library(cowplot)
 library(gt)
+library(ggrastr) # https://tomsing1.github.io/blog/posts/volcano/
 ```
 
-```{r}
+------------------------------------------------------------------------
+
+If loading in raw data from MSstatsTMT
+
+```{r eval=FALSE, include=FALSE}
 # fasta used to search (includes sp)
 up_fasta <- read_csv("input/db/UP000002494_10116_Rat_Ref_Proteome_22403_1pspg_2025_04_UPfastadf.csv")
 ```
 
-```{r}
+```{r eval=FALSE, include=FALSE}
 # full uniprot 295 cols data
 load("input/db/rat_ref_proteome_2025_12_13_51872x295.rda")
 ```
 
-```{r}
+```{r eval=FALSE, include=FALSE}
 rat_ref_trm <- rat_ref_proteome_2025_12_13 %>%
   select(Entry,
          Protein.families, Pathway, Keywords, Developmental.stage,
          Induction, Function..CC., Subcellular.location..CC.)
 ```
 
-```{r}
+```{r eval=FALSE, include=FALSE}
 pw_litter <- read_csv("output/MSstatsTMT/comp/2025_12_31_sp_test_pairwise_msstats_v3.1.2_t6_litter.csv")
 pw_sex <- read_csv("output/MSstatsTMT/comp/2025_12_31_sp_test_pairwise_msstats_v3.1.2_t5_sex.csv")
 pw_beh <- read_csv("output/MSstatsTMT/comp/2025_12_31_sp_test_pairwise_msstats_v3.1.2_t4_behaviour.csv")
@@ -54,9 +66,9 @@ pw_cohort <- read_csv("output/MSstatsTMT/comp/2025_12_31_sp_test_pairwise_msstat
 pw_housing <- read_csv("output/MSstatsTMT/comp/2025_12_31_sp_test_pairwise_msstats_v3.1.2_t1_housing.csv")
 ```
 
-## Merge Data
+### Merge Data
 
-```{r}
+```{r eval=FALSE, include=FALSE}
 # combined df of all conditions
 com_df <- bind_rows(list(Housing = pw_housing,
                          Sex = pw_sex,
@@ -69,7 +81,7 @@ com_df <- bind_rows(list(Housing = pw_housing,
   
 ```
 
-```{r}
+```{r eval=FALSE, include=FALSE}
 # # WRITE OUT MERGED & MAPPED! (note - raw & unfiltered!)
 # write_excel_csv(com_df,
 #                 "output/2025_12_31_sp_test_pairwise_msstats_v3.1.2_all_merge_map.csv")
@@ -77,11 +89,17 @@ com_df <- bind_rows(list(Housing = pw_housing,
 #      file = "output/2025_12_31_sp_test_pairwise_msstats_v3.1.2_all_merge_map.rda")
 ```
 
+------------------------------------------------------------------------
+
+### Resume/Start Here (loads in output from above)
+
 ```{r}
-# Load in here if needed. 
+# Load com_df in here, if needed. 
+load("input/MSstatsTMT/comp/2025_12_31_sp_test_pairwise_msstats_v3.1.2_all_merge_map.rda")
+
 ```
 
-### A bit messy...
+### com_df_mapped - calculations df for volcano plot annotations & tally tab ano
 
 ```{r}
 com_df_mapped <- com_df %>%
@@ -94,7 +112,7 @@ com_df_mapped <- com_df %>%
   
   #___FOR_VOLCANO_ANNOTATION_______________
   # Make Gene Label for Sig
-  mutate(sig_g_label = if_else(adj.pvalue <= .1, # can text label if up to adj.pvlue 
+  mutate(sig_g_label = if_else(adj.pvalue <= .05, # text label if up to adj.pvlue 
                                gene, NA)) %>%
   # Make one for no of sig up & down for each comaprison group/label
   group_by(Label) %>%
@@ -105,130 +123,283 @@ com_df_mapped <- com_df %>%
   #___FOR_TALLY_TABLE_&_NUMBER_REPORTED______________
   # Make Tally/combined 
   mutate(sig_no = sig_no_up_lab + sig_no_down_lab, # total sig per label
-         smodel_no = n(), # no.sucessful modelled proteins by label -since issue rm abv
-         model_no = 4562) %>% # no_modelled (no removals)
+         smodel_no = n(), # no.sucessful model proteins- label -since issue rm abv
+         model_no = 4562, # no_modelled (no removals)
+         smodel_mis_no = 4562 - n()) %>% 
   ungroup()
 
 colnames(com_df_mapped)
 ```
 
-```{r}
-# # massive merged df! 
-# com_df_mapped_fam <- com_df_mapped %>%
-#   left_join(rat_ref_trm, by = join_by(Protein == Entry))
-```
+### Sig counts summary table (34 rows)
 
-```{r}
-# com_df_mapped_sig <- com_df_mapped_fam  %>%
-#   select(!c(...1, issue)) %>%
-#   filter(adj.pvalue  <= 0.05) 
-```
+<https://stackoverflow.com/questions/56810473/uniting-many-rows-into-one-r>
 
 ```{r}
 # sig counts table 
 sig_counts <- com_df_mapped %>%
-  select(pairwise.comp, Label, sig_no_up_lab:model_no) %>%
+  select(pairwise.comp, Label, sig_no_up_lab:smodel_mis_no) %>%
   group_by(pairwise.comp, Label) %>% # not needed?
   unique() %>%
   mutate(smodel_per = round(smodel_no/model_no*100,2), # per of successful modelled
+         smodel_mis_no_per = round(smodel_mis_no/model_no*100,2), # per missing
          sig_per = round(sig_no/model_no*100,2), #
          sig_per_up = round(sig_no_up_lab/model_no*100,2), #
          sig_per_down = round(sig_no_down_lab/model_no*100,2)) #
 
-# sig_counts
+sig_counts
 colnames(sig_counts)
 
 sig_counts$pairwise.comp <- factor(sig_counts$pairwise.comp,
-                                   levels = c("Housing", "ExpH", "Cohort", "Litter", "Sex"))
+                                   levels = c("Housing", "ExpH", "Cohort",
+                                              "Litter", "Sex"))
+
 ```
 
-4562
+### Sig genes summary table (34 rows)
+
+<https://stackoverflow.com/questions/56810473/uniting-many-rows-into-one-r>
 
 ```{r}
-sig_counts_gt <- sig_counts %>%
+# sig genes
+sig_genes <- com_df_mapped %>%
+  select(pairwise.comp, Label, gene, sig_g_label,
+         Direction, log2FC, adj.pvalue) %>%
+  group_by(pairwise.comp, Label) %>% # not needed?
+  slice_min(adj.pvalue, n = 10) %>%
+  ungroup() %>%
+  group_by(pairwise.comp, Label, Direction) %>%
+  summarize(sum_genes = paste(sig_g_label[!is.na(sig_g_label)], # ignores NAs!
+                              collapse = "/")) %>%
+  pivot_wider(names_from = Direction, values_from = sum_genes)
+
+```
+
+### sig_genes_count summmary table (combined)
+
+```{r}
+sig_genes_count <- left_join(sig_counts, sig_genes,
+                             by = join_by(pairwise.comp == pairwise.comp,
+                                          Label == Label))
+
+sig_genes_count$pairwise.comp <- factor(sig_genes_count$pairwise.comp,
+                                   levels = c("Housing", "ExpH", "Cohort",
+                                              "Litter", "Sex"))
+```
+
+### gt
+
+<https://gt.rstudio.com/reference/tab_style.html#examples>
+
+```{r}
+sig_genes_count_gt <- sig_genes_count %>%
   select(pairwise.comp, Label,
          sig_no, sig_per,
-         sig_no_up_lab, sig_per_up,
-         sig_no_down_lab, sig_per_down,
-         smodel_no, smodel_per) %>% # org cols
-  
+         sig_no_up_lab, sig_per_up, Up,
+         sig_no_down_lab, sig_per_down, Down,
+         # smodel_no, smodel_per,
+         smodel_mis_no) %>% # org cols
 
   gt(
     groupname_col = "pairwise.comp",
-    rowname_col = "Label"
-  ) %>%
+    rowname_col = "Label") %>%
   
-    opt_vertical_padding(scale = 0.3) %>% # vert padding
+  # gtExtras::gt_theme_nytimes() %>%
+  opt_vertical_padding(scale = 0.35) %>% # vert padding
+  cols_align(align = "left") %>% # align left
+  
+  # tab_header(title = "Preliminary Pairwise Comparisons Summary Table (MSstatsTMT)",
+  #            subtitle = md("`2026_07_27` - Breakdown of significant proteins (adj.p ≤.05) + Top 10 most significant proteins(/genes) split by into \u2191 up & \u2193 down-regulated. | Also includes number of missing (NA#) (e.g. `oneConditionMissing`) out of 4562 modelled proteins (Swiss-Prot) - from MSstatsTMT (2025_12_31_sp_test_pairwise_msstats_v3.1.2).")) %>%
 
    tab_options(# GENERAL TABLE OPTIONS
-    table.font.size = 12
-  ) 
+    table.border.top.width = px(2.5), # very top of table
+    table.border.bottom.width = px(2.5), # very bottom of table |not very visible
+    table.border.bottom.color = "#BDBDBD",
+    column_labels.border.top.width = px(2.5), # top of column labs |not very vis
+    column_labels.border.top.color = "#BDBDBD", 
+    column_labels.border.bottom.width = px(2.5), # top of column labs |not very vis
+    column_labels.border.bottom.color = "#BDBDBD", 
+    heading.border.bottom.width = px(2.5), # more visible than above
+    heading.border.bottom.color = "#BDBDBD", # more visible than above
+    table.font.size = "11.5px",
+     stub.font.size = "12px",
+    row_group.font.weight = "bold",
+    column_labels.font.weight = "bolder"
+  ) %>%
+  
+  cols_merge( # sig no & percentage
+    columns = c(sig_no, sig_per),
+    pattern = "{1} ({2}%)") %>%
+  
+  cols_merge( # ↑ sig 
+    columns = c(sig_no_up_lab, sig_per_up),
+    pattern = "{1} ({2}%)") %>%
+  
+  
+  cols_merge( # ↓ sig 
+    columns = c(sig_no_down_lab, sig_per_down),
+    pattern = "{1} ({2}%)") %>%
+  
+    # cols_merge(# modelled 
+    # columns = c(smodel_no, smodel_per),
+    # pattern = "{1} ({2}%)") %>%
+  
+   cols_label( # relabel columns
+    sig_no = "# Sig. ",
+    sig_no_up_lab = "# Sig.  \u2191",
+    sig_no_down_lab = "# Sig. \u2193",
+    smodel_mis_no = "NA#") %>%
+  
+  
+ tab_style( # Prevent breaking of value columns!
+    style = cell_text(whitespace = "nowrap"),
+    locations = list(cells_stub(),
+                     cells_body(columns = c(sig_no,sig_no_up_lab,
+                                            sig_no_down_lab)))) %>%
+  
+ tab_style(
+    style = list(
+      cell_text(color = "#5e5e5e")),
+    locations = list(
+      cells_body(columns = c(smodel_mis_no)),
+      cells_column_labels(columns = c(smodel_mis_no)))) %>%
+  
+  
+  tab_style(style = list(
+    cell_text(style = "italic", size = "9.5px")),
+  locations = cells_body(
+    columns = c(Up, Down))) %>%
+  
+  tab_style(
+    style = list(
+      # cell_text(color = "#d33682")),
+      cell_text(color = "#aa344d")),
+    locations = list(
+      cells_body(columns = c(sig_no_up_lab)),
+      cells_column_labels(columns = c(Up,sig_no_up_lab)))) %>%
+  
+  tab_style(
+    style = list(
+      cell_text(color = "#344daa")),
+    locations = list(
+      cells_body(columns = c(sig_no_down_lab)),
+      cells_column_labels(columns = c(Down,sig_no_down_lab)))) 
+  
 
-
-sig_counts_gt
+sig_genes_count_gt
 ```
 
 ### Count of Significant proteins by pairwise comparison
 
 ```{r}
+sig_counts_labels <- sig_counts %>%
+  mutate(pairwise.comp = recode(pairwise.comp, Housing = "Hous")) %>%
+  dplyr::select(Label, sig_no) %>%
+  unique() 
 # hcl_palettes(plot = TRUE)
 
-count_plot <- sig_counts_fil %>%
+
+count_plot <- sig_counts %>%
+  pivot_longer(cols = c("sig_no_up_lab", "sig_no_down_lab"),
+               names_to = "direction",
+               values_to = "no") %>%
+  mutate(pairwise.comp = recode(pairwise.comp, Housing = "Hous")) %>%
+  
   # filter(sig == 1) %>%
-  ggplot(aes(x = reorder(Label, n), y = n, fill = pairwise_comp)) +
-   geom_col(stat = "identity", # so col sam wid
-    width = .7, alpha = 0.7, color = "grey15") +
-  scale_fill_discrete_qualitative(palette = "Set 2") +
-  facet_wrap(~pairwise_comp, nrow = 1, scales = 'free_x', space = 'free_x') +
+  ggplot() +
+   geom_col(aes(x = reorder(Label, sig_no), y = no, fill = direction),
+            stat = "identity", # so col sam wid
+    width = .75, color = "grey15", linewidth = 0.3) +
+  
+  geom_bar(aes(x = reorder(Label, sig_no), y = sig_no/2), stat = "identity",
+           fill= "grey90", alpha = 0.05) + # just for mapping to anchor text!
+  geom_text(data = sig_counts_labels, # needs geom_bar above to anchor
+            aes(label = sig_no, x = reorder(Label, sig_no),  y = sig_no),
+            vjust = -0.4, size = 2.7) +
+
+  
+  scale_fill_manual(name = "Direction (Log2FC)",
+                    values = alpha(c("#aa344d","#2753BF"),0.4), 
+                    breaks = c("sig_no_up_lab", "sig_no_down_lab"),
+                    labels = c("\u2191 Upregulated", "\u2193 Downregulated")) +
+  
+  facet_wrap(~pairwise.comp, nrow = 1, scales = 'free_x', space = 'free_x') +
   theme_bw() +
-  labs(y = "no. of significant proteins by pairwise comparison \n (adj.pvalue <.05) (sp db)") +
-  theme(legend.position = "none",
-        axis.text.x = element_text(angle = 90, hjust =1, vjust = 0.5, face = "italic"),
-        axis.title.x = element_blank(),
-        axis.title.y = element_text(color ="grey15", size = 10),
-        strip.text = element_text(size = 7.5))
+  labs(y = "No. of Significant Proteins (adj.pvalue ≤ .05)") +
+  theme(
+    legend.position = "bottom",
+    legend.title = element_text(size = 9.5, color="grey15", face = "italic"),
+     legend.text = element_text(size = 9, color="grey15"),
+    axis.text.x = element_text(angle = 90, hjust =1, vjust = 0.5, face = "italic"),
+     legend.margin = margin(0,0,0,0),  # space between plot & legend
+    legend.key.size = unit(0.5, "cm"), # size of legend key icon
+    axis.title.x = element_blank(),
+    axis.title.y = element_text(color ="grey15", size = 9.5),
+    axis.ticks = element_line(linewidth = .3),
+    strip.text = element_text(size = 9),
+    strip.background = element_rect(linewidth = .3),
+    panel.border = element_rect(linewidth = 0.3),
+    # panel.grid.major = element_blank(),
+    # panel.grid.minor = element_blank(),
+    panel.grid.major = element_line(color = "grey95", linewidth = 0.1),
+    panel.grid.minor = element_line(color = "grey97", linewidth = 0.1),
+    panel.spacing.x = unit(0.1, "cm"), # horizontal spacing - COHORT 
+  )
 
 count_plot
 ```
 
-```{r}
-top_5 <- com_df_mapped_fam %>% 
-  group_by(pairwise_comp, Label) %>%
-  slice_min(adj.pvalue, n = 10, with_ties = FALSE)
-```
-
-## 
-
 ------------------------------------------------------------------------
 
-No Litter volcano plots
+# Volcano Plots
+
+### No Litter volcano plots
 
 ```{r}
 # make new df for the geom_text bit below.
 # prev had from 1 df but over plots repeately & cant index since mapped_comp huge.
 sig_volcano_sum_no_litter <- com_df_mapped %>%
-  filter(pairwise_comp != "litter") %>%
+  filter(pairwise.comp == "Cohort") %>%
+  # filter(pairwise.comp %in% c("Housing", "ExpH")) %>%
+  # filter(pairwise.comp == "Sex") %>%
   dplyr::select(Label, sig_no_up_lab, sig_no_down_lab) %>%
   unique() 
   
-
-```
-
-```{r}
-big_volcano_no_lit <- com_df_mapped %>%
+#big_volcano_no_lit <- com_df_mapped %>%
+# big_volcano_no_lit_EE <- com_df_mapped %>%
+big_volcano_no_lit_C <- com_df_mapped %>%
   
-   filter(pairwise_comp != "litter") %>%
   
+  filter(pairwise.comp == "Cohort") %>%
+  # filter(pairwise.comp %in% c("Housing", "ExpH")) %>%
+  # filter(pairwise.comp == "Sex") %>%
   ggplot(aes(x = log2FC, y = -log10(adj.pvalue), label = sig_g_label)) +
   
+  
+  #vline & hlines
+  geom_hline(yintercept = -log10(0.05),
+             linetype = "dashed", linewidth = 0.1,
+             color = "grey30") +
+  annotate("text", x = 1.80, y = -log10(0.05),
+           label = "adj.p <.05 \n",
+           fontface = 'italic', size = 1.5, color = "grey10") +
+  geom_hline(yintercept = -log10(0.1),linetype = "dotted",
+             linewidth = 0.15, color = "grey50") +
+  annotate("text", x = 1.75, y = -log10(0.1),
+           label = " adj.p <.1 \n",
+           fontface = 'italic', size = 1.5, color = "grey30") +
+  geom_vline(xintercept = c(0),linetype = "solid",
+             linewidth = 0.15, color = "grey85") +
+  
   # POINTS
-  geom_point(aes(color = case_when( # conditional ass for color mapping
+  ggrastr::geom_point_rast(aes(color = case_when( # conditional ass for color mapping
     adj.pvalue < 0.05 & log2FC > 0 ~ "up_adjp.05", # up sig .05
     adj.pvalue < 0.05 & log2FC < 0 ~ "down_adjp.05", # down sig .05
     adj.pvalue < 0.1 & log2FC > 0 ~ "up_adjp.1", # up 0.1
     adj.pvalue < 0.1 & log2FC < 0 ~ "down_adjp.1", # down .1
-    TRUE ~ "ns" )), # catch the rest
-    alpha = .9, size = 1.5, shape = 1) +
+    TRUE ~ "ns" ), alpha = adj.pvalue), # catch the rest
+    size = 1.7,
+    raster.dpi = getOption("ggrastr.default.dpi", 330)) +
   
   scale_color_manual(values = c("firebrick", # coloring
                                 "royalblue3",
@@ -244,26 +415,40 @@ big_volcano_no_lit <- com_df_mapped %>%
                                 "\U2191 (adj.p <.1)",
                                 "\U2193 (adj.p <.1)")) +
   
-  geom_text_repel(max.overlaps = 27, size = 3, # gene text on points
-                  color = "grey10") + 
+
+  scale_alpha(range = c(0.55,0.05), guide = "none") + # more transparent less sig
+  
+  geom_text_repel(max.overlaps = 20, size = 3, # gene text on points
+                  color = "grey10",  segment.size	= 0.2,
+                  segment.alpha = 0.5, min.segment.length = 0.5) + 
+
+               
   
   # NUM SIG UP & DOWN! | use sep df, overwise overplots
   geom_text(data = sig_volcano_sum_no_litter, # up 
             aes(label = paste0(sig_no_up_lab, " \U2191")),
-            x = 1.78, y = 9.7, size = 4, color = "firebrick") + 
+            # x = 1.78, y = 9.7, size = 4, color = "firebrick") +  # sex
+            # x = 1.8, y = 4.35, size = 4.2, color = "firebrick") + # Hous & ExpH
+            x = 1.8, y = 6.65, size = 4.2, color = "firebrick") + # Hous & ExpH
+  
   geom_text(data = sig_volcano_sum_no_litter, # down
             aes(label = paste0(sig_no_down_lab, " \U2193")),
-            x = -1.78, y = 9.7, size = 4, color = "royalblue3") + 
+            # x = -1.78, y = 9.7, size = 4, color = "royalblue3") +  # sex
+            # x = -1.8, y = 4.35, size = 4.2, color = "royalblue3") + # Hous & ExpH
+             x = -1.8, y = 6.65, size = 4.2, color = "royalblue3") + # cohort
+  
 
   xlim(-2,2) +
-  ylim(0,10) +
+  # ylim(0,10) + # sex
+  # ylim(0,4.5) + # Housing & ExpH
+  # ylim(0,7.6) + # Cohort
+  scale_y_continuous(breaks=seq(0,8,2.5)) + # cohort
   facet_wrap(~Label, ncol = 3) + 
   facet_wrap(~Label, ncol = 3) + 
-  
   labs(x = "log2FC",
        y = "-Log10(adj.p value)",
        color = "Protein Regulation") +
-  
+
   geom_hline(yintercept = -log10(0.05),
              linetype = "dotted", linewidth = 0.1,
              color = "grey30") +
@@ -277,46 +462,80 @@ big_volcano_no_lit <- com_df_mapped %>%
   guides(color=guide_legend(nrow=1, byrow=TRUE)) +
   
   theme_bw() +
-  theme(legend.position = "bottom",
-        axis.title = element_text(color = "grey10", size = 10.5),
-        legend.title = element_text(color = "grey10", size = 10.5),
-        strip.text = element_text(size = 11.5, color = "grey10"),
-        panel.grid.major = element_line(color = "grey90"),
-        panel.grid.minor = element_line(color = "grey95"),
-        panel.spacing.y = unit(0.75, "cm"), # vert spacing
-        legend.margin = margin(-10,0,-10,0),  # space between plot & legend
-        legend.key.size = unit(1, "cm"), # size of legend key icon
-        )
+  theme(
+    # legend.position = "none", # sex & Housing/ExpH
+    legend.position = "bottom", # cohort
+    axis.title = element_text(color = "grey10", size = 9.5),
+    legend.title = element_text(color = "grey10", size = 9.5),
+    strip.text = element_text(size = 10.5, color = "grey10"),
+    panel.grid.major = element_line(color = "grey90", linewidth = 0.1),
+    panel.grid.minor = element_line(color = "grey97", linewidth = 0.1),
+    panel.spacing.y = unit(0.5, "cm"), # vert spacing
+    panel.spacing.x = unit(0.5, "cm"), # horizontal spacing - COHORT 
+    legend.margin = margin(-5,0,0,0),  # space between plot & legend
+    legend.key.size = unit(0.7, "cm"), # size of legend key icon
+  )
 
-big_volcano_no_lit
+# big_volcano_no_lit
+# big_volcano_no_lit_EE 
+big_volcano_no_lit_C
 ```
 
-### Lit
+```{r}
+#cohort_volcano <- big_volcano_no_lit
+#Housing_ExpH_volcano <- big_volcano_no_lit
+#Sex_volcano <- big_volcano_no_lit
+
+# Housing_ExpH_volcano_redo <- big_volcano_no_lit_EE # 2026_07_26
+cohort_volcano_redo <- big_volcano_no_lit_C # 2026_07_26
+```
+
+### Litter Volcano Plots
 
 ```{r}
 # make new df for the geom_text bit below.
 # prev had from 1 df but over plots repeately & cant index since mapped_comp huge.
 sig_volcano_sum_lit <- com_df_mapped %>%
   # filter(pairwise_comp == "litter") %>%
-  filter(Label %in% c("S328 vs S329", "S328 vs S324", "S324 vs S422", "S426 vs S420",
-               "S422 vs S423", "S329 vs S423", "S426 vs S423", "S420 vs S422")) %>%
+  filter(Label %in% c("S328 vs S329", "S328 vs S324",
+                      "S324 vs S422", "S426 vs S420",
+                      "S422 vs S423", "S329 vs S423",
+                      "S426 vs S423", "S420 vs S422")) %>%
   dplyr::select(Label, sig_no_up_lab, sig_no_down_lab) %>%
   unique() 
-```
 
-```{r}
+
+# VOLCANO 
 big_volcano_lit <- com_df_mapped %>%
-   filter(Label %in% c("S328 vs S329", "S328 vs S324", "S324 vs S422", "S426 vs S420",
-                   "S422 vs S423", "S329 vs S423", "S426 vs S423", "S420 vs S422")) %>%
+  filter(Label %in% c("S328 vs S329", "S328 vs S324",
+                      "S324 vs S422", "S426 vs S420",
+                      "S422 vs S423", "S329 vs S423",
+                      "S426 vs S423", "S420 vs S422")) %>%
   ggplot(aes(x = log2FC, y = -log10(adj.pvalue), label = sig_g_label)) +
+   #vline & hlines
+  geom_hline(yintercept = -log10(0.05),
+             linetype = "dashed", linewidth = 0.1,
+             color = "grey30") +
+  annotate("text", x = 1.80, y = -log10(0.05),
+           label = "adj.p <.05 \n",
+           fontface = 'italic', size = 1.5, color = "grey10") +
+  geom_hline(yintercept = -log10(0.1),linetype = "dotted",
+             linewidth = 0.15, color = "grey50") +
+  annotate("text", x = 1.75, y = -log10(0.1),
+           label = " adj.p <.1 \n",
+           fontface = 'italic', size = 1.5, color = "grey30") +
+  geom_vline(xintercept = c(0),linetype = "solid",
+             linewidth = 0.15, color = "grey85") +
+  
   # POINTS
-  geom_point(aes(color = case_when( # conditional ass for color mapping
+  ggrastr::geom_point_rast(aes(color = case_when( # conditional ass for color mapping
     adj.pvalue < 0.05 & log2FC > 0 ~ "up_adjp.05", # up sig .05
     adj.pvalue < 0.05 & log2FC < 0 ~ "down_adjp.05", # down sig .05
     adj.pvalue < 0.1 & log2FC > 0 ~ "up_adjp.1", # up 0.1
     adj.pvalue < 0.1 & log2FC < 0 ~ "down_adjp.1", # down .1
-    TRUE ~ "ns" )), # catch the rest
-    alpha = .9, size = 1.3, shape = 1) +
+    TRUE ~ "ns" ), alpha = adj.pvalue), # catch the rest
+    size = 1.5,
+    raster.dpi = getOption("ggrastr.default.dpi", 330)) +
   
   scale_color_manual(values = c("firebrick", # coloring
                                 "royalblue3",
@@ -331,67 +550,112 @@ big_volcano_lit <- com_df_mapped %>%
                                 "\U2193 (adj.p <.05)",
                                 "\U2191 (adj.p <.1)",
                                 "\U2193 (adj.p <.1)")) +
-  geom_text_repel(max.overlaps = 25, size = 2.8, # gene text on points
-                  color = "grey15", min.segment.length = 1) + 
+  
+
+  scale_alpha(range = c(0.55,0.05), guide = "none") + # more transparent less sig
+  
+  geom_text_repel(max.overlaps = 20, size = 3, # gene text on points
+                  color = "grey10",  segment.size	= 0.2,
+                  segment.alpha = 0.5, min.segment.length = 0.5) + 
+
+               
+  
   # NUM SIG UP & DOWN! | use sep df, overwise overplots
   geom_text(data = sig_volcano_sum_lit, # up 
             aes(label = paste0(sig_no_up_lab, " \U2191")),
-            x = 1.75, y = 9.6, size = 3.7, color = "firebrick") + 
+            x = 1.65, y = 9.65, size = 4, color = "firebrick") +
+  
   geom_text(data = sig_volcano_sum_lit, # down
             aes(label = paste0(sig_no_down_lab, " \U2193")),
-            x = -1.75, y = 9.6, size = 3.7, color = "royalblue3") + 
+            x = -1.65, y = 9.65, size = 4, color = "royalblue3") +
+  
+
   xlim(-2,2) +
   ylim(0,10) +
+  # ylim(0,4) +
   facet_wrap(~Label, ncol = 4) + 
-  facet_wrap(~Label, ncol = 4) + 
+  # facet_wrap(~Label, ncol = 4) + 
+  
   labs(x = "log2FC",
        y = "-Log10(adj.p value)",
        color = "Protein Regulation") +
+  
   geom_hline(yintercept = -log10(0.05),
              linetype = "dotted", linewidth = 0.1,
              color = "grey30") +
+  
   geom_hline(yintercept = -log10(0.1),linetype = "dotted",
              linewidth = 0.1, color = "grey50") +
+
   geom_vline(xintercept = c(0),linetype = "solid",
              linewidth = 0.1, color = "grey80") +
+  
   guides(color=guide_legend(nrow=1, byrow=TRUE)) +
+  
   theme_bw() +
   theme(legend.position = "none",
-        axis.title = element_text(color = "grey10", size = 10.5),
-        legend.title = element_text(color = "grey10", size = 10.5),
-        strip.text = element_text(size = 10, color = "grey10"),
-        panel.grid.major = element_line(color = "grey90"),
-        panel.grid.minor = element_line(color = "grey95"),
-        legend.margin = margin(-10,0,0,0),  # space between plot & legend
-        legend.key.size = unit(1, "cm"), # size of legend key icon
+        axis.title = element_text(color = "grey10", size = 9.5),
+        legend.title = element_text(color = "grey10", size = 9.5),
+        strip.text = element_text(size = 10.5, color = "grey10"),
+        panel.grid.major = element_line(color = "grey90", linewidth = 0.1),
+        panel.grid.minor = element_line(color = "grey97", linewidth = 0.1),
+        panel.spacing.y = unit(0.5, "cm"), # vert spacing
+        #legend.margin = margin(-10,2,-7,0),  # space between plot & legend
+        #legend.key.size = unit(0.5, "cm"), # size of legend key icon
         )
 
 big_volcano_lit
 ```
 
+### Cowplots & Messy Saves
+
+2026_07_25
+
 ```{r}
-plot_grid(big_volcano_lit, big_volcano_no_lit, ncol = 1, rel_heights = c(0.7,1))
-
-# DOES NOT WORK - MANULA EXPORT WITH DEVICE PIXEL RATIO OFF WORKS BEST SO FAR. 
-
-# ggsave("output/2026_02_20_mss_sp_v3.1.2_volcanos_p5_cowplot_600dpi.png",
-#        width = 900, height = 1000, units = "px",
-#        dpi = 600)
-
-# png("output/2026_02_20_mss_sp_v3.1.2_volcanos_p5_cowplot_600dpi.png",
-#     # width = 700, height = 850, units = "px",
-#     type = "cairo-png",
-#     res = 300)
+# top_line <- plot_grid(Housing_ExpH_volcano, Sex_volcano,
+#                       ncol=2, rel_widths = c(1,0.6), labels = c("A","B"),
+#                       label_size = 11)
+# top_line
 # 
-# print(p)
-# dev.off()
+# mid_line <- plot_grid(cohort_volcano, labels = c("C"), label_size = 11)
+# mid_line
+# 
+# bottom_line <- plot_grid(big_volcano_lit, labels = c("D"), label_size = 11)
+# 
+# bottom_line
+# 
+# prelim_pairwise_volcanos_cowplot <- c(top_line,mid_line,bottom_line)
+```
 
+```{r}
+# just manually save -2026_07_25
+# prelim_pairwise_volcanos <- c(cohort_volcano, Housing_ExpH_volcano, Sex_volcano,
+#                               big_volcano_lit)
+# prelim_pairwise_volcanos_cowplot <- c(top_line,mid_line,bottom_line)
+# 
+# prelim_pairwise_volcanos_2026_07_25 <- c(prelim_pairwise_volcanos,
+#                                          prelim_pairwise_volcanos_cowplot)
+```
 
-# 2026_02_20 - final version happy with NVM
-# 2026_02_20_mss_sp_v3.1.2_volcanos_p8_cowplot_redo_925x1150
-# eehhh stil kinda blurry....
+2026_07_26 - redo - used for PhD!
 
+```{r}
+# top_line <- plot_grid(Housing_ExpH_volcano_redo, Sex_volcano,
+#                       ncol=2, rel_widths = c(1,0.57), labels = c("A","B"),
+#                       label_size = 11)
+# top_line
 
-# OMG ACTUALLY This works. just set size in viewer... | OK FINAL one acutally...
-ggsave("2026_02_20_mss_sp_v3.1.2_volcanos_p9_cowplot_devoff_200dpi.png", dpi = 200)
+# mid_line <- plot_grid(cohort_volcano_redo, labels = c("C"), label_size = 11)
+# mid_line
+
+# bottom_line <- plot_grid(big_volcano_lit, labels = c("D"), label_size = 11)
+# 
+# bottom_line
+# 
+# prelim_pairwise_volcanos_cowplot <- c(top_line,mid_line,bottom_line)
+```
+
+```{r}
+# just manually save -2026_07_26 + added cohort 3a
+# prelim_pairwise_volcanos_2026_07_26 <- c(cohort_volcano_redo, Housing_ExpH_volcano_redo, Sex_volcano, big_volcano_lit)
 ```
