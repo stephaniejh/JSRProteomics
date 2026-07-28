@@ -403,9 +403,9 @@ top_20_genes
 ```{r}
 # COHORT COMPARISON HEATMAP TILE (2026_07_28)
 
-# sig_in_3a_vs_3b <- com_df_mapped %>%
-#   filter(Label == "3a vs 3b" & adj.pvalue <=0.15) %>% 
-#   pull(gene)
+sig_in_3a_vs_3b <- com_df_mapped %>%
+  filter(Label == "3a vs 3b" & adj.pvalue <=0.1) %>%
+  pull(gene)
 
 sig_in_cohorts <- com_df_mapped %>%
   filter(pairwise.comp == "Cohort" & adj.pvalue <=0.1) %>% # .05 - 223 | .1 - 396
@@ -416,23 +416,22 @@ sig_in_cohorts <- com_df_mapped %>%
 
 cohorts_comp_plot <- com_df_mapped %>%
   filter(pairwise.comp == "Cohort") %>%
-  filter(gene %in% c(sig_in_cohorts)) %>%
-  # filter(gene %in% c(sig_in_3a_vs_3b)) %>%
-  # filter(adj.pvalue <= 0.2) %>%
-  
+  # filter(gene %in% c(sig_in_cohorts)) %>%
+  filter(gene %in% c(sig_in_cohorts, sig_in_3a_vs_3b)) %>% 
+
   ggplot(aes(x = Label, y = reorder(gene, -adj.pvalue), fill= log2FC,
-             alpha = adj.pvalue)) + 
+             alpha = adj.pvalue)) +
   geom_tile(color = "grey10") +
   geom_text(aes(label = paste0("log2FC = ",round(log2FC,2),
                                # ", se = ",round(SE,2),
                                ", adj.p = ",round(adj.pvalue,3))),
             size = 2, fontface = "italic") +
   scale_x_discrete(expand = expansion(mult = c(0.05,0.05)),
-                   labels = c("3a vs 3b" = "3a (~111 vs 3b (~113)", 
-                              "4 vs 3a" = "4 (~86) vs 3a (~111)", 
+                   labels = c("3a vs 3b" = "3a (~111 vs 3b (~113)",
+                              "4 vs 3a" = "4 (~86) vs 3a (~111)",
                               "4 vs 3b" = "4 (~86) vs 3b (~113)")) +
-  labs(title = "Overlap Across Cohorts", 
-       subtitle = "Proteins @ adj.pval ≤ .1 (396) & present in 2 or more cohorts (\u2192 54 unique in 2 or more)") +
+  labs(title = "Overlap Across Cohorts",
+       subtitle = "Proteins @ adj.pval ≤.1 (396) & in ≥ 2 cohorts (54 unq) + extra 3a v 3b adj.p ≤.1 (9) (+1) \u2192 55") +
   colorspace::scale_fill_continuous_diverging("Blue-Red 2", mid = 0) +
   scale_alpha(range = c(1,0.75), guide = "none") + # more transparent less sig
   theme_void() +
