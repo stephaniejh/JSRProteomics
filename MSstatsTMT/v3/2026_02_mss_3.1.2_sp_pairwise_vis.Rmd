@@ -400,44 +400,124 @@ top_20_genes
 
 <https://rpubs.com/Shefali/ggplot-scale-function>
 
+- 3a vs 3b - 9 proteins ≤ adj.p 0.1
+
+  - Wipf3, Sncg, Scpep1, Lsamp, Hdhd2, Gsr, Gja1, Atg4b, & Acadsb
+
+- 4 vs 3a - 40 proteins ≤ adj.p 0.05
+
+  - 2/40 overlap with 3a vs 3b ≤ adj.p 0.1 (Wipf3 & Gsr)
+
+  - 16/40 overlap with 4 vs 3b ≤ adj.p 0.05 (Chgb, Bdh1, Dpysl3, Vcan, Decr1, Dpysl5, Nfasc, Tubb2b, Asah1, Synpo, Cd200, Lap3, Epdr1, Atg7, Lss, & Hapln1)
+
+- 4 vs 3b - 180 proteins ≤ adj.p 0.05
+
+  - 16/180 overlap with 4 vs 3a ≤ adj.p 0.05 (see above)
+
+  - 5/180 overlap with 3a vs 3b ≤ adj.p 0.1 (Gja1, Acadsb, Lsamp, Sncg, & Hdhd2)
+
 ```{r}
-# COHORT COMPARISON HEATMAP TILE (2026_07_28)
+# COHORT COMPARISON HEATMAP TILE (2026_07_28) | then changed to ... 
+# COHORT COMPARISON HEATMAP TILE FACETED (2026_07_29) - FACETED! 
 
 sig_in_3a_vs_3b <- com_df_mapped %>%
-  filter(Label == "3a vs 3b" & adj.pvalue <=0.1) %>%
+  filter(Label == "3a vs 3b") %>%
+  filter(adj.pvalue <=0.1) %>% # 9 @ ≤ 
   pull(gene)
 
-sig_in_cohorts <- com_df_mapped %>%
-  filter(pairwise.comp == "Cohort" & adj.pvalue <=0.1) %>% # .05 - 223 | .1 - 396
-  count(gene) %>%
-  filter(n >= 2) %>% # .05 - 22 (in 2 or more)| .1 - 54
+sig_in_4_vs_3a <- com_df_mapped %>%
+  filter(Label == "4 vs 3a" & adj.pvalue <=0.05) %>% # 43
+  filter(!(gene %in% sig_in_3a_vs_3b)) %>% # 41 ("Gsr" & "Wipf3" connob)
+  slice_min(adj.pvalue, n =  38, with_ties = FALSE) %>%
   pull(gene)
+#intersect(sig_in_3a_vs_3b, sig_in_4_vs_3a)
+
+sig_in_4_vs_3b <- com_df_mapped %>%
+  filter(Label == "4 vs 3b" & adj.pvalue <=0.05) %>% # 180
+    slice_min(adj.pvalue, n = 50, with_ties = FALSE) %>%
+  filter(!(gene %in% sig_in_3a_vs_3b)) %>% # 175 (Gja1, Acadsb, Lsamp, Sncg, Hdhd2)
+  filter(!(gene %in% sig_in_4_vs_3a)) %>% # 159 -16
+  # slice_min(adj.pvalue, n = 38, with_ties = FALSE) %>%
+  pull(gene)
+
+# intersect(sig_in_3a_vs_3b,sig_in_4_vs_3b)
+# intersect(sig_in_4_vs_3a,sig_in_4_vs_3b)
+
+#___2026_07_28_________________
+# sig_in_cohorts <- com_df_mapped %>%
+#   filter(pairwise.comp == "Cohort" & adj.pvalue <=0.1) %>% # .05 - 223 | .1 - 396
+#   group_by(Label) %>%
+#   slice_min(adj.pvalue, n = 40, with_ties = FALSE) %>%
+#   count(gene) %>%
+#   # filter(n >= 2) %>% # .05 - 22 (in 2 or more)| .1 - 54\
+#   filter(!(gene %in% sig_in_3a_vs_3b)) %>%
+#   pull(gene)
+#_________________________________
 
 
 cohorts_comp_plot <- com_df_mapped %>%
   filter(pairwise.comp == "Cohort") %>%
-  # filter(gene %in% c(sig_in_cohorts)) %>%
-  filter(gene %in% c(sig_in_cohorts, sig_in_3a_vs_3b)) %>% 
+  
+  #____2026_07_28___________________
+  # filter(gene %in% c(sig_in_cohorts, sig_in_3a_vs_3b)) %>%
+  # mutate(facet_group = if_else(gene %in% sig_in_cohorts,
+  #                              "2 or More - 4a",
+  #                              "padj all 3a vs 3b")) %>%
+  
+ #____29_07_29_________________
+ filter(gene %in% c(sig_in_3a_vs_3b,sig_in_4_vs_3a,sig_in_4_vs_3b)) %>%
+  mutate(facet_group = case_when(
+    gene %in% sig_in_3a_vs_3b ~ "3a vs 3b - top 9 (adj.p ≤ .1)",
+    gene %in% sig_in_4_vs_3a ~ "4 vs 3a - 38 of top 40 (adj.p ≤ .05)",
+    gene %in% sig_in_4_vs_3b ~ "4 vs 3b - 35 of top 50 (adj.p < .01)"
+  )) %>% 
+  
+  mutate(sig_symbol = case_when(
+    adj.pvalue <= 0.0001 ~ "****",
+    adj.pvalue <= 0.001 ~ "***",
+    adj.pvalue <= 0.01 ~ "**",
+    adj.pvalue <= 0.05 ~ "*",
+    adj.pvalue <= 0.1 ~ "\u22C5", # middle dot
+    adj.pvalue > 0.1 ~ " "
+  )) %>%
+
 
   ggplot(aes(x = Label, y = reorder(gene, -adj.pvalue), fill= log2FC,
              alpha = adj.pvalue)) +
   geom_tile(color = "grey10") +
-  geom_text(aes(label = paste0("log2FC = ",round(log2FC,2),
-                               # ", se = ",round(SE,2),
-                               ", adj.p = ",round(adj.pvalue,3))),
-            size = 2, fontface = "italic") +
-  scale_x_discrete(expand = expansion(mult = c(0.05,0.05)),
-                   labels = c("3a vs 3b" = "3a (~111 vs 3b (~113)",
-                              "4 vs 3a" = "4 (~86) vs 3a (~111)",
-                              "4 vs 3b" = "4 (~86) vs 3b (~113)")) +
+  
+  # geom_text(aes(label = paste0(
+  #           # "log2FC = ",round(log2FC,2),
+  #                              # ", se = ",round(SE,2),
+  #                              "adj.p = ",round(adj.pvalue,3))),
+  #           size = 1.9, fontface = "italic") +
+  
+  # scale_x_discrete(expand = expansion(mult = c(0.05,0.05)),
+  #                  labels = c("3a vs 3b" = "3a (~111 vs 3b (~113)",
+  #                             "4 vs 3a" = "4 (~86) vs 3a (~111)",
+  #                             "4 vs 3b" = "4 (~86) vs 3b (~113)")) +
+  
+  
+  geom_text(aes(label = sig_symbol),
+    size = 3, vjust = 0.75) +
+  
+    scale_x_discrete(expand = expansion(mult = c(0.0,0.0))) +
+    scale_y_discrete(expand = expansion(mult = c(0.0,0.0))) +
   labs(title = "Overlap Across Cohorts",
-       subtitle = "Proteins @ adj.pval ≤.1 (396) & in ≥ 2 cohorts (54 unq) + extra 3a v 3b adj.p ≤.1 (9) (+1) \u2192 55") +
+       # subtitle = "Proteins @ adj.pval ≤.1 (396) & in ≥ 2 cohorts (54 unq) + extra 3a v 3b adj.p ≤.1 (9) (+1) \u2192 55"
+       ) +
   colorspace::scale_fill_continuous_diverging("Blue-Red 2", mid = 0) +
   scale_alpha(range = c(1,0.75), guide = "none") + # more transparent less sig
+  
+  facet_wrap(~facet_group, space = "free_x", scales = "free_y") + 
+  
   theme_void() +
-  theme_minimal() +
+  theme_bw() +
   theme(
-    legend.position = "none",
+    # legend.position = "none",
+    legend.title = element_text(color = "grey10", size = 9.5),
+    strip.text = element_text(size = 8, face = "italic"),
+    legend.key.size = unit(0.5, "cm"), # size of legend key icon
      axis.title = element_blank(),
     # axis.text.x = element_text("grey10", size = 11),
     axis.text.y = element_text(hjust = 1, face =  "italic")
@@ -458,6 +538,8 @@ cohorts_comp_plot
 # ungroup() %>%
 # count(gene)
 ```
+
+------------------------------------------------------------------------
 
 ------------------------------------------------------------------------
 
