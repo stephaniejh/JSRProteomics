@@ -108,6 +108,7 @@ mapped_comp$Label <- factor(mapped_comp$Label,
                                         "HxA_EE_YNG_vs_SH_OLD",
                                         "HxA_EE_OLD_vs_SH_YNG"))   
 
+#____________________________________
 # # check 
 # head(mapped_comp) 
 # colnames(mapped_comp)
@@ -116,6 +117,17 @@ mapped_comp$Label <- factor(mapped_comp$Label,
 # unique_check <- mapped_comp %>% 
 #   dplyr::select(Label, sig_no_down_lab, sig_no_up_lab) %>%
 #   unique() # yep matches up! 
+```
+
+```{r}
+#___________________________________________
+#Quick Counts
+direction_df <- mapped_comp %>%
+  group_by(Label) %>%
+  count(Direction) %>%
+  mutate(percent = round(n/8049*100,2))
+
+direction_df
 ```
 
 ## Significant Proteins Tables
