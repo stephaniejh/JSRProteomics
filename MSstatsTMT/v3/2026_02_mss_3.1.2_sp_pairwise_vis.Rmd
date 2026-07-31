@@ -38,6 +38,7 @@ library(colorspace)
 library(cowplot)
 library(gt)
 library(ggrastr) # https://tomsing1.github.io/blog/posts/volcano/
+library(purrr)
 ```
 
 ------------------------------------------------------------------------
@@ -94,7 +95,7 @@ com_df <- bind_rows(list(Housing = pw_housing,
 
 ------------------------------------------------------------------------
 
-### Resume/Start Here (loads in output from above)
+### OR Resume/Start Here (loads in output from above)
 
 ```{r}
 # Load com_df in here, if needed. 
@@ -850,4 +851,60 @@ big_volcano_lit
 ```{r}
 # just manually save -2026_07_26 + added cohort 3a
 # prelim_pairwise_volcanos_2026_07_26 <- c(cohort_volcano_redo, Housing_ExpH_volcano_redo, Sex_volcano, big_volcano_lit)
+```
+
+------------------------------------------------------------------------
+
+## Venny - Cohort Comp (sp) to Age comp (1pspg)
+
+<https://venn.bio-spring.top/intro>
+
+```{r}
+load("input/MSstatsTMT/comp/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_comp.rda")
+
+AgeEE_1pspg <- mapped_comp_v3.2.2_EExAge_t1
+```
+
+```{r}
+Age_1pspg <- AgeEE_1pspg %>%
+  filter(Label %in% c("A_YNG_vs_OLD", "HxA_EE_YNG_vs_EE_OLD",
+                      "HxA_SH_YNG_vs_SH_OLD")) %>%
+  select(Protein:adj.pvalue, gene,description,database)
+
+cohort_sp <- com_df_mapped %>%
+  filter(pairwise.comp == "Cohort") %>%
+  select(Protein:adj.pvalue, gene,description,database)
+
+Age_cohort_merged <- bind_rows(list( Age = Age_1pspg, Cohort = cohort_sp),
+                               .id = "analysis")
+```
+
+```{r}
+AC_lists <- Age_cohort_merged %>%
+  filter(adj.pvalue <= 0.05) %>% # filter by sig
+  split(.$Label) %>% # split by label (comparison)
+  purrr::map(~pull(., gene)) # map (pull each list of genes from each) -> 5 lists $
+```
+
+```{r}
+#ggvenn::ggvenn(AC_lists)
+# #bfbbd5
+ggvenn::ggvenn(AC_lists[-c(4,5)],
+               stroke_alpha = 0.7,
+               fill_alpha = 0.7,
+               stroke_size = 0.5,
+               set_name_size = 3.5,
+               text_size = 3.2,
+               fill_color = c('#ccbbd5', '#bbc4d5', '#B0ABCB'))
+```
+
+```{r}
+ggvenn::ggvenn(AC_lists[c(4,5,3)],
+               stroke_alpha = 0.7,
+               fill_alpha = 0.7,
+               stroke_size = 0.5,
+               set_name_size = 3.3,
+               text_size = 3.2,
+               fill_color = c("#ABAFBF", "#C0B5B2", '#B0ABCB')
+               )
 ```
