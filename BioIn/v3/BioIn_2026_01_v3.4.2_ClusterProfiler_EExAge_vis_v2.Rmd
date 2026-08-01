@@ -44,6 +44,7 @@ library(ggvenn) # vennys (old ones)
 library(scales) #label_wrap text break in lolliplots
 library(ggh4x)
 library(ggrepel) # geom_text_repel
+library(ggrastr) # https://tomsing1.github.io/blog/posts/volcano/
 ```
 
 ### Load Data
