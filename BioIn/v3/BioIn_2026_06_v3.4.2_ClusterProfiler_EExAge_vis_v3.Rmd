@@ -358,12 +358,12 @@ for(hm in Msig_HM_POI) {
                        expand = c(0.04, 0)) +
     
     geom_hline(yintercept = -log10(0.05),
-               linetype = "dashed", linewidth = 0.05,
+               linetype = "dashed", linewidth = 0.1,
                color = "grey50", alpha = 0.5) +
     geom_hline(yintercept = -log10(0.1),linetype = "dotted",
-               linewidth = 0.05, color = "grey60", alpha = 0.5) +
+               linewidth = 0.1, color = "grey60", alpha = 0.5) +
     geom_vline(xintercept = c(0),linetype = "solid",
-               linewidth = 0.05, color = "grey45", alpha = 0.5) +
+               linewidth = 0.1, color = "grey35", alpha = 0.5) +
     
 
     ggrastr::geom_point_rast(aes(fill = case_when( # conditional ass for color mapping
@@ -417,9 +417,9 @@ for(hm in Msig_HM_POI) {
                     aes(x = log2FC, y = -log10(adj.pvalue),
                         label = gene,
                         color = log2FC > 0), # color mapping (see below)
-                    max.overlaps = 30, size = 2, # gene text on points
-                    min.segment.length = .5, segment.alpha = 0.3, segment.size = 0.2,
-                    alpha = 0.9) +
+                    max.overlaps = 30, size = 2.1, # gene text on points
+                    min.segment.length = .5, segment.alpha = 0.3,
+                    segment.size = 0.2, alpha = 0.9) +
                     # nudge_x = 0.155) +
 
     
@@ -499,7 +499,7 @@ plot_grid(plotlist = Msig_HM_volcano_list[c(1,3,8)], ncol = 1,
 
 # ggsave("2026_06_14_MsigDB_HM_3_volcano_metabolic_330dpi.png", dpi = 330) #8.21x595
 # dev.off() 
-# 2026_08_01 - 7.65 x 5.65 PDF
+# 2026_08_01 - 7.65 x 5.65 PDF | 2026_08_02 - 7.65 x 5.65 PDF v2 & v3 w/ ^ font
 ```
 
 ```{r}
@@ -510,7 +510,7 @@ plot_grid(plotlist = Msig_HM_volcano_list[c(2,5)], ncol = 1,
 
 # ggsave("2026_06_14_MsigDB_HM_2_volcano_proliferation_330dpi.png", dpi = 330) #8.21x4
 # dev.off()
-# 2026_08_01 - 7.65 x 3.75 PDF
+# 2026_08_01 - 7.65 x 3.75 PDF | 2026_08_02 - 7.65 x 3.75 PDF v2
 ```
 
 ```{r}
@@ -521,7 +521,7 @@ plot_grid(plotlist = Msig_HM_volcano_list[c(4,6,7,9)], ncol = 1,
 
 # ggsave("2026_06_14_MsigDB_HM_4_volcano_immune_develop_signal_330dpi.png", dpi = 330) #8.21x7.84
 # dev.off()
-# 2026_08_01 - 7.65 x 7.5 PDF
+# 2026_08_01 - 7.65 x 7.5 PDF | 2026_08_02 - 7.65 x 7.5 PDF v2
 ```
 
 ------------------------------------------------------------------------
