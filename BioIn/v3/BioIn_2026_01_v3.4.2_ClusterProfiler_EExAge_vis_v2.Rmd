@@ -16,6 +16,8 @@ knitr::opts_chunk$set(echo = TRUE)
 old_lolliplots <- c("#4a6fe3","#9da8e2","#e2e2e2","#e495a5","#d33f6a") #Blue-Red 2 
 old_pathview <- c("#3E76E8", "grey85", "#DA3558") 
 blended_new <- c("#4473E6", "#DEDEDE", "#D73A61")
+blended_new_2 <- c("#6E8FE5", "#DEDEDE", "#DF657F")
+blended_new_3 <- c("#5981E6", "#DEDEDE", "#DB5070") # used for new pathview tint bars! 
 ```
 
 # Setup
@@ -28,13 +30,13 @@ set.seed(123) # for reproducibility
 # Load Packages 
 library(tidyverse) # for dplyr, ggplot, stringr, readr, purrr, tibble, tidyr etc 
 library(readxl)
-# library(clusterProfiler) #GSEA includes gsea, enrichplot etc.
+library(clusterProfiler) #GSEA includes gsea, enrichplot etc.
 library(GOSemSim) # needed for simplify or now?
 # library(org.Rn.eg.db) # Rat genome anno pack- incl. AnnotationDbi
 library(msigdbr) # MSigDB gene sets
-# library(enrichplot) # for dotplot()
+library(enrichplot) # for dotplot()
 library(ggridges) # for ridgeplot()
-# library(pathview) # pathview() - Kegg pathway visualisation
+library(pathview) # pathview() - Kegg pathway visualisation
 
 # library(gganatogram) # gganatogram CO GG
 # library(drawCell) # drawing GO CC - SwissBioPics 
@@ -52,6 +54,8 @@ library(scales) #label_wrap text break in lolliplots
 library(ggh4x)
 library(ggrepel) # geom_text_repel
 library(ggrastr) # https://tomsing1.github.io/blog/posts/volcano/
+library(eulerr)
+library(magick)
 ```
 
 ### Load Data
@@ -71,7 +75,7 @@ load("output/gsea_results/2026_01_24_GO_gsea_EExAge_cp_v3.4.2_t2_simplified.rda"
 load("output/gsea_results/2026_01_12_gsea_msig_Hallmark_EExAge_mssv3.2.2_t1_cpv3.4.2_t2.rda")
 
 # # MSIGDB C2 Reactome 
-# load("output/gsea_results/2026_02_09_gsea_msig_c2_reactome_EExAge_mss3.2.2_t1_cp3.4.2.rda")
+load("output/gsea_results/2026_02_09_gsea_msig_c2_reactome_EExAge_mss3.2.2_t1_cp3.4.2.rda")
 ```
 
 ```{r}
@@ -97,7 +101,8 @@ df <- mapped_comp_v3.2.2_EExAge_t1
 
 protein_comp <- df %>%
   filter(is.na(issue)) %>% # keeps rows with issue == na (so comparisons that are ok)
-  filter(!str_detect(log2FC, "Inf")) # remove infinity/missing fold change values
+  filter(!str_detect(log2FC, "Inf")) %>% # remove infinity/missing fold change values
+  mutate(Label_trm = paste0(gsub("^[^_]*_", "", Label)), .after = Label)
 
 # check 
 head(protein_comp) 
@@ -145,7 +150,8 @@ protein_comp_entrez$Label <- factor(protein_comp_entrez$Label,
 KEGG_tibs_df <- map_dfr(KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3$kegg_results_tib,
                         as.data.frame,
                         .id = "Label")  %>%
-  mutate(Description_2 = str_replace_all(Description, " and ", " & "), # & instead of and
+  mutate(Label_trm = paste0(gsub("^[^_]*_", "", Label)), .after = Label) %>%
+  mutate(Description_2 = str_replace_all(Description, " and ", " & "), # & instead and
          .after = Description) 
   
 #df$col[df$col == "old_val"] <- "new_val"  | SHORTEN NAME! 
@@ -159,36 +165,49 @@ KEGG_tibs_df$Description_2[KEGG_tibs_df$Description_2 == "Chemical carcinogenesi
 # MAP Msigdb Hallmarks to masterdf
 HM_tibs_df <- map_dfr(gsea_msig_Hmrk_EExAge_mss3.2.2_t1_cp3.4.2_t2$gsea_results_tib,
                         as.data.frame,
-                        .id = "Label")
+                        .id = "Label") %>%
+    mutate(Label_trm = paste0(gsub("^[^_]*_", "", Label)), .after = Label) 
 
 
 # MAP GO Simplified (nested nested) to single df
 GO_sim_tibs_df <- map_dfr(
   GO_gsea_EExAge_cp_v3.4.2_t2_simplified$sim_GO_res_tib,
   ~map_dfr(.x, as_tibble, .id = "GO"),
-  .id = "Label")
+  .id = "Label") %>%
+    mutate(Label_trm = paste0(gsub("^[^_]*_", "", Label)), .after = Label) 
 
 
-# # MAP MSIG c2 REACTOME
-# REACT_tibs_df <- map_dfr(
-#   gsea_msig_c2_reactome_EExAge_mss3.2.2_t1_cp3.4.2$gsea_results_tib,
-#   as.data.frame,
-#   .id = "Label") %>%
-#   mutate(Description_2 = str_replace_all(Description, "REACTOME_", ""),
-#          .after = Description)  %>%
-#   mutate(Description_3 = str_replace_all(Description_2, "_AND_", "_&_"), # needs 2 work
-#          .after = Description_2)
+# MAP MSIG c2 REACTOME
+REACT_tibs_df <- map_dfr(
+  gsea_msig_c2_reactome_EExAge_mss3.2.2_t1_cp3.4.2$gsea_results_tib,
+  as.data.frame,
+  .id = "Label") %>%
+  mutate(Label_trm = paste0(gsub("^[^_]*_", "", Label)), .after = Label) %>%
+  mutate(Description_2 = str_replace_all(Description, "REACTOME_", ""),
+         .after = Description)  %>%
+  mutate(Description_3 = str_replace_all(Description_2, "_AND_", "_&_"), # needs 2 work
+         .after = Description_2)
 
 
 ```
 
+### Bit of a mix of old & new Label vs Label_trm
+
 ```{r}
-my_levels = c("H_EE_vs_SH",
-              "HxA_EE_YNG_vs_SH_YNG",
-              "HxA_EE_OLD_vs_SH_OLD",
-              "A_YNG_vs_OLD", 
-              "HxA_EE_YNG_vs_EE_OLD",
-              "HxA_SH_YNG_vs_SH_OLD"
+# my_levels = c("H_EE_vs_SH", # OLD LONG LABELS
+#               "HxA_EE_YNG_vs_SH_YNG",
+#               "HxA_EE_OLD_vs_SH_OLD",
+#               "A_YNG_vs_OLD", 
+#               "HxA_EE_YNG_vs_EE_OLD",
+#               "HxA_SH_YNG_vs_SH_OLD"
+#               )
+
+my_levels = c("EE_vs_SH", # NEW SHORT LABELS IN Label_trm
+              "EE_YNG_vs_SH_YNG",
+              "EE_OLD_vs_SH_OLD",
+              "YNG_vs_OLD",
+              "EE_YNG_vs_EE_OLD",
+              "SH_YNG_vs_SH_OLD"
               )
 
 my_level_colors <- c("#cbdec1", "#cbdec1", "#cbdec1",
@@ -201,42 +220,24 @@ names(my_level_colors) <- my_levels
 KEGG_tibs_df_6 <- KEGG_tibs_df %>%
   filter(!(Label %in% c("HxA_EE_OLD_vs_SH_YNG", "HxA_EE_YNG_vs_SH_OLD"))) 
 
-KEGG_tibs_df_6$Label <- factor(KEGG_tibs_df_6$Label,
+KEGG_tibs_df_6$Label_trm <- factor(KEGG_tibs_df_6$Label_trm,
                                   levels = my_levels)
 
 # GO 6 ORD
 GO_sim_tibs_df_6 <- GO_sim_tibs_df  %>%
-  filter(!(Label %in% c("HxA_EE_OLD_vs_SH_YNG", "HxA_EE_YNG_vs_SH_OLD"))) 
+  filter(!(Label %in% c("HxA_EE_OLD_vs_SH_YNG", "HxA_EE_YNG_vs_SH_OLD"))) %>%
+  
 
-GO_sim_tibs_df_6$Label <- factor(GO_sim_tibs_df_6$Label,
-          
+GO_sim_tibs_df_6$Label_trm <- factor(GO_sim_tibs_df_6$Label_trm,
                         levels = my_levels)
 
 
 # # REACTOME
-# REACT_tibs_df_6 <- REACT_tibs_df %>%
-#    filter(!(Label %in% c("HxA_EE_OLD_vs_SH_YNG", "HxA_EE_YNG_vs_SH_OLD")))
-# 
-# REACT_tibs_df_6$Label <- factor(REACT_tibs_df_6$Label,
-#                                   levels = my_levels)
+REACT_tibs_df_6 <- REACT_tibs_df %>%
+   filter(!(Label %in% c("HxA_EE_OLD_vs_SH_YNG", "HxA_EE_YNG_vs_SH_OLD")))
 
-
-# # MSIGDB | "HxA_EE_OLD_vs_SH_OLD",
-# 
-# HM_tibs_df_6 <- HM_tibs_df  %>%
-#   filter(!(Label %in% c("HxA_EE_OLD_vs_SH_YNG", "HxA_EE_YNG_vs_SH_OLD")))
-# 
-# HM_tibs_df_6$Label <- factor(HM_tibs_df$Label,
-#                              levels = c("H_EE_vs_SH",
-#                                         "HxA_EE_YNG_vs_SH_YNG",
-#                                         # "HxA_EE_OLD_vs_SH_OLD",
-#                                         "A_YNG_vs_OLD",
-#                                         "HxA_EE_YNG_vs_EE_OLD",
-#                                         "HxA_SH_YNG_vs_SH_OLD"))
-# 
-# # error idk
-# #Error in `$<-.data.frame`(`*tmp*`, Label, value = c(1L, 1L, 1L, 1L, 1L,  :
-# #  replacement has 25 rows, data has 19
+REACT_tibs_df_6$Label_trm <- factor(REACT_tibs_df_6$Label_trm,
+                                  levels = my_levels)
 ```
 
 ```{r}
@@ -259,22 +260,22 @@ KEGG_tibs_df_6_anno <- left_join(KEGG_tibs_df_6, KEGG_cat_anno,
 ```
 
 ```{r}
-# note alot here don't have GOID anyway
-colnames(up_subcell_raw)
-str(up_subcell_raw)
-
-up_subcell <- up_subcell_raw %>%
-
-  tidyr::separate_wider_regex( # use this instead!
-    `Gene Ontologies`,
-    patterns = c(go_id = "GO:\\d+", # matches GO:0002079:
-                 ":",
-                 go_term = ".*"), # matches any char at end of string
-    cols_remove = FALSE) %>%
-  mutate(subcell_ID = str_remove(`Subcellular location ID`, "-"),
-         .after = `Subcellular location ID`)
-
-# note "SL-0181" rather than "SL0181" - sometimes varies?
+# # note alot here don't have GOID anyway
+# colnames(up_subcell_raw)
+# str(up_subcell_raw)
+# 
+# up_subcell <- up_subcell_raw %>%
+# 
+#   tidyr::separate_wider_regex( # use this instead!
+#     `Gene Ontologies`,
+#     patterns = c(go_id = "GO:\\d+", # matches GO:0002079:
+#                  ":",
+#                  go_term = ".*"), # matches any char at end of string
+#     cols_remove = FALSE) %>%
+#   mutate(subcell_ID = str_remove(`Subcellular location ID`, "-"),
+#          .after = `Subcellular location ID`)
+# 
+# # note "SL-0181" rather than "SL0181" - sometimes varies?
 ```
 
 ------------------------------------------------------------------------
@@ -295,7 +296,7 @@ lolliplot <- function(data,
                       fill_1 = NES,
                       # cat_color = NULL, # ONLY NEEDED FOR KEGG CATEGORIES 
                       alpha = p.adjust,
-                      facet_formula = ~Label,
+                      facet_formula = ~Label_trm,
                       size = setSize,
                       subtitle = NULL,
                       legend_pos = "none") {
@@ -322,12 +323,12 @@ lolliplot <- function(data,
                   color ="grey10", shape = 21) +
     
     # scale_alpha(range = c(.95,.3)) + # rev alpha so darker = more sig | all
-    scale_alpha(range = c(.99,.39)) + #  GO TRIM VERSION so matches others
+    scale_alpha(range = c(.99,.49)) + #  GO TRIM VERSION so matches others
     geom_hline(yintercept = 0, color = 'grey20', linewidth = 0.1) +
     scale_color_manual(breaks = c("Up", "Down"),
                      # values = c("#dc322f", "#268bd2"),
                      guide = 'none') + 
-    scale_size_continuous(range = c(3,9)) + # map size oflolly (set size)
+    scale_size_continuous(range = c(3,8)) + # map size oflolly (set size)
     # scale_size_continuous(range = c(2,8),
     #      guide = guide_legend(nrow=1)) + # map size oflolly (set size) | GO BP
     
@@ -339,8 +340,9 @@ lolliplot <- function(data,
   
  
     
-    scale_x_discrete(labels = scales::label_wrap(width = 30)) + # break text |
-  
+    # scale_x_discrete(labels = scales::label_wrap(width = 30)) + # break text | KEGG ver
+     # scale_x_discrete(labels = scales::label_wrap(width = 40)) + # break text |
+
     ylim(-4,4)+
   
     labs(subtitle = subtitle,
@@ -372,16 +374,16 @@ lolliplot <- function(data,
       
     axis.text.x = element_text(angle = 90, hjust = 1, color = "grey10",
                                vjust = 0, # 90, hj1 t/R, vj.5 cent
-                               size = 9, face = 'italic'), 
+                               size = 8.5, face = 'italic'), 
     axis.text.y = element_text(hjust = 1, color = "grey10",
-                               size = 8.5, face = 'italic',
+                               size = 8, face = 'italic',
                                lineheight = .7), # <1 smaller distances breaks
     axis.title.y = element_blank(),
     axis.title.x = element_text(color = "grey10", size = 8.5),
     axis.ticks = element_line(color = "grey10", linewidth = 0.25),
 
     
-    legend.margin = margin(-10,-1,-5,-1), # (top, right, bot, left) | bottom ver
+    # legend.margin = margin(-10,-1,-5,-1), # (top, right, bot, left) | bottom ver
     legend.title = element_text(face = 'italic', size =8,
                                 hjust = 1),
     legend.key.size = grid::unit(0.3, "cm"), # posit answer to same height
@@ -389,15 +391,19 @@ lolliplot <- function(data,
     legend.box.just = "right", # right justify legend box
     
     # # #FOR RIGHT LEGEND
-    # legend.margin = margin(0,0,0,-5), # (top, right, bot, left) | right ver
-    # legend.justification = "top", # for right ver
+    legend.margin = margin(0,0,0,-5), # (top, right, bot, left) | right ver
+    legend.justification = "top", # for right ver
     
     legend.position = legend_pos,
     
     strip.background = element_rect(linewidth = 0.25, color = "grey10"),
-    panel.border = element_rect(linewidth = 0.25, color = "grey10"))
+    panel.border = element_rect(linewidth = 0.25, color = "grey10"),
+    panel.spacing.x = unit(.1, "cm"),
+    panel.grid.major = element_line(color = "grey90", linewidth = 0.1),
+    panel.grid.minor = element_line(color = "grey90", linewidth = 0.1)
+    )
   
-    
+  
 }
 ```
 
@@ -408,6 +414,7 @@ lolliplot <- function(data,
 ```{r}
 # KEGG ALL 6 BASIC
 KEGG_lol_f6 <- lolliplot(KEGG_tibs_df_6,
+                         facet_formula = ~Label,
                          x_1 = Description_2,
                          subtitle = "KEGG GSEA", legend_pos = "bottom")
 KEGG_lol_f6 
@@ -461,80 +468,34 @@ organs <- c("Pancreatic secretion", # digestive
             "Carbohydrate digestion and absorption",  # digestive
             "Mineral absorption",  # digestive
             
-            # "Thyroid hormone synthesis", # endocrine
-            "Adrenergic signaling in cardiomyocytes", # circulatory
+            "Thyroid hormone synthesis", # endocrine
+            "Adrenergic signaling in cardiomyocytes",  # circulatory
             
-            "Thermogenesis" # Envvironmental Adapation 
+            "Aldosterone synthesis and secretion", # Endocrine System
+            "Insulin secretion" # Endocrine system
+            
             )
+
+otherKEGGs <- c("Thermogenesis", # Envvironmental Adapation 
+                "Folate biosynthesis" # Metabolism of cofactors & vitamins
+                )
 ```
 
-### KEGG trimmed & subcategory
+### Trim Combo & subcategory KEGG Lolliplot
 
 ```{r}
-# KEGG 6 TRIMMED W CAT ANNO
-KEGG_lol_f6_trim <- KEGG_tibs_df_6_anno %>%
-  # filter(!(Description %in% human_diseases)) %>%
-  #   filter(!(Description %in% organs)) %>%
-  lolliplot(                         
-    facet_formula = reorder(subcategory_2, -NES)~Label,
-    x_1 = Description_2,
-    subtitle = "KEGG GSEA", legend_pos = "bottom")
-
-KEGG_lol_f6_trim 
-```
-
-### USED FOR MAIN THESIS
-
-```{r}
-# KEGG 3 EE TRIMMED W CAT ANNO
-KEGG_tibs_EE_3_trim <- KEGG_tibs_df_6_anno %>%
-  filter(Label %in% c("H_EE_vs_SH","HxA_EE_YNG_vs_SH_YNG","HxA_EE_OLD_vs_SH_OLD")) %>%
-  filter(!(Description %in% human_diseases)) %>%
-  filter(!(Description %in% organs)) %>%
-  lolliplot(
-    facet_formula = reorder(subcategory_2, -NES)~Label,
-    # facet_formula = category+subcategory_2~Label,
-    x_1 = Description_2,
-    subtitle = "KEGG GSEA - Housing", legend_pos = "bottom")
-
-KEGG_tibs_EE_3_trim
-```
-
-```{r}
-# KEGG 3 AGE TRIMMED
-KEGG_tibs_AGE_3_trim <- KEGG_tibs_df_6_anno %>%
-  filter(Label %in% c("A_YNG_vs_OLD", 
-              "HxA_EE_YNG_vs_EE_OLD",
-              "HxA_SH_YNG_vs_SH_OLD")) %>%
-  filter(!(Description %in% human_diseases)) %>%
-  filter(!(Description %in% organs)) %>%
-  lolliplot( 
-    # cat_color = my_cat_color,
-    # cat_color = my_cat_color_vec, # ONLY NEEDED FOR KEGG CATEGORIES ????
-    facet_formula = reorder(subcategory_2, -NES)~Label,
-    x_1 = Description_2,
-    subtitle = "KEGG GSEA - Age", legend_pos = "bottom")
-
-KEGG_tibs_AGE_3_trim
-```
-
-```{r}
-# 
+# COMBINED KEGG!!! - 2026_08_03
 KEGG_tibs_6_trim_PhD <- KEGG_tibs_df_6_anno %>%
   filter(!(Description %in% human_diseases)) %>%
   filter(!(Description %in% organs)) %>%
+  filter(!(Description %in% otherKEGGs)) %>%
   lolliplot(
-    facet_formula = reorder(subcategory_2, -NES)~Label,
+    facet_formula = reorder(subcategory_2, -NES)~Label_trm,
     # facet_formula = category+subcategory_2~Label,
     x_1 = Description_2,
-    subtitle = "KEGG GSEA - Housing", legend_pos = "bottom")
+    subtitle = "KEGG GSEA - Housing & Age - (trimmed)", legend_pos = "bottom")
 
 KEGG_tibs_6_trim_PhD
-```
-
-```{r}
-# plot_grid(KEGG_tibs_EE_3_trim, KEGG_tibs_AGE_3_trim,
-#           ncol = 1, rel_heights = c(1,0.5), rel_widths = c(1, 0.8))
 ```
 
 ### GO lolliplots (6)
@@ -542,6 +503,7 @@ KEGG_tibs_6_trim_PhD
 ```{r}
 GO_sim_lol_6 <-   GO_sim_tibs_df_6 %>%
   filter(GO == "BP") %>% # Swi
+  filter(Label %in% c("H_EE_vs_SH","HxA_EE_YNG_vs_SH_YNG","HxA_EE_OLD_vs_SH_OLD")) %>%
   lolliplot(subtitle = "GO BP GSEA - Housing & Age", legend_pos = "right")
 
 
@@ -556,7 +518,7 @@ GO_sim_lol_6
 ```{r}
 # REACTOME GSEA - 770 adjp<0.05(all 6) |  p.adjust <0.02 (550 obs) |p.01 405
 REACT_lol_6 <- REACT_tibs_df_6 %>%
-  filter(p.adjust <=0.01) %>%
+  # filter(p.adjust <=0.01) %>%
   
   lolliplot(subtitle = "REACTOME (via Msigdbr C2)",
             x_1 = Description_2, legend_pos = "bottom")
@@ -630,7 +592,8 @@ length(unique(KEGG_tibs_df_6$ID)) # 67
 KEGG_multi <- KEGG_tibs_df_6 %>%
   group_by(Description) %>%
   count() %>%
-  filter(n > 1)
+  # filter(n > 1)
+  filter(n == 1) # ones 
 
 KEGG_multi_list <- KEGG_multi$Description
 
@@ -639,7 +602,9 @@ KEGG_multi_df <- KEGG_tibs_df_6 %>%
   filter(Description %in% KEGG_multi_list) %>%
   mutate(trm_des = str_replace_all(Description, "[- -()]", "")) %>%  # rm spaces, - & () 
   mutate(trm_desc = str_trunc(trm_des, 15, side = "right", ellipsis = "")) %>%
-  filter(!(ID == "rno04723")) # rm reterograde endocannbinoid - not found pathbiew err 
+  filter(!(ID %in% c("rno04723", # rm reterograde endocannbinoid - not found pathbiew err
+                "rno01250" # Biosynthesis of nucleotide sugars"
+                ))) 
 ```
 
 ```{r}
@@ -651,7 +616,8 @@ geneLists_df <- map_dfr(KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3$geneList_vec,
 
 ```{r}
 # iterate over... 
-labels <- unique(KEGG_tibs_df_6$Label)
+labels <- unique(KEGG_tibs_df_6$Label)[1]
+
 
 kegg_pathways <- unique(KEGG_multi_df$ID)
 ```
@@ -742,25 +708,25 @@ kegg_pathways_2 <- unique(kegg_pathways_2_df$ID)
 #### for loop for KEGG pathviews
 
 ```{r}
-# # PATHVIEW FOR LOOP 
+# # PATHVIEW FOR LOOP
 # for (lb in labels) {
-#   
+# 
 #   wdf <- geneLists_df %>%
 #     filter(Label == lb) %>%
 #     dplyr::select(name, value)
-#     
+# 
 #   wgL <- tibble::deframe(wdf)
-#   
+# 
 #   #for (kp in kegg_pathways) {  # 1 kegg pathways from gsea
-#   for (kp in kegg_pathways_2) { # 2 extra kegg paths of interest 
-#     
+#   for (kp in kegg_pathways_2) { # 2 extra kegg paths of interest
+# 
 #     # c_desc <- KEGG_multi_df %>%  # 1 kegg pathways from gsea
-#      c_desc <- kegg_pathways_2_df %>%  # 2 extra kegg paths of interest 
+#      c_desc <- kegg_pathways_2_df %>%  # 2 extra kegg paths of interest
 #       filter(ID == kp) %>%
 #       dplyr::select(trm_desc) %>%
 #       slice_head(n = 1)
-#     
-#     
+# 
+# 
 #     pathview(gene.data = wgL,
 #                 pathway.id = kp,
 #                 species = 'rno',
@@ -768,15 +734,73 @@ kegg_pathways_2 <- unique(kegg_pathways_2_df$ID)
 #          kegg.native = T,
 #          same.layer = T, #slower & on top (out of bounds?)
 #          res = 600, #400 dpi (def 300 dpi for png) # nvm doesn't change drawings idk
-#          low = list(gene = "#317DEC", cpd = "#A054A3"), # purple unused 
-#          mid = list(gene= "grey85", cpd = "grey85"), 
+#          low = list(gene = "#317DEC", cpd = "#A054A3"), # purple unused
+#          mid = list(gene= "grey85", cpd = "grey85"),
 #          high = list(gene = "#E22A47", cpd ="#F3AD6AFF"), # org unused
 #          new.signature = FALSE
 #          )
 #   }
 # }
+
+#noob way manually set working directory as folder you want to output
+
+```
+
+### Kegg Pathviews with tint bar overlay (magick) (2026_08_03)
+
+- <https://cran.r-project.org/web/packages/magick/vignettes/intro.html#Build_from_source>
+
+```{r}
+# #PATHVIEW WITH TINT_BAR overlay using magick package (2026_08)
+
+# label_colors <- c(
+#   "H_EE_vs_SH" = "#AFCC9F",
+#   "HxA_EE_YNG_vs_SH_YNG" = "#D4E4CB",
+#   "HxA_EE_OLD_vs_SH_OLD" = "#D4E4CB",
+#   "A_YNG_vs_OLD" = "#BFBBD5",
+#   "HxA_EE_YNG_vs_EE_OLD" = "#DDDCE9",
+#   "HxA_SH_YNG_vs_SH_OLD" = "#DDDCE9"
+# )
+
+# for (lb in labels) {
+#   wdf <- geneLists_df %>% filter(Label == lb) %>% dplyr::select(name, value)
+#   wgL <- tibble::deframe(wdf)
 # 
-# #noob way manually set working directory as folder you want to output
+#   my_lab <- geneLists_df$Label[[1]] # my label
+# 
+#   # for (kp in kegg_pathways) { # v1 observed
+#   # c_desc <- KEGG_multi_df %>%
+# 
+#     for (kp in kegg_pathways_2) { # 2 extra kegg paths of interest
+#       c_desc <- kegg_pathways_2_df %>%  # 2 extra kegg paths of interest
+# 
+#           filter(ID == kp) %>%
+#           dplyr::select(trm_desc) %>% slice_head(n = 1)
+#         suffix <- paste0(lb, "_", c_desc[[1]])
+# 
+#     pathview(gene.data = wgL, pathway.id = kp, species = 'rno',
+#              out.suffix = suffix, kegg.native = T, same.layer = T, res = 600,
+#              low = list(gene = "#5981E6", cpd = "#A054A3"),
+#              mid = list(gene = "#DEDEDE", cpd = "#DEDEDE"),
+#              high = list(gene = "#DB5070", cpd = "#F3AD6AFF"),
+#              new.signature = FALSE)
+# 
+#     out_png <- paste0(kp, ".", suffix, ".png")  # confirm exact naming once
+# 
+#     if (file.exists(out_png)) { # uses magick package + grDevices
+#       pic <- image_read(out_png) # annotated pathview pic
+#       dets <- image_info(pic) # get details of pathview pic
+#       overlay <- image_blank(dets$width/43, dets$height, # tinted overlay
+#                               color = adjustcolor(label_colors[[lb]], alpha.f = 0.75))
+#       tinted <- image_composite(pic, overlay, operator = "over") # composite
+#       image_write(tinted, paste0(tools::file_path_sans_ext(out_png), # export
+#                                  "_tinted_bar_2026_08.png"))
+# 
+#     } else { # if none
+#       warning("Expected file not found: ", out_png)
+#     }
+#   }
+# }
 ```
 
 ------------------------------------------------------------------------
@@ -820,21 +844,10 @@ plot_list(p1, p2, p3, ncol = 1)
 # go plots
 
 ```{r}
-GO_sim_tibs_df_6 <- GO_sim_tibs_df %>%
-  filter(!(Label %in% c("HxA_EE_OLD_vs_SH_YNG", "HxA_EE_YNG_vs_SH_OLD"))) 
-
-GO_sim_tibs_df_6$Label <- factor(GO_sim_tibs_df_6$Label,
-                                  levels = c("H_EE_vs_SH",
-                                             "HxA_EE_YNG_vs_SH_YNG",
-                                             "HxA_EE_OLD_vs_SH_OLD",
-                                             "A_YNG_vs_OLD", 
-                                             "HxA_EE_YNG_vs_EE_OLD",
-                                             "HxA_SH_YNG_vs_SH_OLD"))
-
-
 GO_sim_lol_6_CC <-   GO_sim_tibs_df_6 %>%
   filter(GO == "CC") %>%
-  lolliplot()
+  lolliplot(legend_pos = "right",
+          )
 GO_sim_lol_6_CC
 ```
 
