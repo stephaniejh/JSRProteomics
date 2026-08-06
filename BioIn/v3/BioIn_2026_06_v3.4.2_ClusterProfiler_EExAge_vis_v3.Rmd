@@ -19,7 +19,7 @@ set.seed(123) # for reproducibility
 
 # Load Packages 
 library(tidyverse) # for dplyr, ggplot, stringr, readr, purrr, tibble, tidyr etc 
-library(clusterProfiler) #GSEA includes gsea, enrichplot etc
+# library(clusterProfiler) #GSEA includes gsea, enrichplot etc
 library(topGO) # needed for clusterProfiler's plotGOgraph() graph
 library(msigdbr) # MSigDB gene sets
 library(enrichplot) #emapplot, etc
@@ -39,6 +39,7 @@ library(scales) #label_wrap text break in lolliplots
 library(ggh4x)
 library(ggrepel) # geom_text_repel
 library(ggrastr) # for volcano points! 
+library(gt)
 ```
 
 ## Load Data
@@ -59,6 +60,16 @@ load("output/gsea_results/2026_01_12_GO_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t2.rda")
 
 # GO SIMPLIFIED
 load("output/gsea_results/2026_01_24_GO_gsea_EExAge_cp_v3.4.2_t2_simplified.rda")
+```
+
+```{r}
+load("input/db/rat_ref_proteome_2025_12_13_51872x295.rda")
+
+rat_ref <- rat_ref_proteome_2025_12_13
+```
+
+```{r}
+rat_FASTA <- read_csv("input/db/UP000002494_10116_Rat_Ref_Proteome_22403_1pspg_2025_04_UPfastadf.csv")
 ```
 
 ------------------------------------------------------------------------
@@ -522,6 +533,46 @@ plot_grid(plotlist = Msig_HM_volcano_list[c(4,6,7,9)], ncol = 1,
 # ggsave("2026_06_14_MsigDB_HM_4_volcano_immune_develop_signal_330dpi.png", dpi = 330) #8.21x7.84
 # dev.off()
 # 2026_08_01 - 7.65 x 7.5 PDF | 2026_08_02 - 7.65 x 7.5 PDF v2
+```
+
+## Hallmarks gt
+
+```{r}
+#TOP 10 most leading edge in sig hallmarks pathways 
+HM_tibs_df_6_entrez_split_top_10 <- HM_tibs_df_6_entrez_split %>%
+  group_by(Label, Description) %>%
+  slice_head(n=10) %>%
+  left_join(dplyr::select(rat_FASTA,
+                          uniprot_acc, entry_name, gene),
+            by = join_by(SYMBOL == gene)) %>%
+  left_join(dplyr::select(rat_ref,
+                   Entry,`Gene.Names..primary.`, `Protein.names`, 
+                   `Protein.families`,Keywords, `Subcellular.location..CC.`,
+                   Function..CC., Pathway,
+       Gene.Ontology..cellular.component.:Gene.Ontology..molecular.function.,
+                   `Developmental.stage`, Tissue.specificity),
+            by = join_by(uniprot_acc == Entry)) %>%
+  ungroup()
+```
+
+```{r}
+HM_tibs_df_6_entrez_split_top_10_gt <- HM_tibs_df_6_entrez_split_top_10  %>%
+  dplyr::select(Label, ID, Description, SYMBOL, setSize, NES, p.adjust, Category,
+         uniprot_acc:Tissue.specificity) %>%
+  gt(
+    rowname_col = "Label", 
+    groupname_col = "ID" 
+  ) %>%
+  fmt_number(columns = c(NES, p.adjust), decimals= 3) %>%
+    tab_style(
+    style = cell_text(weight = "bold",style = "italic"),
+    locations = cells_body(columns = SYMBOL)
+  ) %>%
+  gtExtras::gt_theme_espn() %>%
+  tab_options(table.font.size = px(10)) 
+
+
+HM_tibs_df_6_entrez_split_top_10_gt
 ```
 
 ------------------------------------------------------------------------
