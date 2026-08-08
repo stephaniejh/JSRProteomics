@@ -191,7 +191,7 @@ sig_genes_count$pairwise.comp <- factor(sig_genes_count$pairwise.comp,
                                               "Litter", "Sex"))
 ```
 
-### gt
+## gt
 
 <https://gt.rstudio.com/reference/tab_style.html#examples>
 
