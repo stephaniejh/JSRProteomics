@@ -19,16 +19,43 @@ df <- read_excel("input/Rampon_2000_mRNA_uniprot_mapped_v2_ena_ebi_added_19dec_b
 ```
 
 ```{r}
-colnames(df)
-str(df)
-df %>% gt
+# colnames(df)
+# str(df) #114 x 25
+dim(df) #114 x 25
+unique(df$fold_no) # chr - 2 change
+
+
+# Clean up columns
+# Auto-curated 
+df_p1 <- df %>% # results in 56 x 21
+  filter(Entry != "NA") %>%
+  select(Phase, Category, Accession_no, Gene_name:fold_no,
+         Entry, Entry.Name, Protein.names, Gene.Names, uniprot_link,
+     wiki_link, full_paste, ebi_link, ...4, notes, Reviewed, Organism, Length) 
+  
+
+# Manual curated 
+df_p2 <- df %>% # results in 56 x 21
+  filter(Entry == "NA") %>%
+  select(Phase, Category, Accession_no, Gene_name:fold_no, 
+         uniprot_acc, uniprot_entry, uniprot_prot_name, uniprot_gene, uniprot_link,
+     wiki_link, full_paste, ebi_link, ...4, notes, Reviewed, Organism, Length) %>%
+  rename(Entry = uniprot_acc, # fix column names 2 match above!
+         Entry.Name = uniprot_entry, 
+         Protein.names = uniprot_prot_name,
+         Gene.Names = uniprot_gene)
+
+
+# Join both data frames
+df_joined <- bind_rows(list(auto = df_p1, manual = df_p2), .id = "curation") %>%
+  mutate(Gene.Names = sub(" .*", "", Gene.Names)) # get 1st - primary (matches rat)
 ```
 
 ```{r}
 # for lit review table 
-lit_review_RNA <- df %>%
-  rename(Gene_name_old = Gene_name,
-         Fold_change_old = Fold_Change) %>% 
+lit_review_RNA <- df_joined %>%
+  rename(Gene_name_old = Gene_name, # so the provided does not conflict with new 
+         Fold_change_old = Fold_Change) %>%
   mutate(fold_no = as.numeric(if_else(fold_no == "NC", "0", fold_no))) %>%
   mutate(
     Year = 2000,
@@ -42,7 +69,7 @@ lit_review_RNA <- df %>%
     Used_name = Gene_name_old,
     Mod = " ",
     Mod_type = " ",
-    Gene_name = uniprot_gene, # genename from uniprot
+    Gene_name = Gene.Names, # genename from uniprot
     Comparison = 2, # 2 - EE vs SH
     In_EE = Direction,
     Fold_change = fold_no, # fold_no - numeric col with correct - sign! 
@@ -56,20 +83,52 @@ lit_review_RNA <- df %>%
       fold_no <= -2.5 ~ '---',
       ),
     Significant = ifelse(Fold_change_old != "NC", 'yes', 'no'), 
-    pvalue = " ", #no pvalues provided
-    N_tested = '3', # seems to be 3 per time group per housing condition (pg 1)
-    Stats_adj = ' ', 
+    pvalue = NA, #no pvalues provided
+    N_tested = 3, # seems to be 3 per time group per housing condition (pg 1)
+    Stats_adj = NA, 
     Note = notes,
-    Full_name = uniprot_prot_name,
-    Uniprot_rat_accession = uniprot_acc,
-    Uniprot_entry_name = uniprot_entry,
+    Full_name = Protein.names,
+    Uniprot_rat_accession = Entry,
+    Uniprot_entry_name = Entry.Name,
     Uniprot_link = uniprot_link,
     Wikipedia_link = 	wiki_link,
-    Curation_method = ...4, # note on curation method
+    Curation_method = ...17, # note on curation method
     Class_group = Category, #Catgegory as provided in table/fig of paper
     Other_link = ebi_link, # ebi ena link
     Other_comments = 'misc shows combined gene_ensembl info from their df',
-    misc = paste0(SYMBOL, '_', ENSEMBL)
+    misc = paste0(Accession_no, '_', Gene_name_old) # ebi id acc from paper
   ) %>%
-  arrange(Condition, desc(In_EE), pvalue, Fold_change)
+  arrange(Condition, desc(In_EE), pvalue, Fold_change) 
+```
+
+```{r}
+# # write out lit review df
+# write_excel_csv(lit_review_RNA,
+#                 "output/2026_08_11_Rampon_2024_mRNA_microarray_lit_review_v2.csv")
+```
+
+```{r}
+lit_review_RNA_gt <- lit_review_RNA %>%
+  select(Year:misc) %>%
+  gt(
+    rowname_col = "Gene_name",
+     groupname_col = "Condition"
+     ) %>%
+      tab_options(# GENERAL TABLE OPTIONS
+    table.border.top.width = px(2), # very top of table
+    table.border.bottom.width = px(2), # very bottom of table |not very visible
+    table.border.bottom.color = "#BDBDBD",
+    column_labels.border.top.width = px(2), # top of column labs |not very vis
+    column_labels.border.top.color = "#BDBDBD", 
+    column_labels.border.bottom.width = px(2), # top of column labs |not very vis
+    column_labels.border.bottom.color = "#BDBDBD", 
+    heading.border.bottom.width = px(2), # more visible than above
+    heading.border.bottom.color = "#BDBDBD", # more visible than above
+    table.font.size = "11px",
+     # stub.font.size = "12px",
+  ) %>%
+  
+  opt_vertical_padding(scale = 0.3)  # vert padding
+
+lit_review_RNA_gt
 ```
