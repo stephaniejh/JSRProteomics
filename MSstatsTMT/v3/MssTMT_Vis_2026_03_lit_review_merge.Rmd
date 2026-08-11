@@ -492,6 +492,14 @@ mice_lit_EE <- mice_lit_re %>%
   select(Year:misc)  # checked okay & can drop 
 ```
 
+### Rampon et al., 2000
+
+```{r}
+rampon <- read_csv(
+  "input/lit_review/2026_08_11_Rampon_2024_mRNA_microarray_lit_review_v2.csv") %>%
+    select(Year:misc) # 31/62
+```
+
 ### Zhang et al., 2024
 
 ```{r}
@@ -565,7 +573,7 @@ park <- read_csv("input/lit_review/2025_12_17_Park_2015_mRNA_lit_review_EExAging
 
 ```{r}
 merged <- bind_rows(rat_lit_EE, mice_lit_EE,
-                    lichti, arroyo, borg, park, perez_p, perez_t, zhang) %>%
+                    lichti, arroyo, borg, park, perez_p, perez_t, rampon,zhang) %>%
   filter(!is.na(Gene_name))  %>% # removes empty gene name rows (unmapped ones)
   mutate(across(c(Significant, In_EE), tolower)) %>%
   mutate(sym = case_when(
@@ -807,7 +815,9 @@ print(perez_was_me_gt)
 
 ------------------------------------------------------------------------
 
-### Better meth? - perez_was_me_2
+###  Perez & Wassouf - Better meth? - perez_was_me_2
+
+(used this for PhD write up 2026_08)
 
 - <https://tidyr.tidyverse.org/reference/pivot_wider.html#ref-examples>
 - <https://gt.rstudio.com/reference/tab_spanner_delim.html>
@@ -1362,17 +1372,25 @@ smol_GTPase_fam <- mapped_comp_sym %>%
 Kinase_Phos_fam <- mapped_comp_sym %>%
     filter(str_detect(Protein.families, regex("Kinase|Phosphatase|Phosphodiesterase", ignore_case = TRUE))) %>%
   pull(gene)
+
+
+park_protein_phosphatases <-  merged %>%
+  filter(Author == "Park") %>%
+  filter(str_detect(Full_name, regex("Protein Phosphatase|Calcineurin",
+                                     ignore_case = TRUE))) %>%
+  pull(Gene_name) %>% #87
+  unique() # 7
 ```
 
 ```{r}
 NT_ras_kin_pho_gt <- mapped_comp_sym %>%
   
-    mutate(Type = case_when( # KINASE & PHOSPHATASE
+  mutate(Type = case_when( # KINASE & PHOSPHATASE
     str_detect(Protein.families, regex("Kinase", ignore_case = TRUE)) ~ "Kinase",
+    str_detect(Protein.families, regex("Phosphodiesterase", ignore_case = TRUE)) ~ "Phosphodiesterase",
     str_detect(Protein.families, regex("Phosphatase", ignore_case = TRUE)) ~
-      "Phosphatase",
-  str_detect(Protein.families, regex("Phosphodiesterase", ignore_case = TRUE)) ~ "Phosphodiesterase")
-  ) %>%
+      "Phosphatase"
+  )) %>%
   
   
     # mutate(Type = case_when( # Small GTPase Superfamily
@@ -1386,7 +1404,7 @@ NT_ras_kin_pho_gt <- mapped_comp_sym %>%
   # mutate(Protein.families = str_replace(Protein.families, "Small GTPase superfamily, ", "")) %>% 
   
   select(c(gene, description, Type,  H_EE_vs_SH.sym:HxA_SH_YNG_vs_SH_OLD.adjp)) %>%
-  # select(c(gene, description, Type,  H_EE_vs_SH.sym:H_EE_vs_SH.adjp, 
+  # select(c(gene, description, Type,  H_EE_vs_SH.sym:H_EE_vs_SH.adjp,
   #          A_YNG_vs_OLD.sym:A_YNG_vs_OLD.adjp)) %>%
 
   filter(gene %in%  Kinase_Phos_fam) %>%
@@ -1410,14 +1428,14 @@ NT_ras_kin_pho_gt <- mapped_comp_sym %>%
  #_______v2_YNG_main___
    # mutate(YNG_dir = if_else(A_YNG_vs_OLD.log2FC > 0, "Up \u2191 in YNG",
    #                        "Down \u2193 in YNG")) %>%
-  arrange(A_YNG_vs_OLD.adjp) %>%
-  # arrange(H_EE_vs_SH.adjp) %>%
+  # arrange(A_YNG_vs_OLD.adjp) %>%
+  arrange(H_EE_vs_SH.adjp) %>%
   
   #_____
   # add row number after organisation
   mutate(row_id = as.character(row_number())) %>%
 
-  head(25) %>%
+  head(250) %>%
   
 
  gt(
@@ -1453,7 +1471,7 @@ NT_ras_kin_pho_gt <- mapped_comp_sym %>%
   
     tab_header(
     title = md("Comparison of **Kinases, Phosphatases, & Phosphodiesterases** across Housing & Age Comparisons"),
-    subtitle = md("`2026_08_10` - `Sorted by Significance in YNG (Top 25 out of 465)`")) %>%
+    subtitle = md("`2026_08_11` - `Sorted by Significance in EE (Top 250 out of 465)`")) %>%
    
   tab_style( # STUB STYLE
     style = list(cell_text(size = px(9), color = "#B3B3B3")),
@@ -1472,13 +1490,13 @@ NT_ras_kin_pho_gt <- mapped_comp_sym %>%
     column_labels.border.bottom.color = "#BDBDBD", 
     heading.border.bottom.width = px(2), # more visible than above
     heading.border.bottom.color = "#BDBDBD", # more visible than above
-    table.font.size = "11.5px",
-     stub.font.size = "12px",
-      row_group.font.size = "13px",
+    table.font.size = "10px",
+     stub.font.size = "11px",
+      row_group.font.size = "12px",
     row_group.font.weight = "bold",
     # column_labels.font.weight = "bolder"
   ) %>%
-  opt_vertical_padding(scale = 0.3) %>% # vert padding
+  opt_vertical_padding(scale = 0.25) %>% # vert padding
 
 
   cols_align(
@@ -1500,8 +1518,18 @@ NT_ras_kin_pho_gt <- mapped_comp_sym %>%
   
   
   tab_style( # gene name column styling
-    style = cell_text(size = px(12.5), style = "italic"),
+    style = cell_text(size = px(11), style = "italic"),
     locations = cells_body(columns = gene)) %>%
+  
+    tab_style(
+    style = cell_text(weight = "bolder"),
+    locations = cells_body(columns = gene, 
+                           rows = grepl("Ppp", gene))) %>%
+  
+    tab_style(
+    style = cell_fill(color = "#F9F7ED"),
+    locations = cells_body(columns = gene, 
+                           rows = gene %in% park_protein_phosphatases)) %>%
   
   
   #______UP_____________
@@ -1570,6 +1598,258 @@ NT_ras_kin_pho_gt #print
 
 ### Rampon et al., 2000
 
+```{r}
+Rampon_2000 <- merged %>%
+  filter(Author == "Rampon") %>%
+  # select(Year:Uniprot_entry_name, sym)  %>%
+  select(Year:Gene_name, sym, Fold_change, Significant, Class_group)  %>%
+  mutate(Phase = sub(" .*", "", Condition)) %>%
+  # mutate(Duration = case_when(
+  #   Condition == "Early - 3_h" ~ "03_h",
+  #   Condition == "Early - 6_h" ~ "06_h",
+  #   Condition == "Late - 2_days" ~ "02_d",
+  #   Condition == "Late - 14_days" ~ "14_d"
+  # )) %>%
+    mutate(Time = case_when(
+    Condition == "Early - 3_h" ~ "T1",
+    Condition == "Early - 6_h" ~ "T2",
+    Condition == "Late - 2_days" ~ "T1",
+    Condition == "Late - 14_days" ~ "T2"
+  )) %>%
+    select(!Condition) %>% # otherwise expanded/redundancies
+  pivot_wider(names_from = Time,
+              # names_sep = ".",
+              values_from = c(sym, Fold_change, Significant),
+              names_glue = "{Time}.{.value}") %>% # need this order for gt
+  
+  group_by(Phase, Gene_name) %>%
+  slice_head(n =1)  %>% # just to rm Dnpep	Aspartyl aminopeptidase duplicate
+  ungroup()
+
+# pull protein list
+Rampon_list <- merged %>%
+  filter(Author == "Rampon") %>%
+  pull(Gene_name) %>% #110 
+  unique() # 51 unique 
+
+# pull mapped computation list
+me_and_rampon <- mapped_comp_sym %>%
+  filter(gene %in% Rampon_list) %>%
+  right_join(Rampon_2000, by = join_by("gene" == "Gene_name")) %>%
+  mutate(observed = if_else(is.na(Protein), "Not Observed", "Observed")) %>%
+  arrange(H_EE_vs_SH.adjp, A_YNG_vs_OLD.adjp) 
+
+colnames(me_and_rampon)
+```
+
+```{r}
+me_and_rampon_gt <- me_and_rampon %>%
+
+  # DO IT THE NOOBY WAY - either filter in AGE
+  # filter(Phase == "Early") %>%
+  # filter(Phase == "Late") %>%
+  filter(!is.na(description)) %>% # v3 no NAs
+  
+  mutate(Phase  = if_else(Phase == "Early", "Early - 3 & 6 hours",
+                          "Late - 2 & 14 days")) %>%
+  
+   select(c(Phase, gene, Class_group, description, 
+          T1.sym, T2.sym,
+          H_EE_vs_SH.sym:H_EE_vs_SH.adjp, A_YNG_vs_OLD.sym:A_YNG_vs_OLD.adjp)) %>% 
+  
+ gt(
+    groupname_col = "Phase", #
+      # groupname_col = c("Class_group", "Phase"), #
+    # groupname_col = "Class_group", #
+    rowname_col = "gene",
+    # row_group_as_column = TRUE
+  ) %>%
+
+  row_group_order(groups = c("Early - 3 & 6 hours", "Late - 2 & 14 days")) %>%
+  
+  fmt_number(decimals = 2)  %>%
+  
+    tab_spanner_delim( delim = ".", # SPLIT 2 SPANNER HEADS
+                    split = "first", limit = 1,
+                    columns = !c(T1.sym, T2.sym)) %>%
+  
+   cols_label(
+    description = "Protein Description",
+    gene = "",
+    Class_group = "Class/Group",
+    # T1.sym = "3 h", # Early - 3h
+    # T2.sym = "6 h", # Early - 6h
+    # T1.sym = "2 d", # Late - 2d
+    # T2.sym = "14 d", # Late - 14d
+    T1.sym = "T1",
+    T2.sym = "T2", 
+    H_EE_vs_SH.sym = "EE",
+    A_YNG_vs_OLD.sym = "YNG"
+    ) %>%
+  
+
+    #   tab_header(
+    # title = md("Comparison to **Rampon et al., 2000** across Housing & Age"),
+    # subtitle = md("`2026_08_11` - ` 35 mapped of 51/54 of curated/given | (mRNA cortex mice) | T1 & T2 -Early (3 & 6 h) & Late (2 & 14 d)`")) %>%
+
+  tab_style( # STUB STYLE
+    style = list(cell_text(size = px(11),  style = "italic")),
+    locations = cells_stub()) %>%
+
+  
+    tab_options(# GENERAL TABLE OPTIONS
+    table.border.top.width = px(2), # very top of table
+    table.border.bottom.width = px(2), # very bottom of table |not very visible
+    table.border.bottom.color = "#BDBDBD",
+    column_labels.border.top.width = px(2), # top of column labs |not very vis
+    column_labels.border.top.color = "#BDBDBD", 
+    column_labels.border.bottom.width = px(2), # top of column labs |not very vis
+    column_labels.border.bottom.color = "#BDBDBD", 
+    heading.border.bottom.width = px(2), # more visible than above
+    heading.border.bottom.color = "#BDBDBD", # more visible than above
+    table.font.size = "11.5px",
+    stub.font.size = "12px",
+    # row_group.font.weight = "bolder",
+     row_group.font.size = "12.5px",
+  ) %>%
+  
+  opt_vertical_padding(scale = 0.3) %>% # vert padding
+  
+  cols_align(
+    align = "center",
+    columns = !c(1:4)) %>%
+  
+  tab_style( # Spanner styling 
+    style = cell_text(size = "90%"),
+    locations = cells_column_spanners()) %>%
+
+    tab_spanner(label = "Rampon_2000",
+              columns = c(T1.sym, T2.sym))  %>%
+  
+  
+  tab_style( # Cell column styling! 
+    style = cell_text(size = "99%", style = "italic"),
+    locations = cells_column_labels()) %>%
+  
+    tab_style( # Prevent breaking of value columns!
+    style = cell_text(whitespace = "nowrap"),
+    locations = cells_body(columns = !1:2)) %>%
+  
+  
+  tab_style( # gene name column styling
+    style = cell_text(size = px(12.5), style = "italic"),
+    locations = cells_body(columns = gene)) %>%
+  
+  tab_style( # CLASS_GROUP - comment in & out as needed 
+    style = cell_text(size = px(10), weight = "lighter"),
+    locations = cells_body(columns = Class_group)) %>%
+  
+  
+  
+  #______UP_____________
+  tab_style( # UP & ADJ P SIG!
+    style = list(cell_fill(color = "#fccad8"), cell_text(color = "#FF0099")),
+    locations = up_sig_05_loc) %>%
+  
+  tab_style( 
+    style = list(cell_fill(color = "#fddde6"), cell_text(color = "#d33682")),
+    locations = up_sig_1_loc ) %>%
+  
+  tab_style( 
+    style = list(cell_fill(color = "#FEEEF3"), cell_text(color = "#d33682")),
+    locations = up_5_loc) %>%
+  
+  tab_style(style = list(cell_text(color = "#d33682")),
+            locations = up_fc_loc) %>%
+  
+  #______DOWN_____________
+  tab_style(
+    style = list(cell_fill(color = "#C0DDF9"), cell_text(color = "#0080FF")),
+    locations = down_sig_05_loc) %>%
+  
+  tab_style(
+    style = list(cell_fill(color = "#DBECFC"),cell_text(color = "#2380c1")),
+    locations = down_sig_1_loc) %>%
+  
+  tab_style( 
+    style = list(cell_fill(color = "#EFF6FD"), cell_text(color = "#2380c1")),
+    locations = down_5_loc) %>%
+  
+    tab_style(style = list(cell_text(color = "#2380c1")),
+            locations = down_fc_loc) %>%
+  
+  
+  ##_______PAPER_ARROWS_________
+  ##_T1_______
+  tab_style( # UP & ADJ P SIG!
+    style = list(cell_fill(color = "#fddde6"), cell_text(color = "#d33682")),
+    locations = list(cells_body(rows = T1.sym == "\u2191 *", columns = T1.sym))
+    ) %>%
+  
+  tab_style( # Up!
+        style = list(cell_fill(color = "#FEEEF3"), cell_text(color = "#d33682")),
+    locations = list(cells_body(rows = T1.sym == "\u2191", columns = T1.sym))) %>%
+  
+  tab_style( # Down & ADJ P SIG!
+    style = list(cell_fill(color = "#DBECFC"),cell_text(color = "#2380c1")),
+    locations = list(cells_body(rows = T1.sym == "\u2193 *", columns = T1.sym))
+    ) %>%
+  
+  tab_style( # Down!
+    style = list(cell_fill(color = "#EFF6FD"), cell_text(color = "#2380c1")),
+    locations = list(cells_body(rows = T1.sym == "\u2193", columns = T1.sym))) %>%
+  
+  ##_T2__________
+    tab_style( # UP & ADJ P SIG!
+    style = list(cell_fill(color = "#fddde6"), cell_text(color = "#d33682")),
+    locations = list(cells_body(rows = T2.sym == "\u2191 *", columns = T2.sym))
+    ) %>%
+  
+  tab_style( # Up!
+        style = list(cell_fill(color = "#FEEEF3"), cell_text(color = "#d33682")),
+    locations = list(cells_body(rows = T2.sym == "\u2191", columns = T2.sym))) %>%
+  
+  tab_style( # Down & ADJ P SIG!
+    style = list(cell_fill(color = "#DBECFC"),cell_text(color = "#2380c1")),
+    locations = list(cells_body(rows = T2.sym == "\u2193 *", columns = T2.sym))
+    ) %>%
+  
+  tab_style( # Down!
+    style = list(cell_fill(color = "#EFF6FD"), cell_text(color = "#2380c1")),
+    locations = list(cells_body(rows = T2.sym == "\u2193", columns = T2.sym))) %>%
+  
+  
+  
+  ##__________________________________________________________
+  #___SPANNER_COLORS____________
+  tab_style(style = list(cell_fill(color = "#AFCC9F")),
+      locations = cells_column_spanners(spanners = contains("H_EE_vs_SH"))) %>%
+  
+  tab_style(style = cell_fill(color = "#BFBBD5"),
+      locations = cells_column_spanners(spanners = contains("A_YNG_vs_OLD"))) %>%
+
+  
+  
+   tab_style(style = list(cell_fill(color = "#F9F7ED"), 
+                          cell_borders(sides = "right", color = "#D3D3D3")),
+      locations = cells_column_spanners(spanners = contains("Rampon_2000"))) %>%
+  
+ #____NAs____Grey_out_NA_values________
+    tab_style( # Down & ADJ P SIG!
+    style = list(cell_text(color = "grey70", size = px(10))),
+    locations = list(
+      cells_body(rows = is.na(description),
+        columns = c(description,
+                   T1.sym,
+           # H_EE_vs_SH.sym:HxA_SH_YNG_vs_SH_OLD.adjp,
+            H_EE_vs_SH.sym:H_EE_vs_SH.adjp, A_YNG_vs_OLD.sym:A_YNG_vs_OLD.adjp
+           ))
+    )
+  )
+
+me_and_rampon_gt  
+```
+
 ### Park et al., 2015
 
 ```{r}
@@ -1588,13 +1868,20 @@ me_and_park <- mapped_comp_sym %>%
   filter(gene %in% park_list) %>%
   right_join(park_2015, by = join_by("gene" == "Gene_name")) %>%
   mutate(observed = if_else(is.na(gene), "Not Observed", "Observed")) %>%
-  arrange(H_EE_vs_SH.adjp, A_YNG_vs_OLD.adjp)
+  arrange( A_YNG_vs_OLD.adjp, H_EE_vs_SH.adjp) 
 
 colnames(me_and_park)
+
+park_pp_calcineurin <-  merged %>%
+  filter(Author == "Park") %>%
+  filter(str_detect(Full_name, regex("Protein Phosphatase|Calcineurin",
+                                     ignore_case = TRUE))) %>%
+  pull(Gene_name) %>% #87
+  unique() # 7 - Ppp3ca(calcineruin), Ppp1r1a(prot phosphatase inhib 1 subunit)
 ```
 
 ```{r}
-me_and_park_gt <- head(me_and_park, 35) %>%
+me_and_park_gt <- head(me_and_park, 40) %>%
 
     select(c(gene, description, sym, 
            H_EE_vs_SH.sym:H_EE_vs_SH.adjp, A_YNG_vs_OLD.sym:A_YNG_vs_OLD.adjp,
@@ -1620,7 +1907,7 @@ me_and_park_gt <- head(me_and_park, 35) %>%
   
     tab_header(
     title = md("Comparison to **Park et al., 2015** across Housing & Age"),
-    subtitle = md("`2026_08_08` - `Top 35 overlapping | 870 mapped & 575 NA | (mRNA Hip Mice)`")) %>%
+    subtitle = md("`2026_08_11` - `Top 40 overlapping | 870 mapped & 575 NA | (mRNA Hip Mice)`")) %>%
   
 
   tab_style( # STUB STYLE
@@ -1784,7 +2071,8 @@ me_and_arroyo <- mapped_comp_sym %>%
   filter(gene %in% Arroyo_list) %>%
   right_join(Arroyo_2020, by = join_by("gene" == "Gene_name")) %>%
   mutate(observed = if_else(is.na(gene), "Not Observed", "Observed")) %>%
-  arrange(H_EE_vs_SH.adjp, A_YNG_vs_OLD.adjp)
+  # arrange(H_EE_vs_SH.adjp, A_YNG_vs_OLD.adjp) # EE 1st
+   arrange( A_YNG_vs_OLD.adjp, H_EE_vs_SH.adjp) # Age 1st
 
 colnames(me_and_arroyo)
 ```
@@ -1796,7 +2084,7 @@ me_and_arroyo_gt <- me_and_arroyo %>%
            H_EE_vs_SH.sym:H_EE_vs_SH.adjp, A_YNG_vs_OLD.sym:A_YNG_vs_OLD.adjp,
            observed)) %>% # 2
   
-  head(33) %>%
+  head(40) %>%
 
  gt(
     groupname_col = "observed", # 
@@ -1819,7 +2107,7 @@ me_and_arroyo_gt <- me_and_arroyo %>%
 
        tab_header(
     title = md("Comparison to **Arroyo et al., 2020** across Housing & Age"),
-    subtitle = md("`2026_08_08` - `Top 33 overlap | 56 sig given & mapped | (Prot Hip Pigs)`")) %>%
+    subtitle = md("`2026_08_08` - `Top 40 overlap | 56 sig given & mapped | (Prot Hip Pigs)`")) %>%
 
   tab_style( # STUB STYLE
     style = list(cell_text(size = px(11),  style = "italic")),
@@ -2361,6 +2649,12 @@ me_and_borgmeyer_gt  #print
 PKMzeta <- mapped_comp %>%
   filter(gene %in% c("Prkcz","Prkci", "Gria2", "Gria1", "Dlg4","Pick1", "Arc",
                      "Cebpb", "Creb1", "Igf2", "Rbm3")) 
+
+# pp_calcineurin <-  mapped_comp %>%
+# 
+#     filter(str_detect(gene, regex("PPP|CABIN|CABN|CHP", ignore_case = TRUE)))
+#   # pull(Gene_name) %>% #870
+#   # unique() # 870
 ```
 
 ```{r}
