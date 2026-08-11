@@ -1,0 +1,1719 @@
+---
+title: "BioIn_2026_01_v3.4.2_ClusterProfiler_EExAge_vis_v2"
+author: "Stephanie Huang"
+date: "2026-01-28"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# [BioIn_2026_08_v3.4.2_ClusterProfiler_EExAge_vis_v4_Pathways - For KEGG & REACTOME]{.underline}
+
+**2026_08_06** - this branches off from the [BioIn_2026_08_v3.4.2_ClusterProfiler_EExAge_vis_v2.Rmd]{.underline}
+
+```{r}
+#colors 
+old_lolliplots <- c("#4a6fe3","#9da8e2","#e2e2e2","#e495a5","#d33f6a") #Blue-Red 2 
+old_pathview <- c("#3E76E8", "grey85", "#DA3558") 
+blended_new <- c("#4473E6", "#DEDEDE", "#D73A61")
+blended_new_2 <- c("#6E8FE5", "#DEDEDE", "#DF657F")
+blended_new_3 <- c("#5981E6", "#DEDEDE", "#DB5070") # used for new pathview tint bars!  
+```
+
+# Setup
+
+### Load Packages
+
+```{r}
+set.seed(123) # for reproducibility
+
+# Load Packages 
+library(tidyverse) # for dplyr, ggplot, stringr, readr, purrr, tibble, tidyr etc 
+library(readxl)
+library(clusterProfiler) #GSEA includes gsea, enrichplot etc.
+# library(org.Rn.eg.db) # Rat genome anno pack- incl. AnnotationDbi
+library(msigdbr) # MSigDB gene sets
+library(enrichplot) # for dotplot()
+library(ggridges) # for ridgeplot()
+# library(pathview) # pathview() - Kegg pathway visualisation
+
+library(paletteer) # colors
+library(colorspace) # colors
+library(cowplot) # plot_grid
+
+library(readxl)
+library(writexl) # for excel tab export
+library(ggvenn) # vennys (old ones)
+library(scales) #label_wrap text break in lolliplots
+library(ggh4x)
+library(ggrepel) # geom_text_repel
+library(ggrastr) # https://tomsing1.github.io/blog/posts/volcano/
+# library(magick) # for overlay tint on pathviews
+library(rbioapi) # to get reactome parent categories
+```
+
+### Load Data
+
+#### GSEA Results
+
+```{r}
+# #READ IN DATA
+# KEGG
+load("output/gsea_results/2026_01_12_KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3.rda")
+
+# # MSIGDB C2 Reactome 
+load("output/gsea_results/2026_02_09_gsea_msig_c2_reactome_EExAge_mss3.2.2_t1_cp3.4.2.rda")
+```
+
+#### MSstatsTMT Mapped Protein Results
+
+```{r}
+# mapped_comp_v3.2.2_EExAge_t1
+load("input/protein_lists/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_comp.rda")
+
+df <- mapped_comp_v3.2.2_EExAge_t1
+```
+
+#### KEGG category annotation
+
+```{r}
+# USED PREV TO RETRIEVE PATHWAYS & THEN EXPORTED & MANUALLY ANNOTATED & REIMPORTED!
+# kk_gson <- gson_KEGG(species = "rno") # via clusterprofiler
+# kk_gson_df <- kk_gson@gsid2name
+# write_csv(kk_gson_df, "2026_03_04_KEGG_rno_pathways_kk_gson_df.csv")
+
+# see 2026_03_04_KEGG_rno_pathways_kk_gson_df_w_anno
+KEGG_cat_anno <- read_csv(
+  "input/db/2026_03_04_KEGG_rno_pathways_kk_gson_df_w_anno.csv")
+```
+
+Pull in MSigDB Reactome Annotations
+
+<https://igordot.github.io/msigdbr/articles/msigdbr-intro.html>
+
+```{r}
+# msigdbr_collections() #available collections
+REACTOME_genesets <- msigdbr(species = "rat", collection = "C2", subcollection = "CP:REACTOME") %>%
+  select(gs_name:gs_url) %>%
+  distinct(gs_name, .keep_all = TRUE)
+```
+
+```{r}
+# HALLMARKS_genesets <- msigdbr(species = "rat", collection = "H")
+```
+
+```{r}
+# KEGG_genesets <- msigdbr(species = "rat", collection = "C2", subcollection = "CP:KEGG_LEGACY")
+# 
+# GO_genesets <- msigdbr(species = "rat", collection = "C5")
+```
+
+### Read in Reactome Pathways (downloaded)
+
+```{r}
+REACT_relations_raw <- read_tsv("input/db/2026_08_ReactomePathwaysRelation.txt",
+                                col_names = c("parent",
+                                              "child")) 
+
+REACT_paths_raw <- read_tsv("input/db/2026_08_ReactomePathways.txt",
+                                col_names = c("gs_id",
+                                              "description",
+                                              "species")) 
+```
+
+```{r}
+REACT_join <- left_join(REACT_relations_raw, REACT_paths_raw,
+                            by = join_by(parent == gs_id)) %>%
+  relocate(description, .after = parent) %>%
+  rename(parent_description = description) %>%
+  left_join(select(REACT_paths_raw,
+                   gs_id, description),
+                            by = join_by(child == gs_id)) %>%
+  relocate(description, .after = child) %>%
+  rename(child_description = description)
+
+unique(REACT_join$species)
+
+REACT_join_peeps <- REACT_join %>%
+  filter(species == "Homo sapiens")
+```
+
+<https://rbioapi.moosa-r.com/reference/rba_reactome_pathways_top.html>
+
+```{r}
+top_level_REACT <- rba_reactome_pathways_top(species =  "Homo sapiens")
+```
+
+------------------------------------------------------------------------
+
+# Wrangling
+
+### Protein Comparisons with ENTREZ & GENENAME
+
+```{r}
+# see BioIn_2025_12_v3.4.2_ClusterProfiler_EExAge_vis_testing_v1.Rmd for more info
+
+protein_comp <- df %>%
+  filter(is.na(issue)) %>% # keeps rows with issue == na (so comps that are ok)
+  filter(!str_detect(log2FC, "Inf")) %>% # remove infinity/missing log2FC
+  mutate(Label_trm = paste0(gsub("^[^_]*_", "", Label)), .after = Label)
+
+# check 
+head(protein_comp) 
+colnames(protein_comp)
+
+
+# ENTREZ
+protein_comp_uni_gene <- unique(protein_comp$gene) # 8014
+
+bitr_gn_2_entrez <- bitr(protein_comp_uni_gene,
+                         fromType = "SYMBOL",
+                         toType = "ENTREZID",
+                         OrgDb = "org.Rn.eg.db") #3.39% failed to map... |3.72% v2
+
+
+
+
+# SEE MY LEVELS BELOW
+my_comp_levels = c("H_EE_vs_SH",
+              "HxA_EE_YNG_vs_SH_YNG",
+              "HxA_EE_OLD_vs_SH_OLD",
+              "A_YNG_vs_OLD",
+              "HxA_EE_YNG_vs_EE_OLD",
+              "HxA_SH_YNG_vs_SH_OLD",
+
+              "HxA_EE_OLD_vs_SH_YNG", "HxA_EE_YNG_vs_SH_OLD"
+)
+
+
+# MAP ENTREZ TO UNIPROT PROT COMPS
+protein_comp_entrez <- left_join(protein_comp, bitr_gn_2_entrez,
+                                 by = join_by(gene == SYMBOL)) %>%
+  filter(!is.na(ENTREZID))  # remove non mapped - 64384 to 61952 
+
+
+protein_comp_entrez$Label <- factor(protein_comp_entrez$Label,
+                                  levels = my_comp_levels)
+```
+
+### Map nested .rda to master dfs & fix names
+
+```{r}
+##_KEGG_______
+## Map KEGG to a MASTER DF
+KEGG_tibs_df <- map_dfr(KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3$kegg_results_tib,
+                        as.data.frame,
+                        .id = "Label")  %>%
+  mutate(Label_trm = paste0(gsub("^[^_]*_", "", Label)), .after = Label) %>%
+  mutate(Description_2 = str_replace_all(Description, " and ", " & "), # & instead
+         .after = Description) %>%
+  left_join(KEGG_cat_anno, # join to KEGG subcategory data
+            by = join_by(ID == gsid,
+                         Description == name)) %>%
+  mutate(subcategory_2 = str_replace_all(subcategory, " and ", " & ")) %>%
+  mutate(obs_genes = str_count(core_enrichment, "/") + 1)
+
+#Fix some KEGG description names  
+#df$col[df$col == "old_val"] <- "new_val"  | SHORTEN NAME! 
+KEGG_tibs_df$Description_2[KEGG_tibs_df$Description_2 == "Pathways of neurodegeneration - multiple diseases"] <- "Pathways of neurodegeneration - multiple"
+
+KEGG_tibs_df$Description_2[KEGG_tibs_df$Description_2 == "Chemical carcinogenesis - reactive oxygen species"] <- "Chemical carcinogenesis - ROS"
+  
+
+
+##_REACTOME_______________
+## MAP MSIG c2 REACTOME
+REACT_tibs_df <- map_dfr(
+  gsea_msig_c2_reactome_EExAge_mss3.2.2_t1_cp3.4.2$gsea_results_tib,
+  as.data.frame,
+  .id = "Label") %>%
+  #shorted comparison label
+  mutate(Label_trm = paste0(gsub("^[^_]*_", "", Label)), .after = Label) %>%
+  #Shorten & mod Reactome Description label
+  mutate(Description_2 = str_replace_all(Description, "REACTOME_", ""),
+         .after = Description)  %>%
+  mutate(Description_2 = str_replace_all(Description_2, "_AND_", "_&_"), # &
+         .after = Description) %>%
+  mutate(Description_2 = str_replace_all(Description_2, "_", " "), # _ to " "
+         .after = Description) %>%
+  left_join(select(REACTOME_genesets, # df
+                   gs_name, gs_description, gs_exact_source, gs_url), # cols
+            by = join_by(ID == gs_name)) %>% # 985
+  left_join(REACT_join_peeps, by = join_by(gs_exact_source == child)) # 1001
+
+  
+  
+  
+```
+
+### Filter df for 6 comparisons (+ arrange levels & shorten some names)
+
+```{r}
+##_LEVELS________
+my_levels_1 = c("H_EE_vs_SH", # OLD LONG LABELS
+              "HxA_EE_YNG_vs_SH_YNG",
+              "HxA_EE_OLD_vs_SH_OLD",
+              "A_YNG_vs_OLD",
+              "HxA_EE_YNG_vs_EE_OLD",
+              "HxA_SH_YNG_vs_SH_OLD"
+              )
+
+my_levels_2 = c("EE_vs_SH", # NEW SHORT LABELS IN Label_trm
+              "EE_YNG_vs_SH_YNG",
+              "EE_OLD_vs_SH_OLD",
+              "YNG_vs_OLD",
+              "EE_YNG_vs_EE_OLD",
+              "SH_YNG_vs_SH_OLD"
+              )
+
+
+##_KEGG_6_
+KEGG_tibs_df_6 <- KEGG_tibs_df %>%
+  filter(!(Label %in% c("HxA_EE_OLD_vs_SH_YNG", "HxA_EE_YNG_vs_SH_OLD"))) 
+
+KEGG_tibs_df_6$Label <- factor(KEGG_tibs_df_6$Label,
+                                  levels = my_levels_1)
+KEGG_tibs_df_6$Label_trm <- factor(KEGG_tibs_df_6$Label_trm,
+                                  levels = my_levels_2)
+
+
+##_REACTOME_6_
+REACT_tibs_df_6 <- REACT_tibs_df %>%
+   filter(!(Label %in% c("HxA_EE_OLD_vs_SH_YNG", "HxA_EE_YNG_vs_SH_OLD"))) 
+
+REACT_tibs_df_6$Label <- factor(REACT_tibs_df_6$Label,
+                                  levels = my_levels_1)
+REACT_tibs_df_6$Label_trm <- factor(REACT_tibs_df_6$Label_trm,
+                                  levels = my_levels_2)
+```
+
+```{r}
+unique_REACT_tibs_df_6 <- REACT_tibs_df_6 %>%
+  select(gs_exact_source, ID, gs_description) %>%
+  unique() #311
+
+REACT_paths_observed <- left_join(REACT_join_peeps, 
+                                  unique_REACT_tibs_df_6,
+                                  by = join_by(child == gs_exact_source)) %>%
+  filter(!is.na(ID) & !is.na(gs_description)) #%>% # 300
+
+
+f1 <- setdiff(unique_REACT_tibs_df_6$gs_exact_source,
+              REACT_paths_observed$child) 
+m2 <- intersect(unique_REACT_tibs_df_6$gs_exact_source,
+                REACT_paths_observed$parent)
+
+intersect(f1,m2) # 12 missing that are in the parent id
+```
+
+```{r}
+
+```
+
+------------------------------------------------------------------------
+
+## Functions
+
+### Lolliplot
+
+- <https://stackoverflow.com/questions/39801041/ggplot2-have-common-facet-bar-in-outer-facet-panel-in-3-way-plot>
+- <https://stackoverflow.com/questions/19440069/ggplot2-facet-wrap-strip-color-based-on-variable-in-data-set>
+- <https://stackoverflow.com/questions/79755989/changing-facet-strip-colour-by-grouping-variable-when-using-ggh4xfacet-manual>
+
+```{r}
+lolliplot <- function(data,
+                      x_1 = Description, 
+                      x_2 = NES, 
+                      y = NES, 
+                      fill_1 = NES,
+                      # cat_color = NULL, # ONLY NEEDED FOR KEGG CATEGORIES 
+                      alpha = p.adjust,
+                      facet_formula = ~Label_trm,
+                      size = setSize,
+                      subtitle = NULL,
+                      legend_pos = "none") {
+  
+  # NEED TO SHUFFLE HERE & THERE BUT WORKS
+    strip <- strip_themed( # green for 1st 3 (housing) & Lavender for last 3 (age)
+    background_x = elem_list_rect(fill = c(
+      "#AFCC9F", "#D4E4CB", "#D4E4CB", 
+      "#BFBBD5", "#DDDCE9", "#DDDCE9")))
+  
+  
+  lol <- ggplot(data,
+                aes(x = reorder({{x_1}},{{x_2}}),
+                    y = {{y}}
+                    )) +
+    
+    geom_segment(aes(x = {{x_1}},
+                     yend = {{y}}, y = 0,
+                     alpha = {{alpha}}), color = "grey10", linewidth = 0.3) +
+    
+    geom_point(aes(alpha = {{alpha}},
+                  size = {{size}},
+                  fill = {{fill_1}}),
+                  color ="grey10", shape = 21) +
+    
+    # scale_alpha(range = c(.95,.3)) + # rev alpha so darker = more sig | all
+    scale_alpha(range = c(.99,.49)) + #  GO TRIM VERSION so matches others
+    geom_hline(yintercept = 0, color = 'grey20', linewidth = 0.1) +
+    scale_color_manual(breaks = c("Up", "Down"),
+                     # values = c("#dc322f", "#268bd2"),
+                     guide = 'none') + 
+    scale_size_continuous(range = c(3,8)) + # map size oflolly (set size)
+    # scale_size_continuous(range = c(2,8),
+    #      guide = guide_legend(nrow=1)) + # map size oflolly (set size) | GO BP
+    
+
+    # scale_fill_continuous_diverging("Blue-Red 2") + # colorspace
+    scale_fill_gradient2(low="#4a6fe3", mid="#e2e2e2", high="#d33f6a",
+                         midpoint = 0,
+                        limits = c(-3.5, 3.5)) +
+  
+ 
+    
+    # scale_x_discrete(labels = scales::label_wrap(width = 30)) + # break text | KEGG ver
+     scale_x_discrete(labels = scales::label_wrap(width = 60)) + # break text |
+
+    ylim(-4,4)+
+  
+    labs(subtitle = subtitle,
+       y = 'NES' ) +
+    
+    coord_flip() + #fliptheplot
+    
+
+   
+    # facet_wrap(facet_formula,
+    #          space = 'free_x') +
+     
+    # facet_grid(facet_formula, # KEGG subcategory anno! half working ....
+    #              space = "free", scales = "free") +
+    
+    facet_grid2(facet_formula,
+                strip = strip, # custom strip colors
+                space = "free", scales = "free", 
+                labeller = label_wrap_gen(width = 20), # length of label
+                drop = FALSE) + # dropfalse keeps any empty facets
+
+    
+    
+    theme_bw() +
+    theme(
+      # strip.background.x = element_rect(fill = "#cbdec1"),
+      # strip.background.x = element_rect(fill = my_level_colors),
+      strip.text.y = element_text(angle = 0, size = 7.5),
+      strip.text.x = element_text(size = 6),
+      panel.spacing.y = unit(0, "lines"), # or "cm", "in", etc.
+      
+    axis.text.x = element_text(angle = 90, hjust = 1, color = "grey10",
+                               vjust = 0, # 90, hj1 t/R, vj.5 cent
+                               size = 8.5, face = 'italic'), 
+    axis.text.y = element_text(hjust = 1, color = "grey10",
+                               size = 8, face = 'italic',
+                               lineheight = .7), # <1 smaller distances breaks
+    axis.title.y = element_blank(),
+    axis.title.x = element_text(color = "grey10", size = 8.5),
+    axis.ticks = element_line(color = "grey10", linewidth = 0.25),
+
+    
+    # legend.margin = margin(-10,-1,-5,-1), # (top, right, bot, left) | bottom ver
+    legend.title = element_text(face = 'italic', size =8,
+                                hjust = 1),
+    legend.key.size = grid::unit(0.3, "cm"), # posit answer to same height
+    legend.text = element_text(margin = margin(l = 0)), # marg text & key
+    legend.box.just = "right", # right justify legend box
+    
+    # # #FOR RIGHT LEGEND
+    legend.margin = margin(0,0,0,-5), # (top, right, bot, left) | right ver
+    legend.justification = "top", # for right ver
+    
+    legend.position = legend_pos,
+    
+    strip.background = element_rect(linewidth = 0.25, color = "grey10"),
+    panel.border = element_rect(linewidth = 0.25, color = "grey10"),
+    panel.spacing.x = unit(.1, "cm"),
+    panel.grid.major = element_line(color = "grey90", linewidth = 0.1),
+    panel.grid.minor = element_line(color = "grey90", linewidth = 0.1)
+    )
+  
+  
+}
+```
+
+------------------------------------------------------------------------
+
+# Lolliplots
+
+## KEGG lolliplots (6)
+
+### Full KEGG PLOT with no filtering (appendix plot)
+
+```{r}
+# KEGG ALL 6 BASIC
+KEGG_lolli_full_6 <- lolliplot(KEGG_tibs_df_6,
+                         facet_formula = reorder(subcategory_2, -NES)~Label_trm,
+                         x_1 = Description_2,
+                         subtitle = "KEGG GSEA", legend_pos = "bottom")
+
+KEGG_lolli_full_6
+```
+
+### KEGGs to remove for main thesis lolliplot
+
+```{r}
+# rm KEGG human diseases
+human_diseases <- c("Non-alcoholic fatty liver disease",
+                    "Coronavirus disease - COVID-19",
+                    "Chemical carcinogenesis - reactive oxygen species",
+                    "Salmonella infection",
+                    "Diabetic cardiomyopathy",
+                    "Chemical carcinogenesis - receptor activation",
+                    "Acute myeloid leukemia",
+                    "Hepatocellular carcinoma",
+                    "Prostate cancer",
+                    "Platinum drug resistance",
+                    "Viral life cycle - HIV-1",
+                    "Systemic lupus erythematosus",
+                    "Staphylococcus aureus infection"
+                    )
+
+# organismal systems
+organs <- c("Pancreatic secretion", # digestive
+            "Cardiac muscle contraction", # circulatory
+            
+            "Endocrine and other factor-regulated calcium reabsorption", #excretory
+            "Proximal tubule bicarbonate reclamation", #excretory
+            
+            "Salivary secretion", # digestive
+            "Bile secretion", # digestive
+            "Gastric acid secretion", # digestive
+            "Protein digestion and absorption",  # digestive
+            "Carbohydrate digestion and absorption",  # digestive
+            "Mineral absorption",  # digestive
+            
+            "Thyroid hormone synthesis", # endocrine
+            "Adrenergic signaling in cardiomyocytes",  # circulatory
+            
+            "Aldosterone synthesis and secretion", # Endocrine System
+            "Insulin secretion" # Endocrine system
+            
+            )
+
+otherKEGGs <- c("Thermogenesis", # Envvironmental Adapation 
+                "Folate biosynthesis" # Metabolism of cofactors & vitamins
+                )
+```
+
+### Trim Combo & subcategory KEGG Lolliplot (for main PhD)
+
+```{r}
+# COMBINED KEGG!!! - 2026_08_03
+KEGG_tibs_6_trim_PhD <- KEGG_tibs_df_6_anno %>%
+  filter(!(Description %in% human_diseases)) %>%
+  filter(!(Description %in% organs)) %>%
+  filter(!(Description %in% otherKEGGs)) %>%
+  lolliplot(
+    facet_formula = reorder(subcategory_2, -NES)~Label_trm,
+    # facet_formula = category+subcategory_2~Label,
+    x_1 = Description_2,
+    subtitle = "KEGG GSEA - Housing & Age - (trimmed)", legend_pos = "bottom")
+
+KEGG_tibs_6_trim_PhD
+```
+
+### 
+
+## Msigdb C2 Reactome lolliplots
+
+```{r}
+# REACTOME GSEA - 770 adjp<0.05(all 6) |  p.adjust <0.02 (550 obs) |p.01 405
+REACT_lol_6 <- REACT_tibs_df_6 %>%
+  filter(p.adjust <=0.03) %>%
+  
+  lolliplot(subtitle = "REACTOME (via Msigdbr C2)",
+            x_1 = Description_2, legend_pos = "bottom")
+
+REACT_lol_6
+
+
+# ggsave("2026_02_25_REACTOME_via_Msigdbr_C2_EExAge_6.png", dpi = 200)
+```
+
+------------------------------------------------------------------------
+
+------------------------------------------------------------------------
+
+## Pathview for loops (14 02 2026)
+
+Done a nooby lazy way maybe clean up later.
+
+- <https://www.bioconductor.org/packages/devel/bioc/vignettes/pathview/inst/doc/pathview.pdf>
+- rat kegg pathways - <https://www.kegg.jp/kegg-bin/show_organism?menu_type=pathway_maps&org=rno>
+- <https://igordot.github.io/msigdbr/articles/msigdbr-intro.html>
+
+#### Aes test
+
+```{r}
+## Ribosome - rno03010 
+pathview(gene.data=KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3$geneList_vec$H_EE_vs_SH,
+                pathway.id="rno03010",
+                species = 'rno',
+         out.suffix = "2026_02_14__H_EE_vs_SH_testing",
+         kegg.native = T,
+         same.layer = T, #slower & on top (out of bounds?)
+         res = 600, #400 dpi (def 300 dpi for png) # not sure if changes anything..
+         low = list(gene = "#3E76E8", cpd = "#A054A3"), # purple unused 
+         mid = list(gene= "grey85", cpd = "grey85"), 
+         high = list(gene = "#DA3558", cpd ="#F3AD6AFF"), # org unused
+         new.signature = FALSE)
+
+# my_colors <- c("#E22A47", "#DA3558", "#D33F6A", "#317DEC", "#3E76E8", "#4A6FE3" )
+```
+
+### Set up master gene vec lists
+
+```{r}
+# # get msigdbr kegg pathways into data 
+# KEGG_rats_msig <- msigdbr(species = "Rattus norvegicus",
+#                           collection = "C2", subcollection = "CP:KEGG_MEDICUS")
+# nvm maybe return to later 
+```
+
+```{r}
+length(unique(KEGG_tibs_df_6$ID)) # 67 
+
+KEGG_multi <- KEGG_tibs_df_6 %>%
+  group_by(Description) %>%
+  count() %>%
+  # filter(n > 1)
+  filter(n == 1) # ones 
+
+KEGG_multi_list <- KEGG_multi$Description
+
+# note - & - different?
+KEGG_multi_df <- KEGG_tibs_df_6 %>% 
+  filter(Description %in% KEGG_multi_list) %>%
+  mutate(trm_des = str_replace_all(Description, "[- -()]", "")) %>%  # rm spaces, - & () 
+  mutate(trm_desc = str_trunc(trm_des, 15, side = "right", ellipsis = "")) %>%
+  filter(!(ID %in% c("rno04723", # rm reterograde endocannbinoid - not found pathbiew err
+                "rno01250" # Biosynthesis of nucleotide sugars"
+                ))) 
+```
+
+```{r}
+# Map KEGG to a MASTER genelist DF 
+geneLists_df <- map_dfr(KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3$geneList_vec,
+                        ~enframe(.x),
+                        .id = "Label")
+```
+
+```{r}
+# iterate over... 
+labels <- unique(KEGG_tibs_df_6$Label)[1]
+
+
+kegg_pathways <- unique(KEGG_multi_df$ID)
+```
+
+#### Extra Pathways
+
+```{r}
+# rm errors - metabolic pathways, fatty acid metabolism (rno01212) - too long
+kegg_pathways_2_df <- data.frame("ID" = c("rno00010", # 1
+                                          "rno04130", # 
+                                          "rno04514", # 
+                                          "rno04518", #
+                                          "rno04722",
+                                          "rno04024",
+                                          "rno04151",
+                                          "rno04010",
+                                          "rno04014",
+                                          "rno04020",
+                                          "rno04022",
+                                          "rno04081",
+                                          "rno04150",
+                                          "rno04080",
+                                          "rno04512",
+                                          "rno04060",
+                                          "rno04517",
+                                          "rno04210",
+                                          "rno04110",
+                                          "rno04810",
+                                          "rno05022",
+                                          "rno04211",
+                                          "rno04724",
+                                          "rno04726",
+                                          "rno04720",
+                                          "rno04730",
+                                          "rno04725",
+                                          "rno04728",
+                                          "rno04120",
+                                          "rno03008",
+                                          "rno00970",
+                                          "rno04141",
+                                          "rno04144",
+                                          "rno04145",
+                                          "rno04146",
+                                          "rno04142"
+                                          ),
+                                 
+                                 "trm_desc" = c("glycolysis_gluc",
+                                              "SNARE_int_vt",
+                                              "CAM_interac",
+                                              "Intergrin_sig",
+                                              "Neurotrophic_sig",
+                                              "cAMP_sig_path",
+                                              "PI3K_Akt_sig_path",
+                                              "MAPK_sig_path",
+                                              "Ras_sig_path",
+                                              "Calcium_sig_path",
+                                              "cGMP_PKG_sig_path",
+                                              "Hormone_sig",
+                                              "mTOR_sig_path",
+                                              "Neuract_lig_rep_i",
+                                              "ECM_receptor_int",
+                                              "Cytokine_rec_int",
+                                              "IgSF_CAM_sig",
+                                              "Apoptosis",
+                                              "Cell_cycle",
+                                              "Reg_actin_cytosk",
+                                              "Paths_neurodegen",
+                                              "longeivity_reg",
+                                              "glutamaterg_synp",
+                                              "serotonergic_syn",
+                                              "LTP",
+                                              "LTD",
+                                              "cholinergic_syn",
+                                              "dopaminergic_syn",
+                                              "ubiquit_med_prtly",
+                                              "ribosome_biogen",
+                                              "Aminoacyl_tRNA_bi",
+                                              "prot_proces_in_ER",
+                                              "endocytosis",
+                                              "phagosome",
+                                              "peroxisome",
+                                              "lysosome"
+                                              ))
+
+kegg_pathways_2 <- unique(kegg_pathways_2_df$ID)
+```
+
+#### for loop for KEGG pathviews
+
+```{r}
+# # PATHVIEW FOR LOOP
+# for (lb in labels) {
+# 
+#   wdf <- geneLists_df %>%
+#     filter(Label == lb) %>%
+#     dplyr::select(name, value)
+# 
+#   wgL <- tibble::deframe(wdf)
+# 
+#   #for (kp in kegg_pathways) {  # 1 kegg pathways from gsea
+#   for (kp in kegg_pathways_2) { # 2 extra kegg paths of interest
+# 
+#     # c_desc <- KEGG_multi_df %>%  # 1 kegg pathways from gsea
+#      c_desc <- kegg_pathways_2_df %>%  # 2 extra kegg paths of interest
+#       filter(ID == kp) %>%
+#       dplyr::select(trm_desc) %>%
+#       slice_head(n = 1)
+# 
+# 
+#     pathview(gene.data = wgL,
+#                 pathway.id = kp,
+#                 species = 'rno',
+#          out.suffix = paste0(lb, "_", c_desc[1]),
+#          kegg.native = T,
+#          same.layer = T, #slower & on top (out of bounds?)
+#          res = 600, #400 dpi (def 300 dpi for png) # nvm doesn't change drawings idk
+#          low = list(gene = "#317DEC", cpd = "#A054A3"), # purple unused
+#          mid = list(gene= "grey85", cpd = "grey85"),
+#          high = list(gene = "#E22A47", cpd ="#F3AD6AFF"), # org unused
+#          new.signature = FALSE
+#          )
+#   }
+# }
+
+#noob way manually set working directory as folder you want to output
+
+```
+
+### Kegg Pathviews with tint bar overlay (magick) (2026_08_03)
+
+- <https://cran.r-project.org/web/packages/magick/vignettes/intro.html#Build_from_source>
+
+```{r}
+# #PATHVIEW WITH TINT_BAR overlay using magick package (2026_08)
+
+# label_colors <- c(
+#   "H_EE_vs_SH" = "#AFCC9F",
+#   "HxA_EE_YNG_vs_SH_YNG" = "#D4E4CB",
+#   "HxA_EE_OLD_vs_SH_OLD" = "#D4E4CB",
+#   "A_YNG_vs_OLD" = "#BFBBD5",
+#   "HxA_EE_YNG_vs_EE_OLD" = "#DDDCE9",
+#   "HxA_SH_YNG_vs_SH_OLD" = "#DDDCE9"
+# )
+
+# for (lb in labels) {
+#   wdf <- geneLists_df %>% filter(Label == lb) %>% dplyr::select(name, value)
+#   wgL <- tibble::deframe(wdf)
+# 
+#   my_lab <- geneLists_df$Label[[1]] # my label
+# 
+#   # for (kp in kegg_pathways) { # v1 observed
+#   # c_desc <- KEGG_multi_df %>%
+# 
+#     for (kp in kegg_pathways_2) { # 2 extra kegg paths of interest
+#       c_desc <- kegg_pathways_2_df %>%  # 2 extra kegg paths of interest
+# 
+#           filter(ID == kp) %>%
+#           dplyr::select(trm_desc) %>% slice_head(n = 1)
+#         suffix <- paste0(lb, "_", c_desc[[1]])
+# 
+#     pathview(gene.data = wgL, pathway.id = kp, species = 'rno',
+#              out.suffix = suffix, kegg.native = T, same.layer = T, res = 600,
+#              low = list(gene = "#5981E6", cpd = "#A054A3"),
+#              mid = list(gene = "#DEDEDE", cpd = "#DEDEDE"),
+#              high = list(gene = "#DB5070", cpd = "#F3AD6AFF"),
+#              new.signature = FALSE)
+# 
+#     out_png <- paste0(kp, ".", suffix, ".png")  # confirm exact naming once
+# 
+#     if (file.exists(out_png)) { # uses magick package + grDevices
+#       pic <- image_read(out_png) # annotated pathview pic
+#       dets <- image_info(pic) # get details of pathview pic
+#       overlay <- image_blank(dets$width/43, dets$height, # tinted overlay
+#                               color = adjustcolor(label_colors[[lb]], alpha.f = 0.75))
+#       tinted <- image_composite(pic, overlay, operator = "over") # composite
+#       image_write(tinted, paste0(tools::file_path_sans_ext(out_png), # export
+#                                  "_tinted_bar_2026_08.png"))
+# 
+#     } else { # if none
+#       warning("Expected file not found: ", out_png)
+#     }
+#   }
+# }
+```
+
+------------------------------------------------------------------------
+
+#### Running Scores
+
+<https://yulab-smu.top/biomedical-knowledge-mining-book/enrichplot.html#running-score-and-preranked-list-of-gsea-result>
+
+```{r}
+#head(KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3$kegg_results$H_EE_vs_SH$Description, 20)
+
+# 10 = Reterograde Endo cannm, 12 - synaptic vesicle, 20 neuroactive
+# gseaplot2(KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3$kegg_results$H_EE_vs_SH,
+#           geneSetID = c(10,12, 20))
+
+
+p1 <- gseaplot2(KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3$kegg_results$H_EE_vs_SH,
+                geneSetID = c(10,12, 20, 6:8, 1), subplots = 1:2,
+                color = c("#D3F2A3FF", "#E17C05FF", "#586e75", "#F3AD6AFF",
+                          "#F1B6DAFF", "#D43F23" ,"#CF597EFF"),
+                title = "KEGG - EE vs SH (all)")
+
+#head(KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3$kegg_results$HxA_EE_YNG_vs_SH_YNG$Description, 50)
+p2 <- gseaplot2(KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3$kegg_results$HxA_EE_YNG_vs_SH_YNG,
+          geneSetID = c(1, 9, 10, 22, 27, 31, 32, 46, 47), subplots = 1:2,
+          color = c("#2896B5", "#589D4C", "#A054A3", "#E17C05FF",
+                   "#F1B6DAFF", "#586e75", "#F3AD6AFF", "#D43F23" ,"#CF597EFF"),
+          title = "KEGG - EE vs SH (young)")
+
+
+
+p3 <- gseaplot2(KEGG_gsea_EExAge_mssv3.2.2t1_cpv3.4.2t3$kegg_results$HxA_EE_OLD_vs_SH_OLD,
+          geneSetID = c(1,3), subplots = 1:2,
+          color = c("#586e75", "#CF597EFF"), 
+          title = "KEGG - EE vs SH (old)")
+
+
+plot_list(p1, p2, p3, ncol = 1)
+```
+
+------------------------------------------------------------------------
+
+------------------------------------------------------------------------
+
+## MAPPED GSEA VOLCANO PLOTS
+
+### KEGG
+
+- <https://www.kegg.jp/kegg-bin/show_organism?menu_type=pathway_maps&org=rno>
+- <https://en.wikipedia.org/wiki/Shades_of_orange>
+
+KEGG_tibs_df_6_split
+
+```{r}
+str(KEGG_tibs_df_6) # lil check
+#unique(KEGG_tibs_df_6$core_enrichment) 
+  
+
+KEGG_tibs_df_6_entrez_split <- KEGG_tibs_df_6 %>%  # 104 x 12s
+  mutate(core_enrich_split = str_split(core_enrichment, "/")) %>% # split by /
+  tidyr::unnest(core_enrich_split) %>% # unnest | to  3816 x 13
+  left_join(bitr_gn_2_entrez, by = join_by(core_enrich_split == ENTREZID)) #%>%
+
+  # group_by(Label, ID) %>%
+  # summarise(unique_entrez = n_distinct(core_enrich_split),
+  #           unique_genename = n_distinct(SYMBOL)) %>%
+  # ungroup() # slight discrepancy between comparisons???
+
+KEGG_tibs_df_6_entrez_split_display <- KEGG_tibs_df_6_entrez_split %>%
+  group_by(Label, Description) %>%
+  slice_head(n=10) 
+```
+
+```{r}
+# iterate over... 
+#labels <- unique(KEGG_tibs_df_6$Label)
+
+# GET KEGG PATHVWAYS OF INTEREST 
+kegg_POI  <- c(
+  # nervous system, development, signaling molecules inter, substance depend - 12
+  "rno04721", "rno04082", "rno04723", # syanp_ves, neuroa_lig, ret_endoca
+  "rno04727", "rno04080", "rno05033", # GABAsyn, neuroacli-Recept, nicotine
+  "rno04014", "rno04024", # Ras signalling, cAMP signalling
+  "rno04022", "rno04020", # cGMP-PKG & Calcium isngalling
+  "rno04360",  # axonguidance
+  "rno05033", # nicotine addiction
+  
+  
+  # Genetic Info processing (gene exp & protein syn) + mitophagy - 13:23 (11)
+  "rno03040", "rno03082", "rno03050", # spliceo, ATPchromatre, proteasom
+  "rno03010", "rno04141", "rno03013", # ribosome, prot proc in ER, nucleocyto transport
+  "rno04120", # ubiquitin mediate proteolysis | folding sorting dgrade
+  "rno03015", # mRNA surveillance | translation
+  "rno03410", # base exicion repair |replication & repair
+  "rno03083", # Polycomb repressive complex |chromosome
+  "rno04137", #mitophagy |Transport & catabolism
+    
+  
+  # Metabolism - 24:30 (7)
+  "rno00190",  # oxidative phos | energy metab
+  "rno00900", # terpenoid backbone synthesis | terpenoids 
+  "rno00020", "rno00030", "rno00620", #TCA,  pentose phosph path, pyruvate metab |carb
+  "rno01250", # Biosynthesis of nucleotide sugars | global 
+  "rno00230", #  purine metabolism | nucleotide metab
+  
+  #Neurodegenerative disease - 31:36 (6)
+  "rno05012","rno05016","rno05020", # Parkinsons, Huntingtons, Prion
+  "rno05022","rno05010","rno05014", # multi, Alzheimers, ALS
+  
+  # OTHERS
+  #Immune & Endocrine, envr adapt - 37:35 (8) 
+  "rno04666", "rno04610", # Fc-gamma phagocytosis, Complement & coagulation
+  "rno04910","rno04714", #insulin, # thermogenesis
+  "rno04918", "rno04925", # thyroid hormone, aldosterone synthesis
+  "rno05207", "rno05208" # chem & ROS carcinogenesis receptor activation | cancer 
+  
+  ) 
+
+# kegg_POI <- unique(KEGG_tibs_df_6$ID)
+
+# EMPTY PLOT LIST 
+kegg_volcano_list <-  vector(mode = "list")
+
+```
+
+```{r}
+for(kp in kegg_POI) {
+  
+# 1 - PREPARE THE DATA
+  my_genes <- KEGG_tibs_df_6_entrez_split %>%
+    filter(ID == kp) %>%
+    dplyr::distinct(SYMBOL) %>%
+    tibble::deframe()
+  
+  my_title <- KEGG_tibs_df_6_entrez_split %>%
+    filter(ID == kp) %>%
+    dplyr::distinct(Description) %>%
+    tibble::deframe()
+  
+  my_prots <- protein_comp_entrez %>% # from MSstatsTMT protein comps w ENTREZ map
+    filter(!(Label %in% c("HxA_EE_OLD_vs_SH_YNG", "HxA_EE_YNG_vs_SH_OLD"))) %>%
+    filter(gene %in% my_genes) %>%
+    dplyr::group_by(Label) %>%
+    mutate(up = sum(log2FC > 0),
+           down = sum(log2FC < 0)) 
+  
+  prot_sums <- my_prots %>% # this is needed to avoid overplotting
+    dplyr::select(Label, up, down) %>%
+    unique()
+  
+  mapped_totals <- my_prots %>%  # for mapped total
+    ungroup() %>%
+    summarise(n_distinct(gene)) %>%
+    tibble::deframe()
+  
+  gs_size <- KEGG_tibs_df_6_entrez_split %>% # for geneset size
+    filter(ID == kp) %>%
+    dplyr::distinct(setSize) %>%
+    tibble::deframe()
+  
+  
+  path_sig <- KEGG_tibs_df_6 %>% # GET DETAILS FOR ANNOTATING SIG 
+    filter(!(Label %in% c("HxA_EE_OLD_vs_SH_YNG", "HxA_EE_YNG_vs_SH_OLD"))) %>%
+    filter(ID == kp) %>%
+    dplyr::group_by(Label) %>% 
+    mutate(sig_val = case_when(
+      p.adjust <= 0.001 ~ "***",
+      p.adjust <= 0.01 ~ "**",
+      p.adjust <= 0.05 ~ "*",
+      .default = "NA" )) # if bit there then NA (ns)
+  
+  
+  # interesting... this step needed for some reason...
+  path_sig_lab <-  path_sig %>% 
+    dplyr::select(ID, Label, sig_val, NES) %>%
+    unique() 
+  
+  my_lg_prot <- my_prots %>% #LABEL LEADING GENE???
+    arrange(adj.pvalue) %>% # not quite - 6 most sig proteins
+    slice_head(n = 6)
+  
+  
+    strip <- strip_themed( # green for 1st 3 (housing) & Lavender for last 3 (age)
+    background_x = elem_list_rect(fill = c(
+      "#AFCC9F", "#D4E4CB", "#D4E4CB",
+      "#BFBBD5", "#DDDCE9", "#DDDCE9")))
+
+    
+  # _____________________________________
+  # 2 - MAKE THE VOLCANO PLOTS!!!
+  vol_plot <- protein_comp_entrez %>%
+    filter(!(Label %in% c("HxA_EE_OLD_vs_SH_YNG", "HxA_EE_YNG_vs_SH_OLD"))) %>%
+    
+    ggplot(aes(x = log2FC, y = -log10(adj.pvalue))) +
+    
+    
+    # limits - rm 17 (but none are leading edge - shrunken for comparisons)
+    scale_x_continuous(limits = c(-2,2),
+                       expand = c(0, 0)) +
+    scale_y_continuous(limits = c(0,6),
+                       expand = c(0.04, 0)) +
+    
+    geom_hline(yintercept = -log10(0.05),
+               linetype = "dashed", linewidth = 0.1,
+               color = "grey50", alpha = 0.5) +
+    geom_hline(yintercept = -log10(0.1),linetype = "dotted",
+               linewidth = 0.1, color = "grey60", alpha = 0.5) +
+    geom_vline(xintercept = c(0),linetype = "solid",
+               linewidth = 0.1, color = "grey35", alpha = 0.5) +
+    
+
+    ggrastr::geom_point_rast(aes(fill = case_when( # conditional ass for color mapping
+      adj.pvalue < 0.05 & log2FC > 0 ~ "up_adjp.05", # up sig .05
+      adj.pvalue < 0.05 & log2FC < 0 ~ "down_adjp.05", # down sig .05
+      adj.pvalue < 0.1 & log2FC > 0 ~ "up_adjp.1", # up 0.1
+      adj.pvalue < 0.1 & log2FC < 0 ~ "down_adjp.1", # down .1
+      TRUE ~ "ns" ),
+      alpha = case_when( # conditional ass for ALPHA mapping
+        adj.pvalue < 0.05 & log2FC > 0 ~ "up_adjp.05", # up sig .05
+        adj.pvalue < 0.05 & log2FC < 0 ~ "down_adjp.05", # down sig .05
+        adj.pvalue < 0.1 & log2FC > 0 ~ "up_adjp.1", # up 0.1
+        adj.pvalue < 0.1 & log2FC < 0 ~ "down_adjp.1", # down .1
+        TRUE ~ "ns" )), # catch the rest
+       size = 1.75, shape = 21, stroke = 0.05,
+      raster.dpi = getOption("ggrastr.default.dpi", 330)) +
+    
+    scale_fill_manual(values = c("firebrick", # coloring
+                                  "royalblue3",
+                                  "lightpink",
+                                  "lightblue3",
+                                  "grey80"),
+                       breaks = c("up_adjp.05",
+                                  "down_adjp.05",
+                                  "up_adjp.1",
+                                  "down_adjp.1",
+                                  "ns"),
+                       labels = c("\U2191 (adj.p <.05)",
+                                  "\U2193 (adj.p <.05)",
+                                  "\U2191 (adj.p <.1)",
+                                  "\U2193 (adj.p <.1)",
+                                  "ns")) +
+    scale_alpha_manual( # alpha mapping
+      values = c( # darker for more significant!
+        up_adjp.05  = 0.3,
+        down_adjp.05 = 0.3,
+        up_adjp.1   = 0.3,
+        down_adjp.1 = 0.3,
+        ns = 0.1
+      )) +
+    
+    
+    
+    geom_point_rast(data = my_prots, # ORGANE POINTS | ggrastr
+                    aes(x = log2FC, y = -log10(adj.pvalue)),
+                    alpha = .5, size = 1.75, shape = 21,
+                    fill = "#E17C05FF", color = "#FCA842FF",
+                    raster.dpi = getOption("ggrastr.default.dpi", 330)) + 
+    
+    geom_text_repel(data =  my_lg_prot, # TOP 6 MOST SIG ANNO
+                    aes(x = log2FC, y = -log10(adj.pvalue),
+                        label = gene,
+                        color = log2FC > 0), # color mapping (see below)
+                    max.overlaps = 30, size = 2.1, # gene text on points
+                    min.segment.length = .5, segment.alpha = 0.3,
+                    segment.size = 0.2, alpha = 0.9) +
+                    # nudge_x = 0.155) +
+
+    
+    # NUM SIG UP & DOWN! | use sep df, overwise overplots
+    geom_text(data = prot_sums, # up 
+              aes(label = paste0(up, " \U2191")), 
+              x = 1.35, y = 5.6, size = 3.2, color = "firebrick") + 
+    geom_text(data = prot_sums, # down
+              aes(label = paste0(down, " \U2193")),
+              x = -1.4, y = 5.6, size = 3.2, color = "royalblue3") + 
+    
+    
+    geom_text(data = path_sig_lab, # GSEA SIGNIFICANCE LABEL
+              aes(label = paste0(sig_val),
+                  y = 4.80,
+                  x = ifelse(NES > 0, 1.525, -1.525), # side if neg or pos
+                  color = NES > 0), # col - TRUE FALSE 
+              size = 3.3) +
+    scale_color_manual( # based on TRUE FALSE give color! 
+      values = c(`TRUE` = "firebrick", `FALSE` = "royalblue3")) +
+    
+    
+    
+    
+    labs(subtitle = paste0("KEGG - ", my_title,
+                           " (", mapped_totals, "/", gs_size, ")")) +
+    
+    
+    # facet_wrap(~Label, nrow = 1) + 
+    facet_wrap2(~Label, nrow = 1,
+                strip = strip
+                ) + 
+    
+    theme_bw() +
+    theme(
+      # strip.background.x = element_rect(fill = my_level_colors),
+      legend.position = "none",
+      plot.subtitle = element_text(size = 8, vjust = 0, color = "grey10"),
+      axis.title = element_text(size =7, color = "grey10"),
+      axis.text = element_text(size =6.5, color = "grey10"),
+      axis.ticks = element_blank(),
+      strip.text = element_text(size = 6.2, color = "grey10"),
+      panel.grid = element_blank(),
+      strip.background = element_rect(linewidth = 0.25, color = "grey10"),
+      panel.border = element_rect(linewidth = 0.25, color = "grey10")
+    )
+  
+  print(vol_plot)
+  
+  # _____________________________________
+  # 3 - SAVE THE PLOTS
+  kegg_volcano_list[[kp]] <- vol_plot
+  
+  print(paste0("Done for ", kp, "! :D"))
+  
+}
+```
+
+```{r}
+# plot_grid(plotlist = kegg_volcano_list[c(10,11,6:9)], ncol = 2)
+# plot_grid(plotlist = kegg_volcano_list[1:12], ncol = 2)
+plot_grid(plotlist = kegg_volcano_list[55:67], ncol = 3)
+```
+
+```{r}
+# save(kegg_volcano_list, file = "output/2026_04_04_KEGG_volcano_67_EExAGE_6.rda")
+```
+
+------------------------------------------------------------------------
+
+### REACTOME
+
+```{r}
+REACT_tibs_df_6_entrez_split <- REACT_tibs_df_6 %>%
+  mutate(core_enrich_split = str_split(core_enrichment, "/")) %>% # split by /
+  tidyr::unnest(core_enrich_split) %>% # unnest | to  3816 x 13
+  left_join(bitr_gn_2_entrez, by = join_by(core_enrich_split == ENTREZID)) #%>% #map2gene
+  # mutate()
+```
+
+```{r}
+# GET REACTOME PATHVWAYS OF INTEREST 
+REACT_POI  <- c(
+  #TOP-LEVEL REACTOME
+  # "REACTOME_DNA_REPLICATION",
+  # "REACTOME_METABOLISM_OF_RNA", 
+  # "REACTOME_DNA_REPAIR",
+  # "REACTOME_CELL_CYCLE",
+  # "REACTOME_PROGRAMMED_CELL_DEATH",
+  # "REACTOME_EXTRACELLULAR_MATRIX_ORGANIZATION",
+  # "REACTOME_TRANSPORT_OF_SMALL_MOLECULES",
+  # "REACTOME_PROTEIN_LOCALIZATION",
+  # # "REACTOME_HEMOSTASIS",
+  # # "REACTOME_CIRCADIAN_CLOCK",
+  # "REACTOME_NEURONAL_SYSTEM",
+  # "REACTOME_VESICLE_MEDIATED_TRANSPORT",
+  # 
+  # 
+  # # SIGNALLING PATHWAYS
+  # "REACTOME_PROLONGED_ERK_ACTIVATION_EVENTS",
+  # "REACTOME_DISEASES_OF_SIGNAL_TRANSDUCTION_BY_GROWTH_FACTOR_RECEPTORS_AND_SECOND_MESSENGERS",
+  # "REACTOME_INTRACELLULAR_SIGNALING_BY_SECOND_MESSENGERS",
+  # "REACTOME_REGULATION_OF_RAS_BY_GAPS",
+  # "REACTOME_PTEN_REGULATION",
+  # "REACTOME_MAPK_FAMILY_SIGNALING_CASCADES",
+  # "REACTOME_FCERI_MEDIATED_NF_KB_ACTIVATION",
+  # "REACTOME_",
+  # "REACTOME_",
+  # "REACTOME_",
+  # "REACTOME_",
+  # "REACTOME_",
+
+  
+##_L1_NEURONAL_SYSTEM__(づ ◕‿◕ )づ____
+'REACTOME_NEURONAL_SYSTEM', # L1 (TOP LEVEL)
+
+##_L2_Transmission_across_the_chemical_synapse_
+'REACTOME_TRANSMISSION_ACROSS_CHEMICAL_SYNAPSES', #L2
+
+##_L3_Neurotransmitter_release_cycle_
+'REACTOME_NEUROTRANSMITTER_RELEASE_CYCLE', #L3
+'REACTOME_GLUTAMATE_NEUROTRANSMITTER_RELEASE_CYCLE', #L4
+'REACTOME_GABA_SYNTHESIS_RELEASE_REUPTAKE_AND_DEGRADATION', #L4
+
+##_L3_Neurotransmitter_receptors_&_postsynaptic_signal_transduciton_
+'REACTOME_NEUROTRANSMITTER_RECEPTORS_AND_POSTSYNAPTIC_SIGNAL_TRANSMISSION', #L3
+##_L4_Glutamate_binding_activation_of_AMPA_&_synaptic_plasticity
+'REACTOME_TRAFFICKING_OF_AMPA_RECEPTORS', #L5
+
+##_L4_Activation_of_NMDA_receptors_PSD_events
+'REACTOME_UNBLOCKING_OF_NMDA_RECEPTORS_GLUTAMATE_BINDING_AND_ACTIVATION', #L5
+'REACTOME_ASSEMBLY_AND_CELL_SURFACE_PRESENTATION_OF_NMDA_RECEPTORS', #L5
+##_L5_Post_NMDA_receptor_activation_events_
+'REACTOME_CREB1_PHOSPHORYLATION_THROUGH_THE_ACTIVATION_OF_ADENYLATE_CYCLASE', #L6
+
+
+##_L2_Protein-protein_interactions_at_the_synapse_
+'REACTOME_NEUREXINS_AND_NEUROLIGINS', #L3
+
+##_L2_Potassium_Channels_
+'REACTOME_POTASSIUM_CHANNELS', #L2
+'REACTOME_VOLTAGE_GATED_POTASSIUM_CHANNELS', #L3
+  
+
+###_1_DEVELOPMENTAL_BIOLOGY!__(づ ◕‿◕ )づ____
+##_L2_NERVOUS_SYSTEM_DEVELOPMENT______
+'REACTOME_NERVOUS_SYSTEM_DEVELOPMENT',
+##_L3_Axon_Guidance_______
+##_L4_L1CAM_interactions___
+'REACTOME_L1CAM_INTERACTIONS', #L4 
+'REACTOME_INTERACTION_BETWEEN_L1_AND_ANKYRINS', #L5
+'REACTOME_RECYCLING_PATHWAY_OF_L1', #L5
+
+##_L4_EPH-Ephrin_signalling___
+'REACTOME_EPH_EPHRIN_SIGNALING', #L4
+'REACTOME_EPHB_MEDIATED_FORWARD_SIGNALING', #L5
+
+##_L4_Signalling_by_ROBO_receptors___
+'REACTOME_SIGNALING_BY_ROBO_RECEPTORS', #L4
+'REACTOME_REGULATION_OF_EXPRESSION_OF_SLITS_AND_ROBOS', #L5
+
+##_L4_Semaphorin_interactions___
+'REACTOME_SEMAPHORIN_INTERACTIONS', #L4
+'REACTOME_CRMPS_IN_SEMA3A_SIGNALING', #L5
+'REACTOME_SEMA3A_PAK_DEPENDENT_AXON_REPULSION', #L5
+'REACTOME_OTHER_SEMAPHORIN_INTERACTIONS', #L5
+
+##_L2_LGI-ADAM_interactions___
+'REACTOME_LGI_ADAM_INTERACTIONS',
+
+
+
+
+
+
+##_L1_EXTRACELLUAR_MATRIX_ORGANIZATION_(づ ◕‿◕ )づ_____
+'REACTOME_EXTRACELLULAR_MATRIX_ORGANIZATION', # L1 (TOP LEVEL)
+
+##_L2_ECM_Proteoglycans__
+"REACTOME_ECM_PROTEOGLYCANS", #L2
+
+##_L2_Non-integrin_membrane-ECM_interactions__
+'REACTOME_FORMATION_OF_THE_DYSTROPHIN_GLYCOPROTEIN_COMPLEX_DGC', #L3 
+
+##_L2_Laminin_Interactions__
+'REACTOME_LAMININ_INTERACTIONS', #L2
+
+
+
+##_L1_CELL-CELL_COMMUNICATION_(づ ◕‿◕ )づ_____
+##_L2_Cell_junction_organization__
+##_L3_Cell-cell_junction_org__
+"REACTOME_ADHERENS_JUNCTIONS_INTERACTIONS" #L4
+  
+
+  
+  
+  
+  # "REACTOME_CELL_CYCLE",
+  # "REACTOME_SYNTHESIS_OF_DNA",
+  # "REACTOME_DNA_REPLICATION",
+  # "REACTOME_SWITCHING_OF_ORIGINS_TO_A_POST_REPLICATIVE_STATE",
+  # "REACTOME_MITOTIC_G1_PHASE_AND_G1_S_TRANSITION",
+  # "REACTOME_S_PHASE",
+  # "REACTOME_M_PHASE",
+  # "REACTOME_APC_C_MEDIATED_DEGRADATION_OF_CELL_CYCLE_PROTEINS",
+  # "REACTOME_CYCLIN_A_CDK2_ASSOCIATED_EVENTS_AT_S_PHASE_ENTRY",
+  # "REACTOME_STABILIZATION_OF_P53",
+  # 
+  # 
+  # 
+  # 
+  # "REACTOME_APOPTOSIS",
+  # "REACTOME_REGULATION_OF_APOPTOSIS",
+  # "REACTOME_PROGRAMMED_CELL_DEATH",
+  # "REACTOME_AGGREPHAGY",
+  # "REACTOME_SELECTIVE_AUTOPHAGY",
+  # 
+  # "REACTOME_MRNA_SPLICING",
+  # "REACTOME_CHOLESTEROL_BIOSYNTHESIS",
+  
+  # ##_IMMUNE_SYSTEM____________________________
+  # "REACTOME_CYTOKINE_SIGNALING_IN_IMMUNE_SYSTEM", # CYTOKINE IMMUNE
+  # "REACTOME_INTERLEUKIN_1_FAMILY_SIGNALING", 
+  # "REACTOME_INTERLEUKIN_12_FAMILY_SIGNALING", 
+  # "REACTOME_TNFR2_NON_CANONICAL_NF_KB_PATHWAY", 
+  # 
+  # "REACTOME_ADAPTIVE_IMMUNE_SYSTEM", # ADATIVE IMMUNE
+  # "REACTOME_TCR_SIGNALING",
+  # "REACTOME_SIGNALING_BY_THE_B_CELL_RECEPTOR_BCR",
+  # 
+  # "REACTOME_COMPLEMENT_CASCADE", # INNATE IMMUNE
+  # "REACTOME_FC_EPSILON_RECEPTOR_FCERI_SIGNALING",
+  # "REACTOME_C_TYPE_LECTIN_RECEPTORS_CLRS",
+  # "REACTOME_FCGAMMA_RECEPTOR_FCGR_DEPENDENT_PHAGOCYTOSIS"
+  )
+
+# reactome_volcano_top_lvl_list <- reactome_volcano_toplevel_list 
+
+## EMPTY PLOT LIST 
+reactome_volcano_list <-  vector(mode = "list")
+```
+
+```{r}
+for(rct in REACT_POI) {
+
+# 1 - PREPARE THE DATA
+  my_genes <- REACT_tibs_df_6_entrez_split %>%
+    filter(ID == rct) %>%
+    dplyr::distinct(SYMBOL) %>%
+    tibble::deframe()
+  
+  my_title <- REACT_tibs_df_6_entrez_split %>%
+    filter(ID == rct) %>%
+    dplyr::distinct(Description) %>%
+    tibble::deframe()
+  
+  my_prots <- protein_comp_entrez %>% # from MSstatsTMT protein comps w ENTREZ map
+    filter(!(Label %in% c("HxA_EE_OLD_vs_SH_YNG", "HxA_EE_YNG_vs_SH_OLD"))) %>%
+    filter(gene %in% my_genes) %>%
+    dplyr::group_by(Label) %>%
+    mutate(up = sum(log2FC > 0),
+           down = sum(log2FC < 0)) 
+  
+  prot_sums <- my_prots %>% # this is needed to avoid overplotting
+    dplyr::select(Label, up, down) %>%
+    unique()
+  
+  
+   mapped_totals <- my_prots %>%  # for mapped total
+    ungroup() %>%
+    summarise(n_distinct(gene)) %>%
+    tibble::deframe()
+  
+  gs_size <- REACT_tibs_df_6_entrez_split %>% # for geneset size
+    filter(ID == rct) %>%
+    dplyr::distinct(setSize) %>%
+    tibble::deframe()
+  
+  
+  path_sig <- REACT_tibs_df_6 %>% # GET DETAILS FOR ANNOTATING SIG 
+    filter(!(Label %in% c("HxA_EE_OLD_vs_SH_YNG", "HxA_EE_YNG_vs_SH_OLD"))) %>%
+    filter(ID == rct) %>%
+    dplyr::group_by(Label) %>% 
+    mutate(sig_val = case_when(
+      p.adjust <= 0.001 ~ "***",
+      p.adjust <= 0.01 ~ "**",
+      p.adjust <= 0.05 ~ "*",
+      .default = "NA" )) # if bit there then NA (ns)
+  
+  
+  # interesting... this step needed for some reason...
+  path_sig_lab <-  path_sig %>% 
+    dplyr::select(ID, Label, sig_val, NES) %>%
+    unique() 
+  
+  my_lg_prot <- my_prots %>% #LABEL LEADING GENE???
+    arrange(adj.pvalue) %>% # not quite - 6 most sig proteins
+    slice_head(n = 6)
+  
+  
+    strip <- strip_themed( # green for 1st 3 (housing) & Lavender for last 3 (age)
+    background_x = elem_list_rect(fill = c(
+      "#AFCC9F", "#D4E4CB", "#D4E4CB",
+      "#BFBBD5", "#DDDCE9", "#DDDCE9")))
+
+    
+  # _____________________________________
+  # 2 - MAKE THE VOLCANO PLOTS!!!
+  vol_plot <- protein_comp_entrez %>%
+    filter(!(Label %in% c("HxA_EE_OLD_vs_SH_YNG", "HxA_EE_YNG_vs_SH_OLD"))) %>%
+    
+    ggplot(aes(x = log2FC, y = -log10(adj.pvalue))) +
+    
+    
+    # limits - rm 17 (but none are leading edge - shrunken for comparisons)
+    scale_x_continuous(limits = c(-2,2),
+                       expand = c(0, 0)) +
+    scale_y_continuous(limits = c(0,6),
+                       expand = c(0.04, 0)) +
+    
+    geom_hline(yintercept = -log10(0.05),
+               linetype = "dashed", linewidth = 0.1,
+               color = "grey50", alpha = 0.5) +
+    geom_hline(yintercept = -log10(0.1),linetype = "dotted",
+               linewidth = 0.1, color = "grey60", alpha = 0.5) +
+    geom_vline(xintercept = c(0),linetype = "solid",
+               linewidth = 0.1, color = "grey35", alpha = 0.5) +
+
+
+    ggrastr::geom_point_rast(aes(fill = case_when( # conditional ass for color mapping
+      adj.pvalue < 0.05 & log2FC > 0 ~ "up_adjp.05", # up sig .05
+      adj.pvalue < 0.05 & log2FC < 0 ~ "down_adjp.05", # down sig .05
+      adj.pvalue < 0.1 & log2FC > 0 ~ "up_adjp.1", # up 0.1
+      adj.pvalue < 0.1 & log2FC < 0 ~ "down_adjp.1", # down .1
+      TRUE ~ "ns" ),
+      alpha = case_when( # conditional ass for ALPHA mapping
+        adj.pvalue < 0.05 & log2FC > 0 ~ "up_adjp.05", # up sig .05
+        adj.pvalue < 0.05 & log2FC < 0 ~ "down_adjp.05", # down sig .05
+        adj.pvalue < 0.1 & log2FC > 0 ~ "up_adjp.1", # up 0.1
+        adj.pvalue < 0.1 & log2FC < 0 ~ "down_adjp.1", # down .1
+        TRUE ~ "ns" )), # catch the rest
+       size = 1.75, shape = 21, stroke = 0.05,
+      raster.dpi = getOption("ggrastr.default.dpi", 330)) +
+    
+    scale_fill_manual(values = c("firebrick", # coloring
+                                  "royalblue3",
+                                  "lightpink",
+                                  "lightblue3",
+                                  "grey80"),
+                       breaks = c("up_adjp.05",
+                                  "down_adjp.05",
+                                  "up_adjp.1",
+                                  "down_adjp.1",
+                                  "ns"),
+                       labels = c("\U2191 (adj.p <.05)",
+                                  "\U2193 (adj.p <.05)",
+                                  "\U2191 (adj.p <.1)",
+                                  "\U2193 (adj.p <.1)",
+                                  "ns")) +
+    scale_alpha_manual( # alpha mapping
+      values = c( # darker for more significant!
+        up_adjp.05  = 0.3,
+        down_adjp.05 = 0.3,
+        up_adjp.1   = 0.3,
+        down_adjp.1 = 0.3,
+        ns = 0.1)) +
+    
+    
+    geom_point_rast(data = my_prots, # ORGANE POINTS | ggrastr
+                    aes(x = log2FC, y = -log10(adj.pvalue)),
+                    alpha = .5, size = 1.75, shape = 21,
+                    fill = "#E17C05FF", color = "#FCA842FF",
+                    raster.dpi = getOption("ggrastr.default.dpi", 330)) + 
+    
+    geom_text_repel(data =  my_lg_prot, # TOP 6 MOST SIG ANNO
+                    aes(x = log2FC, y = -log10(adj.pvalue),
+                        label = gene,
+                        color = log2FC > 0), # color mapping (see below)
+                    max.overlaps = 30, size = 2.1, # gene text on points
+                    min.segment.length = .5, segment.alpha = 0.3,
+                    segment.size = 0.2, alpha = 0.9) +
+                    # nudge_x = 0.155) +
+
+    
+    # NUM SIG UP & DOWN! | use sep df, overwise overplots
+    geom_text(data = prot_sums, # up 
+              aes(label = paste0(up, " \U2191")), 
+              x = 1.35, y = 5.6, size = 3.2, color = "firebrick") + 
+    geom_text(data = prot_sums, # down
+              aes(label = paste0(down, " \U2193")),
+              x = -1.4, y = 5.6, size = 3.2, color = "royalblue3") + 
+    
+    
+    geom_text(data = path_sig_lab, # GSEA SIGNIFICANCE LABEL
+              aes(label = paste0(sig_val),
+                  y = 4.80,
+                  x = ifelse(NES > 0, 1.525, -1.525), # side if neg or pos
+                  color = NES > 0), # col - TRUE FALSE 
+              size = 3.3) +
+    scale_color_manual( # based on TRUE FALSE give color! 
+      values = c(`TRUE` = "firebrick", `FALSE` = "royalblue3")) +
+    
+
+    labs(subtitle = paste0(my_title," (", mapped_totals, "/", gs_size, ")")) +
+    
+    # facet_wrap(~Label, nrow = 1) + 
+    facet_wrap2(~Label, nrow = 1,
+                strip = strip) + 
+    
+    theme_bw() +
+    theme(
+      # strip.background.x = element_rect(fill = my_level_colors),
+      legend.position = "none",
+      plot.subtitle = element_text(size = 8, vjust = 0, color = "grey10"),
+      axis.title = element_text(size =7, color = "grey10"),
+      axis.text = element_text(size =6.5, color = "grey10"),
+      axis.ticks = element_blank(),
+      strip.text = element_text(size = 6.2, color = "grey10"),
+      panel.grid = element_blank(),
+      strip.background = element_rect(linewidth = 0.25, color = "grey10"),
+      panel.border = element_rect(linewidth = 0.25, color = "grey10")
+    )
+  
+  print(vol_plot)
+
+  # _____________________________________
+  # 3 - SAVE THE PLOTS
+  reactome_volcano_list[[rct]] <- vol_plot
+  
+  print(paste0("Done for ", rct))
+  
+}
+```
+
+```{r}
+plot_grid(plotlist = reactome_volcano_list[1:12], ncol = 2)
+
+# ggsave("2026_03_23_REACT_21_volcanos_300dpi.png", dpi = 300) # 11.4 x 5.99
+```
+
+------------------------------------------------------------------------
+
+### Exporting Mapped Volcano Plots
+
+#### Cholesterol & Isoprenoids/Terpenoid Backbone synthesis
+
+```{r}
+#rno00900
+plot_grid(kegg_volcano_list$rno00900,
+          reactome_volcano_list$REACTOME_CHOLESTEROL_BIOSYNTHESIS,
+          ncol = 1, labels = c("a","b"), label_colour = "grey10", label_size = 12)
+
+# ggsave("2026_03_30_Cholesterol_Terpenoid_mapped_volcano_330dpi.png", dpi = 330)
+```
+
+```{r}
+# REACTOME INTRACELLULAR SIGNALLING
+plot_grid(reactome_volcano_list$REACTOME_PROLONGED_ERK_ACTIVATION_EVENTS,
+          reactome_volcano_list$REACTOME_REGULATION_OF_RAS_BY_GAPS,
+          reactome_volcano_list$REACTOME_DISEASES_OF_SIGNAL_TRANSDUCTION_BY_GROWTH_FACTOR_RECEPTORS_AND_SECOND_MESSENGERS,
+          reactome_volcano_list$REACTOME_INTRACELLULAR_SIGNALING_BY_SECOND_MESSENGERS,
+  ncol = 1, labels = c("a","b", "c", "d"), label_colour = "grey10", label_size = 12)
+
+#ggsave("2026_03_30_REACT_intracellular_sig_mapped_volcano_330dpi.png", dpi = 330) 
+# 8.5 x 7.97 (6 labels x 4 grpahs)
+```
+
+```{r}
+# # Ras signalling, cAMP signalling # cGMP-PKG & Calcium isngalling
+plot_grid(kegg_volcano_list$rno04014,
+          kegg_volcano_list$rno04024,
+          kegg_volcano_list$rno04022, kegg_volcano_list$rno04020,
+          # kegg_volcano_list$rno04360, kegg_volcano_list$rno05033, # axon guidance |nic
+    labels = c("a", "b", "c"),
+    label_colour = "grey10", label_size = 11,  ncol = 1)
+
+# ggsave("2026_04_04_sig_EEyng_KEGG_intracell_sig_mapped_volcano_300dpi.png", dpi = 300)
+# dev.off()
+```
+
+#### KEGG DNA, RNA, & PROTEIN
+
+```{r}
+# KEGG ATP-dependent chromatin remodelling & nucleocytoplasmic transport
+plot_grid(kegg_volcano_list$rno03082,kegg_volcano_list$rno03013,
+          ncol = 1,
+          labels = c("a","b"),
+          label_colour = "grey10", label_size = 11)
+```
+
+```{r}
+# KEGG Spliceosome & Ribosome
+plot_grid(kegg_volcano_list$rno03040, kegg_volcano_list$rno03010,
+          ncol = 1,
+          labels = c("a","b"),
+          label_colour = "grey10", label_size = 11)
+```
+
+```{r}
+# KEGG Proteasome & Protein Processing in the ER
+plot_grid(kegg_volcano_list$rno03050, kegg_volcano_list$rno04141,
+          ncol = 1,
+          labels = c("a","b"),
+          label_colour = "grey10", label_size = 11)
+```
+
+```{r}
+# KEGG - others - sig in EE_YNG -  gene expression/protein/mitophagy 
+# ubiqui med proteoly|mRNA surveillance|base exicion rep| Polycomb repressive|mitophagy 
+plot_grid(kegg_volcano_list$rno04120, kegg_volcano_list$rno03015,
+          kegg_volcano_list$rno03410, kegg_volcano_list$rno03083,
+          kegg_volcano_list$rno04137,
+          ncol = 1,
+          labels = c("a","b", "c", "d", "e"),
+          label_colour = "grey10", label_size = 11) 
+```
+
+Synaptic/Neurotransmission
+
+```{r}
+# # "rno04721", "rno04082", "rno04723", # syanp_ves, neuroa_lig, ret_endoca
+plot_grid(kegg_volcano_list$rno04721, kegg_volcano_list$rno04082,
+          kegg_volcano_list$rno04723,
+          ncol = 1, labels = c("a","b", "c"), label_colour = "grey10", label_size = 11)
+```
+
+```{r}
+# # EE YNG GABAsyn, neuroacli-Recept,
+plot_grid(kegg_volcano_list$rno04727, kegg_volcano_list$rno04080,
+          ncol = 1, labels = c("a","b"), label_colour = "grey10", label_size = 11)
+```
+
+```{r}
+# KEGG axon guidance & REACT nervous system development
+plot_grid(
+  # kegg_volcano_list$rno04360, kegg_volcano_list$rno04721,
+  #         kegg_volcano_list$rno04082, kegg_volcano_list$rno04723,
+  #         kegg_volcano_list$rno04727, kegg_volcano_list$rno04080,
+          
+  reactome_volcano_list$REACTOME_NERVOUS_SYSTEM_DEVELOPMENT,
+  reactome_volcano_list$REACTOME_SIGNALING_BY_ROBO_RECEPTORS,
+  reactome_volcano_list$REACTOME_CRMPS_IN_SEMA3A_SIGNALING,
+  reactome_volcano_list$REACTOME_SEMAPHORIN_INTERACTIONS,
+  reactome_volcano_list$REACTOME_SEMA3A_PAK_DEPENDENT_AXON_REPULSION,
+  reactome_volcano_list$REACTOME_EPH_EPHRIN_SIGNALING,
+  
+#   
+#   reactome_volcano_list$REACTOME_NEUROTRANSMITTER_RECEPTORS_AND_POSTSYNAPTIC_SIGNAL_TRANSMISSION,
+# reactome_volcano_list$REACTOME_TRAFFICKING_OF_AMPA_RECEPTORS, 
+# 
+# 
+# reactome_volcano_list$REACTOME_UNBLOCKING_OF_NMDA_RECEPTORS_GLUTAMATE_BINDING_AND_ACTIVATION, 
+# reactome_volcano_list$REACTOME_ASSEMBLY_AND_CELL_SURFACE_PRESENTATION_OF_NMDA_RECEPTORS, 
+# reactome_volcano_list$REACTOME_CREB1_PHOSPHORYLATION_THROUGH_THE_ACTIVATION_OF_ADENYLATE_CYCLASE,
+# 
+# 
+#   
+#   reactome_volcano_list$REACTOME_NEUREXINS_AND_NEUROLIGINS,
+#   reactome_volcano_list$REACTOME_POTASSIUM_CHANNELS,
+#   reactome_volcano_list$REACTOME_VOLTAGE_GATED_POTASSIUM_CHANNELS,
+# 
+#   reactome_volcano_list$REACTOME_LGI_ADAM_INTERACTIONS,
+
+
+
+  
+  # reactome_volcano_list$REACTOME_LGI_ADAM_INTERACTIONS,
+  # reactome_volcano_list$REACTOME_VOLTAGE_GATED_POTASSIUM_CHANNELS,
+  # reactome_volcano_list$REACTOME_INTERACTION_BETWEEN_L1_AND_ANKYRINS,
+  # reactome_volcano_list$REACTOME_TRAFFICKING_OF_AMPA_RECEPTORS,
+  # 
+  # reactome_volcano_list$REACTOME_GLUTAMATE_NEUROTRANSMITTER_RELEASE_CYCLE,
+  # reactome_volcano_list$REACTOME_GAP_JUNCTION_ASSEMBLY,
+  # reactome_volcano_list$REACTOME_GAP_JUNCTION_TRAFFICKING_AND_REGULATION,
+  # reactome_volcano_list$REACTOME_UNBLOCKING_OF_NMDA_RECEPTORS_GLUTAMATE_BINDING_AND_ACTIVATION, 
+  # reactome_volcano_list$REACTOME_ASSEMBLY_AND_CELL_SURFACE_PRESENTATION_OF_NMDA_RECEPTORS, 
+  # 
+  # 
+  # reactome_volcano_list$REACTOME_L1CAM_INTERACTIONS,
+  # reactome_volcano_list$REACTOME_TRANSMISSION_ACROSS_CHEMICAL_SYNAPSES,
+  # reactome_volcano_list$REACTOME_NEUREXINS_AND_NEUROLIGINS,
+  # reactome_volcano_list$REACTOME_COMPLEMENT_CASCADE,
+  # reactome_volcano_list$REACTOME_INTERLEUKIN_12_SIGNALING,
+  
+          
+          ncol = 2, label_colour = "grey10", label_size = 11
+      # labels = c("a","b"),
+      )
+
+# ggsave("2026_03_31_axonguidance_brain_dev_mapped_volcano_330dpi.png", dpi = 330)
+
+```
+
+```{r}
+plot_grid(plotlist = reactome_volcano_list[15:31], ncol = 3)
+```
+
+#### KEGG Oxidative Phosphorylation \\& TCA cycle
+
+```{r}
+# KEGG Oxidattive Phosphorylation & TCA Cycle
+plot_grid(
+  kegg_volcano_list$rno00190, kegg_volcano_list$rno00020,
+    labels = c("a","b"), 
+    ncol = 1, label_colour = "grey10", label_size = 11)
+# ggsave("2026_04_04_KEGG_2_Energy_metabolism_mapped_volcano_300dpi.png", dpi = 300)
+# dev.off()
+```
+
+#### KEGG Neurodegenerative Diseases
+
+```{r}
+# KEGG NEURO DEGENERATIVE
+plot_grid(kegg_volcano_list$rno05022, kegg_volcano_list$rno05012,
+          kegg_volcano_list$rno05016, kegg_volcano_list$rno05020,
+          kegg_volcano_list$rno05010, kegg_volcano_list$rno05014,
+          ncol = 1,
+          labels = c("a","b", "c", "d", "e", "f"),
+          label_colour = "grey10", label_size = 11)
+```
+
+CONT HERE
+
+```{r}
+# TO REDO
+# REACTOME - NT systems & transmission
+plot_grid(plotlist = reactome_volcano_list[6:11], 
+          ncol = 1,
+          # labels = c("a","b","c"),
+          label_colour = "grey10", label_size = 12)
+
+# ggsave("2026_03_31_REACT_NT_systems_mapped_volcano_330dpi.png", dpi = 330)
+```
+
+```{r}
+#REDO
+# REACTOME - other brain
+plot_grid(plotlist = reactome_volcano_list[12:17], 
+          ncol = 1,
+          # labels = c("a","b","c"),
+          label_colour = "grey10", label_size = 12)
+
+# ggsave("2026_03_31_REACT_other_brain_mapped_volcano_330dpi.png", dpi = 330)
+```
+
+```{r}
+
+```
+
+------------------------------------------------------------------------
+
+```{r}
+
+```
