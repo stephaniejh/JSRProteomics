@@ -1546,16 +1546,16 @@ plot_grid(kegg_volcano_list$rno04014,
 #### KEGG DNA, RNA, & PROTEIN
 
 ```{r}
-# KEGG ATP-dependent chromatin remodelling & nucleocytoplasmic transport
-plot_grid(kegg_volcano_list$rno03082,kegg_volcano_list$rno03013,
+# KEGG ATP-dependent chromatin remodelling & Spliceosome
+plot_grid(kegg_volcano_list$rno03082, kegg_volcano_list$rno03040,
           ncol = 1,
           labels = c("a","b"),
           label_colour = "grey10", label_size = 11)
 ```
 
 ```{r}
-# KEGG Spliceosome & Ribosome
-plot_grid(kegg_volcano_list$rno03040, kegg_volcano_list$rno03010,
+# KEGG Ribosome & nucleocytoplasmic transport
+plot_grid(kegg_volcano_list$rno03010, kegg_volcano_list$rno03013,
           ncol = 1,
           labels = c("a","b"),
           label_colour = "grey10", label_size = 11)
