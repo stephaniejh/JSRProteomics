@@ -1513,7 +1513,7 @@ plot_grid(plotlist = reactome_volcano_list[1:12], ncol = 2)
 #rno00900
 plot_grid(kegg_volcano_list$rno00900,
           reactome_volcano_list$REACTOME_CHOLESTEROL_BIOSYNTHESIS,
-          ncol = 1, labels = c("a","b"), label_colour = "grey10", label_size = 12)
+          ncol = 1, labels = c("a","b"), label_colour = "grey10", label_size = 11)
 
 # ggsave("2026_03_30_Cholesterol_Terpenoid_mapped_volcano_330dpi.png", dpi = 330)
 ```
@@ -1583,73 +1583,141 @@ plot_grid(kegg_volcano_list$rno04120, kegg_volcano_list$rno03015,
 Synaptic/Neurotransmission
 
 ```{r}
-# # "rno04721", "rno04082", "rno04723", # syanp_ves, neuroa_lig, ret_endoca
-plot_grid(kegg_volcano_list$rno04721, kegg_volcano_list$rno04082,
-          kegg_volcano_list$rno04723,
-          ncol = 1, labels = c("a","b", "c"), label_colour = "grey10", label_size = 11)
-```
-
-```{r}
-# # EE YNG GABAsyn, neuroacli-Recept,
-plot_grid(kegg_volcano_list$rno04727, kegg_volcano_list$rno04080,
+# neurotransmitter release & synaptic vesicle cycle
+plot_grid(kegg_volcano_list$rno04721, reactome_volcano_list$REACTOME_NEUROTRANSMITTER_RELEASE_CYCLE,
           ncol = 1, labels = c("a","b"), label_colour = "grey10", label_size = 11)
 ```
 
 ```{r}
-# KEGG axon guidance & REACT nervous system development
+# axonguidance \& nervous system development
+plot_grid(kegg_volcano_list$rno04360,
+          reactome_volcano_list$REACTOME_NERVOUS_SYSTEM_DEVELOPMENT,
+          ncol = 1, labels = c("a","b"), label_colour = "grey10", label_size = 11)
+```
+
+```{r}
+plot_grid(kegg_volcano_list$rno04721, kegg_volcano_list$rno04360,
+          ncol = 1, labels = c("a","b"), label_colour = "grey10", label_size = 11)
+```
+
+```{r}
+# GABA, ret_endoca, neuroa_lig x 2,  nicotine
 plot_grid(
-  # kegg_volcano_list$rno04360, kegg_volcano_list$rno04721,
-  #         kegg_volcano_list$rno04082, kegg_volcano_list$rno04723,
-  #         kegg_volcano_list$rno04727, kegg_volcano_list$rno04080,
-          
-  reactome_volcano_list$REACTOME_NERVOUS_SYSTEM_DEVELOPMENT,
-  reactome_volcano_list$REACTOME_SIGNALING_BY_ROBO_RECEPTORS,
-  reactome_volcano_list$REACTOME_CRMPS_IN_SEMA3A_SIGNALING,
-  reactome_volcano_list$REACTOME_SEMAPHORIN_INTERACTIONS,
-  reactome_volcano_list$REACTOME_SEMA3A_PAK_DEPENDENT_AXON_REPULSION,
-  reactome_volcano_list$REACTOME_EPH_EPHRIN_SIGNALING,
-  
-#   
-#   reactome_volcano_list$REACTOME_NEUROTRANSMITTER_RECEPTORS_AND_POSTSYNAPTIC_SIGNAL_TRANSMISSION,
-# reactome_volcano_list$REACTOME_TRAFFICKING_OF_AMPA_RECEPTORS, 
-# 
-# 
-# reactome_volcano_list$REACTOME_UNBLOCKING_OF_NMDA_RECEPTORS_GLUTAMATE_BINDING_AND_ACTIVATION, 
-# reactome_volcano_list$REACTOME_ASSEMBLY_AND_CELL_SURFACE_PRESENTATION_OF_NMDA_RECEPTORS, 
-# reactome_volcano_list$REACTOME_CREB1_PHOSPHORYLATION_THROUGH_THE_ACTIVATION_OF_ADENYLATE_CYCLASE,
-# 
-# 
-#   
-#   reactome_volcano_list$REACTOME_NEUREXINS_AND_NEUROLIGINS,
-#   reactome_volcano_list$REACTOME_POTASSIUM_CHANNELS,
-#   reactome_volcano_list$REACTOME_VOLTAGE_GATED_POTASSIUM_CHANNELS,
-# 
-#   reactome_volcano_list$REACTOME_LGI_ADAM_INTERACTIONS,
+  kegg_volcano_list$rno04723, kegg_volcano_list$rno04727,
+          # kegg_volcano_list$rno04082, kegg_volcano_list$rno04080,
+          kegg_volcano_list$rno05033,
+          # labels = c("a","b", "c", "d", "e"),
+          labels = c("a","b", "c"),
+          ncol = 1, label_colour = "grey10", label_size = 11)
+```
 
+```{r}
+# NERVOUS SYSTEM 
+plot_grid(reactome_volcano_list$REACTOME_NEURONAL_SYSTEM, 
+          reactome_volcano_list$REACTOME_NERVOUS_SYSTEM_DEVELOPMENT,
+          ncol = 1, labels = c("a","b"),
+          label_colour = "grey10", label_size = 11)
+```
 
+```{r}
+# REACTOME BRAAIN 
+plot_grid(
 
-  
+  ##_Nervous_System_Development_____        
+  # reactome_volcano_list$REACTOME_NERVOUS_SYSTEM_DEVELOPMENT,
+  # reactome_volcano_list$REACTOME_SEMAPHORIN_INTERACTIONS,
+  # reactome_volcano_list$REACTOME_SIGNALING_BY_ROBO_RECEPTORS,
+  # reactome_volcano_list$REACTOME_CRMPS_IN_SEMA3A_SIGNALING,
+  # reactome_volcano_list$REACTOME_SEMA3A_PAK_DEPENDENT_AXON_REPULSION,
+  # reactome_volcano_list$REACTOME_EPH_EPHRIN_SIGNALING,
   # reactome_volcano_list$REACTOME_LGI_ADAM_INTERACTIONS,
-  # reactome_volcano_list$REACTOME_VOLTAGE_GATED_POTASSIUM_CHANNELS,
-  # reactome_volcano_list$REACTOME_INTERACTION_BETWEEN_L1_AND_ANKYRINS,
-  # reactome_volcano_list$REACTOME_TRAFFICKING_OF_AMPA_RECEPTORS,
-  # 
-  # reactome_volcano_list$REACTOME_GLUTAMATE_NEUROTRANSMITTER_RELEASE_CYCLE,
-  # reactome_volcano_list$REACTOME_GAP_JUNCTION_ASSEMBLY,
-  # reactome_volcano_list$REACTOME_GAP_JUNCTION_TRAFFICKING_AND_REGULATION,
-  # reactome_volcano_list$REACTOME_UNBLOCKING_OF_NMDA_RECEPTORS_GLUTAMATE_BINDING_AND_ACTIVATION, 
-  # reactome_volcano_list$REACTOME_ASSEMBLY_AND_CELL_SURFACE_PRESENTATION_OF_NMDA_RECEPTORS, 
-  # 
-  # 
   # reactome_volcano_list$REACTOME_L1CAM_INTERACTIONS,
-  # reactome_volcano_list$REACTOME_TRANSMISSION_ACROSS_CHEMICAL_SYNAPSES,
-  # reactome_volcano_list$REACTOME_NEUREXINS_AND_NEUROLIGINS,
-  # reactome_volcano_list$REACTOME_COMPLEMENT_CASCADE,
-  # reactome_volcano_list$REACTOME_INTERLEUKIN_12_SIGNALING,
+  # 
   
-          
-          ncol = 2, label_colour = "grey10", label_size = 11
-      # labels = c("a","b"),
+##______ECM_____________________________ 
+# reactome_volcano_list$REACTOME_EXTRACELLULAR_MATRIX_ORGANIZATION, # L1 (TOP) ECM
+# reactome_volcano_list$REACTOME_ECM_PROTEOGLYCANS, #L2 ECM
+# reactome_volcano_list$REACTOME_FORMATION_OF_THE_DYSTROPHIN_GLYCOPROTEIN_COMPLEX_DGC, #L3
+# reactome_volcano_list$REACTOME_LAMININ_INTERACTIONS, #L3
+
+##_Cell2Cell_____Adherins_&_Gap_Junctions_______
+# reactome_volcano_list$REACTOME_ADHERENS_JUNCTIONS_INTERACTIONS, #L4 Cell2Cell Coms
+# reactome_volcano_list$REACTOME_GAP_JUNCTION_ASSEMBLY,
+# reactome_volcano_list$REACTOME_GAP_JUNCTION_TRAFFICKING_AND_REGULATION,
+
+
+  
+  # ##_Neuronal_sytem____(づ ◕‿◕ )づ___________________ 
+  # reactome_volcano_list$REACTOME_NEURONAL_SYSTEM, # top level
+  # 
+  # reactome_volcano_list$REACTOME_TRANSMISSION_ACROSS_CHEMICAL_SYNAPSES, #L2
+  # 
+  # ##_L3_Neurotransmitter_release_cycle_
+  # reactome_volcano_list$REACTOME_NEUROTRANSMITTER_RELEASE_CYCLE, #L3
+  # reactome_volcano_list$REACTOME_GLUTAMATE_NEUROTRANSMITTER_RELEASE_CYCLE, #L4
+  # reactome_volcano_list$REACTOME_GABA_SYNTHESIS_RELEASE_REUPTAKE_AND_DEGRADATION, #L4
+  
+  
+  # ##_L3_Neurotransmitter_receptors_&_postsynaptic_signal_transduciton_
+  # reactome_volcano_list$REACTOME_NEUROTRANSMITTER_RECEPTORS_AND_POSTSYNAPTIC_SIGNAL_TRANSMISSION, #L3
+  # 
+  # ##_L4_Glutamate_binding_activation_of_AMPA_&_synaptic_plasticity
+  # reactome_volcano_list$REACTOME_TRAFFICKING_OF_AMPA_RECEPTORS, # L5 (L4 AMPA)
+  # 
+  # ##_L4_Activation_of_NMDA_receptors_PSD_events (L5 & L5)
+  # reactome_volcano_list$REACTOME_UNBLOCKING_OF_NMDA_RECEPTORS_GLUTAMATE_BINDING_AND_ACTIVATION,
+  # reactome_volcano_list$REACTOME_ASSEMBLY_AND_CELL_SURFACE_PRESENTATION_OF_NMDA_RECEPTORS,
+  # ##_L5_Post_NMDA_receptor_activation_events_(L6)
+  # reactome_volcano_list$REACTOME_CREB1_PHOSPHORYLATION_THROUGH_THE_ACTIVATION_OF_ADENYLATE_CYCLASE, #L6
+
+  # #_L2_Protein-protein_interactions_at_the_synapse_L3
+  # reactome_volcano_list$REACTOME_NEUREXINS_AND_NEUROLIGINS, #L3
+
+
+  # ##_L2_Potassium_Channels_L2&L3
+  # reactome_volcano_list$REACTOME_POTASSIUM_CHANNELS,  #L2
+  # reactome_volcano_list$REACTOME_VOLTAGE_GATED_POTASSIUM_CHANNELS, #L3
+
+ # ##_IMMUNE_SYSTEM____________________________
+# reactome_volcano_list$REACTOME_CYTOKINE_SIGNALING_IN_IMMUNE_SYSTEM, # CYTOKINE IMMUNE
+#   reactome_volcano_list$REACTOME_INTERLEUKIN_1_FAMILY_SIGNALING,  #3
+#  reactome_volcano_list$REACTOME_INTERLEUKIN_12_FAMILY_SIGNALING,  #3
+#  reactome_volcano_list$REACTOME_TNFR2_NON_CANONICAL_NF_KB_PATHWAY,  #2
+
+# reactome_volcano_list$REACTOME_ADAPTIVE_IMMUNE_SYSTEM,  #adaptive immune T1
+#  reactome_volcano_list$REACTOME_TCR_SIGNALING,  # TCR #2
+#  reactome_volcano_list$REACTOME_SIGNALING_BY_THE_B_CELL_RECEPTOR_BCR, #2
+
+ # reactome_volcano_list$REACTOME_COMPLEMENT_CASCADE, # complement | innate immune?
+ # reactome_volcano_list$REACTOME_FC_EPSILON_RECEPTOR_FCERI_SIGNALING,
+ # reactome_volcano_list$REACTOME_C_TYPE_LECTIN_RECEPTORS_CLRS,
+ # reactome_volcano_list$REACTOME_FCGAMMA_RECEPTOR_FCGR_DEPENDENT_PHAGOCYTOSIS,
+  
+  
+  # #high_level_terms
+  # reactome_volcano_list$REACTOME_NEURONAL_SYSTEM, #L1
+  # # reactome_volcano_list$REACTOME_NERVOUS_SYSTEM_DEVELOPMENT, #L2
+  # reactome_volcano_list$REACTOME_EXTRACELLULAR_MATRIX_ORGANIZATION, #L1
+  # reactome_volcano_list$REACTOME_TRANSPORT_OF_SMALL_MOLECULES, #L1
+  # reactome_volcano_list$REACTOME_VESICLE_MEDIATED_TRANSPORT, #L1
+  # 
+  # reactome_volcano_list$REACTOME_HEMOSTASIS, #L1
+  # reactome_volcano_list$REACTOME_CIRCADIAN_CLOCK, #L1
+
+  
+  reactome_volcano_list$REACTOME_DNA_REPLICATION,
+  reactome_volcano_list$REACTOME_METABOLISM_OF_RNA,
+  reactome_volcano_list$REACTOME_DNA_REPAIR,
+  reactome_volcano_list$REACTOME_CELL_CYCLE,
+  reactome_volcano_list$REACTOME_PROGRAMMED_CELL_DEATH,
+  reactome_volcano_list$REACTOME_PROTEIN_LOCALIZATION, #L1
+
+
+
+  # labels = c("a","b", "c", "d", "e"),    
+  # labels = c("a","b", "c", "d"),
+  ncol = 1, label_colour = "grey10", label_size = 11
+
       )
 
 # ggsave("2026_03_31_axonguidance_brain_dev_mapped_volcano_330dpi.png", dpi = 330)
@@ -1708,12 +1776,4 @@ plot_grid(plotlist = reactome_volcano_list[12:17],
 # ggsave("2026_03_31_REACT_other_brain_mapped_volcano_330dpi.png", dpi = 330)
 ```
 
-```{r}
-
-```
-
 ------------------------------------------------------------------------
-
-```{r}
-
-```
