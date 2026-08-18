@@ -1,0 +1,137 @@
+---
+title: "2026_08_QC_pipette_gradient_MP_FP"
+author: "Stephanie Huang"
+date: "2026-08-17"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+```
+
+```{r}
+# raw_anno <- read_csv("input/anno/TMT_B1-4_lcms_run_info_anno_20250830.csv")
+
+# raw_anno <- raw_anno %>%
+#   mutate(PoolRef = "MP") %>%
+#   mutate(RunYear = if_else(str_detect(Mixture, "B1|B2"), "2021", "2022"))
+
+# write_excel_csv(raw_anno, "output/TMT_B1-4_lcms_run_info_anno_96_20260818.csv")
+```
+
+```{r}
+
+```
+
+```{r}
+#set_wd to sourcefile location
+
+PSMs_2_read <- list.files("input/PD/2025_08_Steph_TMTpro_PSMs_MSstatsTMT_EEvsSH_for_PhD/txt_exports",
+                          # pattern = "(F3|F7).*PSM.*\\.txt$",  # pattern PSM & ends .txt
+                          pattern = ".*PSM.*\\.txt$",  # pattern PSM & ends .txt
+                          full.names = TRUE, # gets full names including path,
+                          recursive = TRUE)
+
+PD_PSMs_raw <- read_tsv(PSMs_2_read, # read all files from list above
+                    id = "file_path") # keep file path as an id column
+```
+
+```{r}
+unique(PD_PSMs_raw$file_path)
+colnames(PD_PSMs_raw)
+str(PD_PSMs_raw)
+
+PD_PSMs <- PD_PSMs_raw %>%
+  separate_wider_delim(file_path, # splits file path into folder variables
+                       delim = "/",
+                       names = c(NA, NA, NA, NA, "extra", "details", "file_name"),
+                       too_few = "align_end") %>%
+  
+  mutate(extra = if_else(extra == "extra", extra, NA)) %>% # rm extra non dets
+  mutate(details = if_else(details == "txt_exports", NA, details))
+```
+
+```{r}
+PD_PSMs_details <- PD_PSMs %>%
+  select(file_name,extra,details, `Spectrum File`) %>%
+  unique() 
+```
+
+```{r}
+combined_anno <-  left_join(PD_PSMs_details, raw_anno,
+                            by = join_by(`Spectrum File` == Run)) 
+```
+
+```{r}
+PD_PSMs_pipette <- PD_PSMs %>%
+  filter(!grepl("TR1_|TR2_", file_name))  %>% # 16 files | keeps only F3 
+  mutate(HpHF = case_when( # add fraciton row
+    str_detect(file_name, "_F3") ~ "F3",
+    str_detect(file_name, "_F7") ~ "F7",
+    .default = NA)) %>%
+  mutate(PoolRef = if_else(str_detect(file_name, "FP_"), "FP", "MP")) %>%
+  mutate(RunYear = case_when( # add fraciton row
+    str_detect(file_name, "DEC2021_") ~ "2021",
+    str_detect(file_name, "NOV2022_") ~ "2022",
+    .default = NA)) %>%
+  mutate(Batch = case_when( # add fraciton row
+    str_detect(file_name, "B1_") ~ "B1",
+    str_detect(file_name, "B2_") ~ "B2",
+    str_detect(file_name, "B3_") ~ "B3",
+    str_detect(file_name, "B4_") ~ "B4",
+    .default = NA)) %>%
+  filter(!grepl("gradient_check", file_name)) # actually rm gradient check one | now 12
+
+unique(PD_PSMs_pipette$file_name)
+unique(PD_PSMs_pipette$`File ID`)
+
+PD_PSMs_pipette_gg <- PD_PSMs_pipette %>%
+  group_by(file_name) %>%
+  pivot_longer(cols = starts_with("Abundance"), # cols 2 pivot
+               names_to = "TMT_tag", # names column
+               names_prefix = "Abundance ", # recognise prefix
+               values_to = "Abundance")  # new values col
+
+
+PD_PSMs_pipette_gg$TMT_tag <- factor(PD_PSMs_pipette_gg$TMT_tag,
+                                     levels = c('126', '127N', '127C', '128N',
+                                                '128C', '129N', '129C', '130N',
+                                                '130C', '131N', '131C', '132N',
+                                                '132C', '133N', '133C', '134N'))
+
+PD_PSMs_pipette_gg$PoolRef <- factor(PD_PSMs_pipette_gg$PoolRef,
+                                     levels = c("MP", "FP"))
+
+```
+
+```{r}
+PD_PSMs_pipette_gg_plot <- ggplot(PD_PSMs_pipette_gg,
+                                  aes(x=TMT_tag, y = Abundance, fill = PoolRef,
+                                      color = RunYear)) +
+  geom_boxplot(alpha = 0.95,
+    outlier.shape = 1,outlier.size = .5, outlier.alpha = 0.1) +
+  ylim(0,2000) +
+  facet_grid(~RunYear+PoolRef+Batch)+
+  scale_fill_manual(values = c("#d9d9d9", "#fddaec")) +
+    scale_color_manual(values = c("#27408B", "#8B2252")) +
+  labs(title = "Pipette Tips & Pipetting Errors!",
+       subtitle = "Raw abundance values across TMT channels by Batch/Year (& Pooled Reference)")+
+  theme_bw() +
+  theme(legend.position = "none",
+        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size =7)) 
+
+
+PD_PSMs_pipette_gg_plot 
+```
+
+```{r}
+ggsave("output/2026_08_17_Pipetting_errors_abundance_by_channel.png", dpi = 300)
+```
+
+```{r}
+
+```
