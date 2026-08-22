@@ -664,8 +664,8 @@ plot_grid(plotlist = Age_main_20_psum_plot_list$Up[6:10], ncol = 1) # 7.5 x 10.5
 ```{r}
 my_psum_facet_theme <- my_theme +
   theme(
-    axis.text.y = element_text(size = 7.5, color ="grey10"),
-    axis.text.x = element_text(size = 7, color ="grey10"),
+    axis.text.y = element_text(size = 6.5, color ="grey10"),
+    axis.text.x = element_text(size = 6, color ="grey10"),
     axis.title.x = element_blank(),
     panel.spacing = unit(0.2, "cm"),  # Removes space between panel 
     legend.margin = margin(0,0,10,0), # space between plot & legend
@@ -675,7 +675,7 @@ my_psum_facet_theme <- my_theme +
     strip.text = element_text(face = "italic"),
     plot.title = element_text(  size = 11.5,  color = "grey10",face = "italic"),
     panel.grid.major = element_line(color = "grey90", linewidth = 0.1),
-    panel.grid.minor = element_line(color = "grey97", linewidth = 0.1),
+    panel.grid.minor = element_line(color = "grey95", linewidth = 0.1),
   )
 ```
 
@@ -910,8 +910,6 @@ plot_grid(Age_facet_up_plot, Age_facet_down_plot, ncol = 1,
 # ggsave("2026_02_27_Age_facet_36_sig_psum_v3_330dpi.png", dpi = 330) # 9.79 x 12.6
 ```
 
-
-
 ```{r}
 # Synaptopodin
 TrkB <- mapped_psum %>%
@@ -967,7 +965,7 @@ me_and_paban <- EE_main_only %>%
 
 ------------------------------------------------------------------------
 
-
+## Synaptic Proteins Psum
 
 ```{r}
 list_SynDiv <- c("Camk2a", "Dlg4", 'Gphn', 'Gad2')
@@ -982,25 +980,64 @@ SynDiv <- mapped_comp %>%
 ```
 
 ```{r}
+# 7 cortical interneurons (Makaram 2004) + Tac1 & Penk + Pcsk1n (protSAAS), Folh1, pmch
+neuropep_inhib <- c( "Calb1", "Calb2", 'Cck',  "Npy", "Sst", 'Pvalb', "Vip",
+                     "Tac1", 'Penk',  "Pcsk1n", "Pmch", "Folh1")
+
 
 #  'Slc17a7' - vGlut1, 'Slc32a1' - vGat
+vanOostrum_syn_pairs <- c('Syt12', 'Syt2',  'Sv2b', 'Sv2c',
+                          'Rab3a', 'Rab3b', 'Magi1', 'Magi2',
+                          'Fkbp1a', 'Fkbp4', 'Diras1', 'Diras2',
+                          'Cadps', 'Cadps2', 'Cacna2d1', 'Cacna2d2',
+                          'Atp1a1', 'Atp1a3', 'Atp2a2',
+                          'Arhgap35', 'Arhgap39', 'Ank1', 'Anks1b',
+                          'Camk2a', 'Slc17a7',  'Gad2', 'Slc32a1' )
+
+# GABA 
+# filter(gene %in% c("Gad2", "Slc32a1", "Gphn") |
+#          grepl("^Gabb|^Gabr|^Slc6a", gene))
+
+# GLUTAMATE
+# filter( #gene %in% c("Camk2a") | #glutamate
+#        grepl("^Gria|^Grin|^Grm|Grik|Slc1a|Slc17a", gene))
+
+# Glial - Myelin, Astrocytes, Microglia
+glial <- c('Mbp', 'Mag','Mog', 'Omg', 'Olig1', 'Olig2', 'Sox10', 'Plp1', # myelin/olig
+           'Nfasc','Gpm6a', 'Prnp','Cadm2','Osbpl11', 'Cadm2', # myelin/olig
+           'Gfap', 'Aldh1l1', 'S100b','Aqp4', 'Vim', 'Palld', # astro
+           'Cx3cr1', 'Cd68', 'Aif1', 'Cd200' # Aif1 is Iba1
+           # 'Cd31', 'Cldn5', 'Fgf2', 'Alcam', 'Hspg2'
+           # 'Pcna', 'Nifk', 'Top2a', 'Map2'
+           ) # prolif
+
+# Based off of Fawcett 2019 \& Wen 2018
+PNN <- c('Hapln1', 'Hapln2', 'Hapln3', 'Hapln4',
+         'Acan' ,'Vcan', 'Bcan', 'Ncan', 'Nfasc', 'Otx2', 'Sem3a',
+         'Tnr', 'Cntnap1', 'Pcan', 'Scn1b', 'Scn2b',
+         'Nptx2', 'Efnb3', 'Rtn4', 'Cd44', 'Mmp9', 'Narp')
+  
+```
+
+```{r}
 
 EE_syn_check <- mapped_psum %>%
   
   mutate(Condition = forcats::fct_reorder(Condition, PND)) %>% # reoder by PND (no)
-  filter(gene %in% c(
-    # Neuropeptides
-    'Penk', "Npy", "Sst", 'Pvalb', 'Cck', "Tac1", "Vip"
-    
-    # "Dlg4", 'Syp', 'Gria1', 'Gria2', 'Gria3', 'Gria4', 'Fscn1', 'Nrn1',
-    # 'Shank1', 'Shank2', 'Shank3', 'Gphn', 'Gad2', 'Mbp', 'Gfap',
-    # "Camk2a", 'Syn2', 'Syn1',
-    # 'Syt12', 'Ntrk2', 'Homer1', 'Syngap1', 'Faah', 'Abhd6',
-    # 'Cnr1', 'Synpo', 'Arhgap39', 'Cck', 'Pvalb', 'Vip',
-    # 'Slc17a7', 'Slc32a1', 'Syt2', 'Syngap1' , 'Grin1', 'Gkap1',
-    # 
-    # 'Mecp2', 'Nptx2' ,'Arc'
-  )) %>%
+
+  
+  # filter(gene %in% vanOostrum_syn_pairs) %>%
+  # filter(gene %in% neuropep_inhib) %>%
+  
+  # filter(gene %in% c("Gad2", "Slc32a1", "Gphn") | #GABA
+  #          grepl("^Gabb|^Gabr|^Slc6a", gene)) %>%
+  
+  # filter( #gene %in% c("Camk2a") | #glutamate
+  #        grepl("^Gria|^Grin|^Grm|Grik|Slc1a|Slc17a", gene)) %>%
+  
+  # filter(gene %in% glial) %>%
+  
+  filter(gene %in% PNN) %>%
   
   ggplot(aes(x = interaction(Age, Housing, 
                              sep = "\n", # space
@@ -1012,22 +1049,45 @@ EE_syn_check <- mapped_psum %>%
                outlier.shape = NA,
                color = "grey10") +
   stat_summary(fun=mean, geom="point", position = position_dodge(width = 0.7),
-               shape=4, size = 1, stroke = 0.2, color ="grey10") +
+               shape=4, size = 1, stroke = 0.25, color ="grey10") +
   
-  ggrastr::geom_point_rast( size = .6, shape = 1, stroke = .3, 
-                            position = position_jitterdodge(dodge.width = 0.4, jitter.width = 0.2),
-                            alpha = 0.5,
+  ggrastr::geom_point_rast(size = .3, shape = 1, stroke = .3, alpha = 0.5,
+                position = position_jitterdodge(dodge.width = 0.4, jitter.width = 0.2),
                             raster.dpi = getOption("ggrastr.default.dpi", 330)) +
   
   scale_fill_manual(values = c("#66A61EFF", "#E6AB02FF")) + # housing colors
   scale_alpha_manual(values = c(.7,.75)) +
   scale_color_manual(values = c("#d33682", "#268bd2")) +
   # guides(y.sec = 'axis') + # adds 2nd y axis (right side)
+  scale_y_continuous(labels = label_number(accuracy = 0.1)) + # 1dp
   facet_wrap(~gene, ncol = 7, scale = "free_y") +
   my_psum_facet_theme
 
 EE_syn_check
 
+```
+
+```{r}
+
+    # # #Functional Synapse
+    # 'Syp', 'Dlg2', 'Dlg3', "Dlg4",
+    # "Camk2a", "Camk2b", "Camk2d", "Camk2g", "Prkcz", 'Calm1',
+    # "Arc", 'Akap7',
+    # 'Shank1','Shank2', 'Shank3', 'Homer1', 'Homer2', 'Homer3',
+    # 'Syngap1', 'Synpo', 'Gkap1', 'Syn2', 'Syn1', 'Slc17a7', 'Slc32a1',
+    # 'Prkcg', 'Ppp1cb', 'Ppp1ca', 'Ppp2cb', 'Ppp2ca', 'Csnk2a1', 'Csnk2b',
+    # 'Gria1', 'Gria2', 'Gria3', 'Gria4' , 'Grm1', 'Gphn', 'Gad2',
+    # 'Syt12', 'Syt2',
+    # 
+    # # 'Gria1', 'Gria2', 'Gria3', 'Gria4', 'Fscn1', 'Nrn1',
+    # #  'Shank1', 'Shank2', 'Shank3', 'Gphn', 'Gad2', 'Mbp', 'Gfap',
+    # # "Camk2a", 'Syn2', 'Syn1',
+    # # 'Syt12', 'Ntrk2', 'Homer1', 'Syngap1', 'Faah', 'Abhd6',
+    # # 'Cnr1', 'Synpo', 'Arhgap39', 'Cck', 'Pvalb', 'Vip',
+    # # 'Slc17a7', 'Slc32a1', 'Syt2', 'Syngap1' , 'Grin1', 'Gkap1',
+    # # 'Mecp2', 'Nptx2' ,'Arc'
+    # 
+    # "gfap",  'Mbp' 
 ```
 
 **AGE CHANGES**
@@ -1124,75 +1184,6 @@ EE_check_down
 
 ```{r}
 plot_grid(EE_check_up, EE_check_down, ncol = 1)
-```
-
-```{r}
-# PErez
-'Tle2',
-'Coro6',
-'Echdc2',
-'Ebf4',
-'Tmsb10',
-'Stmn1',
-'Camk2n2',
-'Sbsn',
-'Arx',
-'Nap1l5',
-'Cdh22',
-'Ccdc136',
-'Gng4',
-'Myoc' ,
-'Dpp10',
-
-'Trpc6',
-'Plk5',
-'Lct',
-'Aldh1a1',
-'Bdnf',
-'Iqgap2',
-'Egr3',
-'Sema5a',
-'Sipa1l3',
-'Pdyn',
-'Lrrc10b',
-'Dagla',
-'Rasd1',
-'Lingo3',
-'Tanc1',
-'Nptx2',
-'Kif17',
-'Klk8',
-'Ptgs2',
-'Bok'.
-'Fosb',
-'Syt12',
-```
-
-```{r}
-# import 
-Perez_prot <- read_csv("input/lit_review/2025_12_27_Perez_2024_proteomics_map_rat_combined_v1.csv")
-```
-
-```{r}
-Perez_prot_sig <- Perez_prot %>%
-  filter(adj.P.Val < 0.05) %>%
-  filter(proteomics_id == "all") # 945 x 57
-
-
-# 945 comp to > 8000 - observe => 8000 present 
-intersect(Perez_prot_sig$Entry, EE_main_only$Protein)
-
-
-# 36 of Perez's EE_all sig adp <0.05 seen in out top 250 
-intersect(Perez_prot_sig$Entry, Housing_top_250$Protein)
-
-
-# 6 of Perez's EE_all sig adp <0.05 seen in our 16 sig adj p<0.05! 
-intersect(Perez_prot_sig$Entry, EE_main_sig_df$Protein)
-
-
-# 7 of Perez's EE_all sig adp <0.05 seen in our 16 sig adj p<0.05! 
-intersect(Perez_prot_sig$Entry, EE_main_sig_df_adjp01$Protein)
 ```
 
 ------------------------------------------------------------------------
