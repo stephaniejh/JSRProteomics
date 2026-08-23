@@ -35,6 +35,7 @@ library(ggvenn) # vennys (old ones)
 library(htmlwidgets) #
 library(webshot2)
 library(ggpmisc) # for line of best fit equation on ggplot
+library(scales)
 ```
 
 ### Load in data
@@ -108,7 +109,7 @@ mapped_comp <- mapped_comp_v3.2.2_EExAge_t1 %>%
   filter(!str_detect(log2FC, "Inf")) %>% # remove infinity/missing FC values
   
   # make gene label for significant! 
-  mutate(sig_g_label = if_else(adj.pvalue <= .1, gene, NA)) %>%
+  mutate(sig_g_label = if_else(adj.pvalue <= .05, gene, NA)) %>%
   
   # make one for no. of sig up & down for each comaprison group/label
   group_by(Label) %>%
@@ -138,38 +139,6 @@ dim(mapped_comp_sig) # 458 x 21
 
 # Plotting Comp
 
-#### Theme
-
-```{r}
-my_theme <- theme(
-    axis.line = element_blank(),
-    axis.title = element_text(size = 9, color = "grey10"), 
-    # axis.title.x = element_blank(),
-    axis.text = element_text(size = 7.5, color ="grey10"),
-    axis.ticks = element_line(size=0.5, colour = "grey15"),
-    axis.ticks.length.y.left = unit(-0.1, 'cm'), # inwards ticks (L)
-    axis.ticks.length.y.right = unit(-0.07, 'cm'), # inwards ticks (R)
-    panel.background = element_rect(fill = "white"), #bg of plot (inner bit)
-    panel.border = element_rect(fill = NA,
-                                color = "grey10"), #plot borders
-    plot.background = element_rect(fill = "white"), # bg of plot (outer)
-    panel.grid = element_blank(),
-    panel.spacing = unit(0, "cm"),  # Removes space between panel 
-    legend.position = 'bottom',
-    legend.title = element_text(size = 9, face="italic", color = "grey10"),
-    legend.margin = margin(-5,0,0,0), # space between plot & legend
-    #legend.title.align = (0.5), # centres legend title
-    legend.text = element_text(size = 8.5, color = "grey10"),
-    legend.box = "horizontal", 
-    legend.direction = "horizontal", 
-    legend.key.size = unit(0.5, "cm"), # size of legend key icon
-    strip.background = element_rect(color = 'grey10', fill = 'grey90'), 
-    strip.text.x = element_text(size = 9, color = 'grey10',
-                                margin = margin(b = 3, t = 2)) #vert spacing
-  )
-
-```
-
 # Volcano
 
 Bit messy atm
@@ -177,6 +146,8 @@ Bit messy atm
 - Big Volcano - When doing all -\> Error in UseMethod("depth") : no applicable method for 'depth' applied to an object of class "NULL (takes 10 years on laptop) ➝ due to geom_text_repel() trying to plot the ns ones ➝ fixed if make a just sig gene/protein column
 
 - Should have just made a function..... oh well do later.
+
+- Swap in and about to make plot for full or wi
 
 ```{r}
 # 
@@ -195,8 +166,8 @@ strip_colors <- strip_themed( # green for 1st 3 (housing) & Lavender for last 3 
 sig_volcano_sum <- mapped_comp %>%
   dplyr::select(Label, sig_no_up_lab, sig_no_down_lab) %>%
   filter(!(Label %in% c("HxA_EE_YNG_vs_SH_OLD", "HxA_EE_OLD_vs_SH_YNG"))) %>% # 6 plot
-  # filter(!(Label %in% c("A_YNG_vs_OLD",
-  #                       "HxA_EE_YNG_vs_EE_OLD", "HxA_SH_YNG_vs_SH_OLD"))) %>%
+  filter(!(Label %in% c("A_YNG_vs_OLD",
+                        "HxA_EE_YNG_vs_EE_OLD", "HxA_SH_YNG_vs_SH_OLD"))) %>%
   # filter(!(Label %in% c("H_EE_vs_SH",
   #                       "HxA_EE_YNG_vs_SH_YNG", "HxA_EE_OLD_vs_SH_OLD"))) %>%
   unique()
@@ -214,10 +185,12 @@ mapped_comp$Label <- factor(
 # unicodes for up \U2191 & down \U2193
 big_volcano <- mapped_comp %>%
   filter(!(Label %in% c("HxA_EE_YNG_vs_SH_OLD", "HxA_EE_OLD_vs_SH_YNG"))) %>% # 6 plot
-  #   # filter(!(Label %in% c("A_YNG_vs_OLD",
-  #   #                     "HxA_EE_YNG_vs_EE_OLD", "HxA_SH_YNG_vs_SH_OLD"))) %>%
-  #   filter(!(Label %in% c("H_EE_vs_SH",
-  #                       "HxA_EE_YNG_vs_SH_YNG", "HxA_EE_OLD_vs_SH_OLD"))) %>%
+  
+  filter(!(Label %in% c("A_YNG_vs_OLD",
+                      "HxA_EE_YNG_vs_EE_OLD", "HxA_SH_YNG_vs_SH_OLD"))) %>%
+
+    # filter(!(Label %in% c("H_EE_vs_SH",
+    #                     "HxA_EE_YNG_vs_SH_YNG", "HxA_EE_OLD_vs_SH_OLD"))) %>%
 
   ggplot(aes(x = log2FC, y = -log10(adj.pvalue), label = sig_g_label)) +
   
@@ -225,17 +198,17 @@ big_volcano <- mapped_comp %>%
   #vline & hlines
   geom_hline(yintercept = -log10(0.05),
              linetype = "dashed", linewidth = 0.1,
-             color = "grey20") +
-  annotate("text", x = 1.80, y = -log10(0.05),
+             color = "grey40") +
+  annotate("text", x = 1.84, y = -log10(0.05),
            label = "adj.p <.05 \n",
-           fontface = 'italic', size = 1.5, color = "grey10") +
-  geom_hline(yintercept = -log10(0.1),linetype = "dotted",
-             linewidth = 0.15, color = "grey50") +
-  annotate("text", x = 1.75, y = -log10(0.1),
-           label = " adj.p <.1 \n",
            fontface = 'italic', size = 1.5, color = "grey30") +
+  geom_hline(yintercept = -log10(0.1),linetype = "dotted",
+             linewidth = 0.15, color = "grey60") +
+  annotate("text", x = 1.79, y = -log10(0.1),
+           label = " adj.p <.1 \n",
+           fontface = 'italic', size = 1.5, color = "grey45") +
   geom_vline(xintercept = c(0),linetype = "solid",
-             linewidth = 0.15, color = "grey80") +
+             linewidth = 0.15, color = "grey75") +
   
 
   
@@ -246,7 +219,7 @@ big_volcano <- mapped_comp %>%
     adj.pvalue < 0.1 & log2FC > 0 ~ "up_adjp.1", # up 0.1
     adj.pvalue < 0.1 & log2FC < 0 ~ "down_adjp.1", # down .1
     TRUE ~ "ns" ), alpha = adj.pvalue), # catch the rest
-    size = 1.7,
+    size = 1.75,
     raster.dpi = getOption("ggrastr.default.dpi", 330)) +
   
   scale_color_manual(values = c("firebrick", # coloring
@@ -262,7 +235,7 @@ big_volcano <- mapped_comp %>%
                                 "\U2193 (adj.p <.05)",
                                 "\U2191 (adj.p <.1)",
                                 "\U2193 (adj.p <.1)")) +
-    scale_alpha(range = c(0.55,0.05), guide = "none") + # more transparent less sig
+    scale_alpha(range = c(0.55,0.02), guide = "none") + # more transparent less sig
   
   
   geom_text_repel(max.overlaps = 35, size = 2.2, # gene text on points
@@ -277,13 +250,15 @@ big_volcano <- mapped_comp %>%
   geom_text(data = sig_volcano_sum, # up 
             aes(label = paste0(sig_no_up_lab, " \U2191")),
             x = 1.62,
-             y = 7.3,
+             # y = 7.3, # age/all
+             y = 3.5, # EE
             size = 3.6, color = "firebrick"
             ) + 
   geom_text(data = sig_volcano_sum, # down
             aes(label = paste0(sig_no_down_lab, " \U2193")),
             x = -1.62,
-             y = 7.3,
+             # y = 7.3, # age/all
+             y = 3.5, # EE
             size = 3.6, color = "royalblue3"
             ) + 
 
@@ -305,18 +280,24 @@ big_volcano <- mapped_comp %>%
   
   theme_bw() +
   theme(
-    # legend.position = "none", # sex & Housing/ExpH
-    legend.position = "bottom", # cohort
-    axis.title = element_text(color = "grey10", size = 9.5),
-    legend.title = element_text(color = "grey10", size = 9.5),
-    strip.text = element_text(size = 10.5, color = "grey10"),
+    legend.position = "none", # sex & Housing/ExpH
+    # legend.position = "bottom", # cohort
+    axis.title = element_text(color = "grey10", size = 9),
+    axis.text = element_text(color = "grey10", size = 8),
+    legend.title = element_text(color = "grey10", size = 9),
+    strip.text = element_text(size = 8, color = "grey10"),
+    strip.background = element_rect(color = 'grey10', fill = 'grey90',
+                                    linewidth = .3),
+     panel.border = element_rect(fill = NA,color = "grey10",linewidth = 0.3), #plot bord
+    axis.ticks = element_line(linewidth = .1, colour = "grey15"),
     panel.grid.major = element_line(color = "grey90", linewidth = 0.1),
     panel.grid.minor = element_line(color = "grey97", linewidth = 0.1),
-    panel.spacing.y = unit(0.5, "cm"), # vert spacing
-    panel.spacing.x = unit(0.5, "cm"), # horizontal spacing - COHORT 
+    panel.spacing.y = unit(0.25, "cm"), # vert spacing
+    panel.spacing.x = unit(0.25, "cm"), # horizontal spacing - COHORT 
     legend.margin = margin(-5,0,0,0),  # space between plot & legend
-    legend.key.size = unit(0.7, "cm"), # size of legend key icon
+    legend.key.size = unit(0.5, "cm"), # size of legend key icon
   )
+
 
 big_volcano
 
@@ -325,25 +306,12 @@ big_volcano
 ```
 
 ```{r}
-big_volcano
-  
-# exported 18 June 2026
-# ggsave("2026_06_18_EExAge_8_volcanos_2x4_v1_330dpi.png", dpi = 330) #6.72x7.38
-# dev.off()
-ggsave("2026_06_18_EExAge_6_volcanos_2x3_v1_330dpi.png", dpi = 330) # 6.43 x 4.87
-dev.off()
+#cowplot volcanos!
+plot_grid(big_volcano_EE, big_volcano_AGE, ncol = 1, labels = c("a","b"),
+          label_size = 11, label_colour =  "grey10", rel_heights = c(.9,1))
 
-
-
-
-# exported 4 x 2 mini version just for overview   10.5 x 6 inches pdf 
-# 2026_01_17_EExAge_8_volcanos_4x2_mini_v2 | 10.5 x 6 inches pdf 
-# 2026_01_17_EExAge_8_volcanos_4x2_mini_v3 | 10.5 x 6 inches pdf (fixed name)
-
-# ggsave("2026_02_27_EExAge_8_volcanos_4x2_mini_v4_dpi330.png", dpi = 330) #png versions
-# ggsave("2026_02_27_EExAge_6_volcanos_3x2_mini_v4_330dpi.png", dpi = 330)
-# ggsave("2026_02_27_EE_3_volcano_330dpi.png", dpi = 330) # EE 7.87 x 3.24 
-# ggsave("2026_02_27_Age_3_volcano_330dpi.png", dpi = 330) 
+#2026_08_23_EExAge_6_MssTMT_volcano_adjp05_v1_7x625 - 7 x 6.25 nice!
+#2026_08_23_EExAge_6_MssTMT_volcano_adjp05_v2_7x59 - 7 x 5.9 nice! - no top legend
 ```
 
 ------------------------------------------------------------------------
@@ -665,15 +633,18 @@ plot_grid(plotlist = Age_main_20_psum_plot_list$Up[6:10], ncol = 1) # 7.5 x 10.5
 my_psum_facet_theme <- my_theme +
   theme(
     axis.text.y = element_text(size = 6.5, color ="grey10"),
-    axis.text.x = element_text(size = 6, color ="grey10"),
+    axis.text.x = element_text(size = 5.5, color ="grey10"),
     axis.title.x = element_blank(),
+  
     panel.spacing = unit(0.2, "cm"),  # Removes space between panel 
-    legend.margin = margin(0,0,10,0), # space between plot & legend
+    legend.margin = margin(-5,0,0,0), # space between plot & legend
+    legend.key.size = unit(0.5, "cm"), # size of legend key icon,
     axis.ticks = element_line(linewidth = .1, colour = "grey15"),
     panel.border = element_rect(fill = NA,color = "grey10",linewidth = 0.3), #plot bord
     strip.background = element_rect(color = 'grey10', fill = 'grey90',linewidth = .3),
-    strip.text = element_text(face = "italic"),
-    plot.title = element_text(  size = 11.5,  color = "grey10",face = "italic"),
+    strip.text = element_text(face = "italic", size = 10.5),
+    plot.title = element_text(size = 11.5,  color = "grey10",face = "italic"),
+    plot.subtitle = element_text(size = 9,  color = "grey10",face = "italic"),
     panel.grid.major = element_line(color = "grey90", linewidth = 0.1),
     panel.grid.minor = element_line(color = "grey95", linewidth = 0.1),
   )
@@ -682,7 +653,7 @@ my_psum_facet_theme <- my_theme +
 ```{r}
 # EE UP
 EE_facet_up_prot_list <- mapped_comp %>%
-  filter(Label == "H_EE_vs_SH" & adj.pvalue < 0.05 & Direction == "Up") %>%
+  filter(Label == "H_EE_vs_SH" & adj.pvalue<= 0.05 & Direction == "Up") %>%
   pull(Protein)
 
 
@@ -695,31 +666,33 @@ EE_facet_up_plot <- mapped_psum %>%
   ggplot(aes(x = interaction(Age, Housing, 
                              sep = "\n", # space
                              lex.order = TRUE),
-             y = Abundance,
-             fill = Housing, alpha = Age, color = Sex)) +
- 
-  geom_boxplot(width = 0.6, size = 0.7, linewidth = 0.3,
+             y = Abundance, fill = Housing, color = Sex)) +
+  
+ geom_boxplot(width = 0.55, size = 0.7, median.linewidth = .45, linewidth = 0.2,
                position = position_dodge(width = 0.7),
                outlier.shape = NA,
-               color = "grey10") +
+               color = "grey10", alpha = 0.75) +
   stat_summary(fun=mean, geom="point", position = position_dodge(width = 0.7),
-               shape=4, size = 1, stroke = 0.5, color ="grey10") +
-   ggrastr::geom_point_rast( size = .7, shape = 1, stroke = .3, 
-             position = position_jitterdodge(dodge.width = 0.4, jitter.width = 0.2),
-             raster.dpi = getOption("ggrastr.default.dpi", 330)) +
-  
-  
-  
-  
+               shape=4, size = 1.1, stroke = 0.3, color ="grey10") +
+  ggrastr::geom_point_rast(size = .3, shape = 1, stroke = .3, alpha = 0.5,
+        position = position_jitterdodge(dodge.width = 0.4, jitter.width = 0.2),
+                          raster.dpi = getOption("ggrastr.default.dpi", 330)) +
+
   scale_fill_manual(values = c("#66A61EFF", "#E6AB02FF")) + # housing colors
-  scale_alpha_manual(values = c(.65,.8)) +
-  scale_color_manual(values = c("#c90076","#125CCC")) +
+  scale_color_manual(values = c("#d33682", "#268bd2"),
+                     name = "Sex (Year)") +
+  scale_y_continuous(labels = label_number(accuracy = 0.1)) + # 1dp
   # guides(y.sec = 'axis') + # adds 2nd y axis (right side)
-  
-  labs(title = "\U2191 Upregulated in EE ") +
+  # 
+  labs(title = "\U2191 Upregulated in EE",
+       subtitle = "Above adj.p > .05 but below adj.p <.25"
+       ) +
   
   facet_wrap(~gene, ncol = 6, scale = "free_y") +
-  my_psum_facet_theme 
+    my_psum_facet_theme +
+  theme(
+    legend.position = "none"
+  )
 
 EE_facet_up_plot
 ```
@@ -727,7 +700,7 @@ EE_facet_up_plot
 ```{r}
 # EE down 
 EE_facet_down_prot_list <- mapped_comp %>%
-  filter(Label == "H_EE_vs_SH" & adj.pvalue < 0.05 & Direction == "Down") %>%
+  filter(Label == "H_EE_vs_SH" & adj.pvalue<= 0.05 & Direction == "Down") %>%
   arrange(adj.pvalue) %>%
   pull(Protein)
 
@@ -736,47 +709,50 @@ EE_facet_down_plot <- mapped_psum %>%
   
   filter(Protein %in% EE_facet_down_prot_list) %>%
   
-  mutate(gene = ifelse(Protein == "Q5U2Q3", "NA (Ester hydrolase ...)",
+  mutate(gene = ifelse(Protein == "Q5U2Q3", "NA (Ester hydrolas",
                        gene)) %>% # because no name available :(
   
   ggplot(aes(x = interaction(Age, Housing, 
                              sep = "\n", # space
                              lex.order = TRUE),
-             y = Abundance,
-             fill = Housing, alpha = Age, color = Sex)) +
- 
-  geom_boxplot(width = 0.6, size = 0.7, linewidth = 0.3,
+             y = Abundance, fill = Housing, color = Sex)) +
+  
+  geom_boxplot(width = 0.55, size = 0.7, median.linewidth = .45, linewidth = 0.2,
                position = position_dodge(width = 0.7),
                outlier.shape = NA,
-               color = "grey10") +
+               color = "grey10", alpha = 0.75) +
   stat_summary(fun=mean, geom="point", position = position_dodge(width = 0.7),
-               shape=4, size = 1, stroke = 0.5, color ="grey10") +
-   ggrastr::geom_point_rast( size = .7, shape = 1, stroke = .3, 
-             position = position_jitterdodge(dodge.width = 0.4, jitter.width = 0.2),
-             raster.dpi = getOption("ggrastr.default.dpi", 330)) +
-  
+               shape=4, size = 1.1, stroke = 0.3, color ="grey10") +
+  ggrastr::geom_point_rast(size = .3, shape = 1, stroke = .3, alpha = 0.5,
+                           position = position_jitterdodge(dodge.width = 0.4,
+                                                           jitter.width = 0.2),
+                           raster.dpi = getOption("ggrastr.default.dpi", 330)) +
   
   scale_fill_manual(values = c("#66A61EFF", "#E6AB02FF")) + # housing colors
-  scale_alpha_manual(values = c(.65,.8)) +
-  scale_color_manual(values = c("#c90076","#125CCC")) +
-
-  # guides(y.sec = 'axis') + # adds 2nd y axis (right side)
+  scale_color_manual(values = c("#d33682", "#268bd2"),
+                     name = "Sex (Year)") +
+  scale_y_continuous(labels = label_number(accuracy = 0.1)) + # 1dp
   
-    labs(title = "\U2193 Downregulated in EE ") +
+    labs(title = "\U2193 Downregulated in EE",
+       # subtitle = "Above adj.p > .05 but below adj.p <.23"
+       ) +
   
-  facet_wrap(~gene, ncol = 6, scales = "free_y") +
+  facet_wrap(~gene, ncol = 6, scale = "free_y") +
   my_psum_facet_theme
-  # theme_bw()
 
 EE_facet_down_plot
 ```
 
 ```{r}
 plot_grid(EE_facet_up_plot,EE_facet_down_plot, ncol = 1,
-          labels = c("a", "b"), rel_heights = c(1.2,2),
+          labels = c("a", "b"), 
+          # rel_heights = c(1.17,2),
+          rel_heights = c(1,3.75),
           label_size = 11, label_colour = "grey10")
 
 # ggsave("2026_02_27_EE_facet_all_16_sig_psum_v6.png", dpi = 330) # 9 x 8.5
+# 2026_08_23_EE_psum_16_sig_cowplot_v2_7x625 # 7x6.25 ish sweet spot + or -
+# 2026_08_23_EE_psum_16_sig_cowplot_v2_7x625 # 7x6.25 ish sweet spot + or -
 ```
 
 ## AGE FACET
@@ -785,9 +761,10 @@ plot_grid(EE_facet_up_plot,EE_facet_down_plot, ncol = 1,
 # AGE UP
 Age_facet_up_prot_list <- mapped_comp %>%
   filter(Label == "A_YNG_vs_OLD" & adj.pvalue < 0.05 & Direction == "Up") %>%
-    slice_min(adj.pvalue, n = 18) %>%
-    pull(Protein)
+    slice_min(adj.pvalue, n = 54) %>%
+    pull(Protein) 
 
+Age_facet_up_prot_list <- Age_facet_up_prot_list[19:54]
   
 Age_facet_up_plot <- mapped_psum %>%
   
@@ -800,43 +777,29 @@ Age_facet_up_plot <- mapped_psum %>%
   ggplot(aes(x = interaction(Age, Housing, 
                              sep = "\n", # space
                              lex.order = TRUE),
-             y = Abundance,
-             fill = Housing, alpha = Age, color = Sex)) +
+             y = Abundance, fill = Housing, color = Sex)) +
   
-  
-  geom_boxplot(width = 0.6, size = 0.7, linewidth = 0.3,
+ geom_boxplot(width = 0.55, size = 0.7, median.linewidth = .45, linewidth = 0.2,
                position = position_dodge(width = 0.7),
                outlier.shape = NA,
-               color = "grey10") +
+               color = "grey10", alpha = 0.75) +
   stat_summary(fun=mean, geom="point", position = position_dodge(width = 0.7),
-               shape=4, size = 1, stroke = 0.5, color ="grey10") +
-   geom_point( size = .7, shape = 1, stroke = .3, 
-             position = position_jitterdodge(dodge.width = 0.4, jitter.width = 0.2)) +
+               shape=4, size = 1.1, stroke = 0.3, color ="grey10") +
+  ggrastr::geom_point_rast(size = .3, shape = 1, stroke = .3, alpha = 0.5,
+        position = position_jitterdodge(dodge.width = 0.4, jitter.width = 0.2),
+                          raster.dpi = getOption("ggrastr.default.dpi", 330)) +
 
-  
   scale_fill_manual(values = c("#66A61EFF", "#E6AB02FF")) + # housing colors
-  scale_alpha_manual(values = c(.65,.8)) +
-  scale_color_manual(values = c("#c90076","#125CCC")) +
-
+  scale_color_manual(values = c("#d33682", "#268bd2"),
+                     name = "Sex (Year)") +
+  scale_y_continuous(labels = label_number(accuracy = 0.1)) + # 1dp
   # guides(y.sec = 'axis') + # adds 2nd y axis (right side)
   
-    labs(title = "\U2191 Upregulated in YNG ") +
+  labs(title = "\U2191 Upregulated in YNG ") +
   
   facet_wrap(~gene, ncol = 6, scale = "free_y") +
-  my_theme +
-  theme(
-    axis.text.y = element_text(size = 7.5, color ="grey10"),
-    axis.text.x = element_text(size = 7, color ="grey10"),
-    axis.title.x = element_blank(),
-    panel.spacing = unit(0.2, "cm"),  # Removes space between panel 
-    legend.margin = margin(0,0,0,0), # space between plot & legend
-    axis.ticks = element_line(size=0.1, colour = "grey15"),
-    panel.border = element_rect(fill = NA, color = "grey10"), #plot borders
-    strip.background = element_rect(color = 'grey10', fill = 'grey90'), 
-          panel.grid.major = element_line(color = "grey95"),
-        panel.grid.minor = element_line(color = "grey99"),
-  )
-  
+    my_psum_facet_theme
+
 
 Age_facet_up_plot
 ```
@@ -845,69 +808,48 @@ Age_facet_up_plot
 # AGE Down
 Age_facet_down_prot_list <- mapped_comp %>%
   filter(Label == "A_YNG_vs_OLD" & adj.pvalue < 0.05 & Direction == "Down") %>%
-    slice_min(adj.pvalue, n = 18) %>%
+    slice_min(adj.pvalue, n = 54) %>%
     pull(Protein)
 
+Age_facet_down_prot_list <- Age_facet_down_prot_list[19:54]
 
 Age_facet_down_plot <- mapped_psum %>%
-  
   mutate(Condition = forcats::fct_reorder(Condition, PND)) %>% # reoder by PND (no)
-  
-  
   filter(Protein %in% Age_facet_down_prot_list) %>%
-
-  
-  
   
   ggplot(aes(x = interaction(Age, Housing, 
                              sep = "\n", # space
                              lex.order = TRUE),
-             y = Abundance,
-             fill = Housing, alpha = Age, color = Sex)) +
+             y = Abundance, fill = Housing, color = Sex)) +
   
-  
-  geom_boxplot(width = 0.6, size = 0.7, linewidth = 0.3,
+  geom_boxplot(width = 0.55, size = 0.7, median.linewidth = .45, linewidth = 0.2,
                position = position_dodge(width = 0.7),
                outlier.shape = NA,
-               color = "grey10") +
+               color = "grey10", alpha = 0.75) +
   stat_summary(fun=mean, geom="point", position = position_dodge(width = 0.7),
-               shape=4, size = 1, stroke = 0.5, color ="grey10") +
-   geom_point( size = .7, shape = 1, stroke = .3, 
-             position = position_jitterdodge(dodge.width = 0.4, jitter.width = 0.2)) +
-
+               shape=4, size = 1.1, stroke = 0.3, color ="grey10") +
+  ggrastr::geom_point_rast(size = .3, shape = 1, stroke = .3, alpha = 0.5,
+                           position = position_jitterdodge(dodge.width = 0.4,
+                                                           jitter.width = 0.2),
+                           raster.dpi = getOption("ggrastr.default.dpi", 330)) +
   
   scale_fill_manual(values = c("#66A61EFF", "#E6AB02FF")) + # housing colors
-  scale_alpha_manual(values = c(.65,.8)) +
-  scale_color_manual(values = c("#c90076","#125CCC")) +
-
-  # guides(y.sec = 'axis') + # adds 2nd y axis (right side)
-  
-    labs(title = "\U2193 Downregulated in YNG ") +
-  
+  scale_color_manual(values = c("#d33682", "#268bd2"),
+                     name = "Sex (Year)") +
+  scale_y_continuous(labels = label_number(accuracy = 0.1)) + # 1dp
+  labs(title = "\U2193 Downregulated in YNG ") +
   facet_wrap(~gene, ncol = 6, scale = "free_y") +
-  my_theme +
-  theme(
-    axis.text.y = element_text(size = 7.5, color ="grey10"),
-    axis.text.x = element_text(size = 7, color ="grey10"),
-    axis.title.x = element_blank(),
-    panel.spacing = unit(0.2, "cm"),  # Removes space between panel 
-    legend.margin = margin(0,0,0,0), # space between plot & legend
-    axis.ticks = element_line(size=0.1, colour = "grey15"),
-    panel.border = element_rect(fill = NA, color = "grey10"), #plot borders
-    strip.background = element_rect(color = 'grey10', fill = 'grey90'), 
-          panel.grid.major = element_line(color = "grey95"),
-        panel.grid.minor = element_line(color = "grey99"),
-  )
-  
+  my_psum_facet_theme
 
 Age_facet_down_plot
 ```
 
 ```{r}
 plot_grid(Age_facet_up_plot, Age_facet_down_plot, ncol = 1,
-          labels = c("A", "B"))
+          labels = c("a", "b"), label_size = 11, label_colour =  "grey10")
 
 # ggsave("2026_02_27_Age_facet_36_sig_psum_v3_330dpi.png", dpi = 330) # 9.79 x 12.6
+#2026_08_23_Age_psum_36_sig_cowplot_v2_7x1025.pdf - 7x.10.25 - sweetspot for pdf
 ```
 
 ```{r}
@@ -984,8 +926,12 @@ SynDiv <- mapped_comp %>%
 neuropep_inhib <- c( "Calb1", "Calb2", 'Cck',  "Npy", "Sst", 'Pvalb', "Vip",
                      "Tac1", 'Penk',  "Pcsk1n", "Pmch", "Folh1")
 
+vanOostrum_basic_markers <- c('Camk2a', 'Dat1', 'Slc6a3',
+                              'Gad2', 'Vip', 'Sst', 'Pvalb', 'Syn1'
+                              )
 
-#  'Slc17a7' - vGlut1, 'Slc32a1' - vGat
+
+#  'Slc17a7' - vGlut1, 'Slc32a1' - vGat , 'Slc6a3' - DAT
 vanOostrum_syn_pairs <- c('Syt12', 'Syt2',  'Sv2b', 'Sv2c',
                           'Rab3a', 'Rab3b', 'Magi1', 'Magi2',
                           'Fkbp1a', 'Fkbp4', 'Diras1', 'Diras2',
@@ -1000,7 +946,7 @@ vanOostrum_syn_pairs <- c('Syt12', 'Syt2',  'Sv2b', 'Sv2c',
 
 # GLUTAMATE
 # filter( #gene %in% c("Camk2a") | #glutamate
-#        grepl("^Gria|^Grin|^Grm|Grik|Slc1a|Slc17a", gene))
+#        grepl("^Gria|^Grin|^Grm|Grik|Slc1a|Slc17a|Cacng", gene))
 
 # Glial - Myelin, Astrocytes, Microglia
 glial <- c('Mbp', 'Mag','Mog', 'Omg', 'Olig1', 'Olig2', 'Sox10', 'Plp1', # myelin/olig
@@ -1033,31 +979,34 @@ EE_syn_check <- mapped_psum %>%
   #          grepl("^Gabb|^Gabr|^Slc6a", gene)) %>%
   
   # filter( #gene %in% c("Camk2a") | #glutamate
-  #        grepl("^Gria|^Grin|^Grm|Grik|Slc1a|Slc17a", gene)) %>%
+  #        grepl("^Gria|^Grin|^Grm|Grik|Slc1a|Slc17a|Cacng", gene)) %>%
   
   # filter(gene %in% glial) %>%
   
-  filter(gene %in% PNN) %>%
+  # filter(gene %in% PNN) %>%
+  
+  filter(gene %in% vanOostrum_basic_markers) %>%
   
   ggplot(aes(x = interaction(Age, Housing, 
                              sep = "\n", # space
                              lex.order = TRUE),
              y = Abundance,
-             fill = Housing, alpha = Age, color = Sex)) +
-  geom_boxplot(width = 0.5, size = 0.7, median.linewidth = .4, linewidth = 0.2,
+             fill = Housing, color = Sex)) +
+  geom_boxplot(width = 0.55, size = 0.7, median.linewidth = .45, linewidth = 0.2,
                position = position_dodge(width = 0.7),
                outlier.shape = NA,
-               color = "grey10") +
+               color = "grey10", alpha = 0.75) +
   stat_summary(fun=mean, geom="point", position = position_dodge(width = 0.7),
-               shape=4, size = 1, stroke = 0.25, color ="grey10") +
+               shape=4, size = 1.1, stroke = 0.3, color ="grey10") +
   
   ggrastr::geom_point_rast(size = .3, shape = 1, stroke = .3, alpha = 0.5,
                 position = position_jitterdodge(dodge.width = 0.4, jitter.width = 0.2),
                             raster.dpi = getOption("ggrastr.default.dpi", 330)) +
   
   scale_fill_manual(values = c("#66A61EFF", "#E6AB02FF")) + # housing colors
-  scale_alpha_manual(values = c(.7,.75)) +
-  scale_color_manual(values = c("#d33682", "#268bd2")) +
+  # scale_alpha_manual(values = c(.7,.75)) +
+  scale_color_manual(values = c("#d33682", "#268bd2"),
+                     name = "Sex (Year)") +
   # guides(y.sec = 'axis') + # adds 2nd y axis (right side)
   scale_y_continuous(labels = label_number(accuracy = 0.1)) + # 1dp
   facet_wrap(~gene, ncol = 7, scale = "free_y") +
