@@ -19,7 +19,7 @@ set.seed(123) # for reproducibility
 
 # Load Packages 
 library(tidyverse) # for dplyr, ggplot, stringr, readr, purrr, tibble, tidyr etc 
-# library(clusterProfiler) #GSEA includes gsea, enrichplot etc
+library(clusterProfiler) #GSEA includes gsea, enrichplot etc
 library(topGO) # needed for clusterProfiler's plotGOgraph() graph
 library(msigdbr) # MSigDB gene sets
 library(enrichplot) #emapplot, etc
@@ -643,23 +643,167 @@ plotGOgraph(GO_gsea_EExAge_msstats_v3.2.2_t1_cp_v3.4.2_t2$GO_results$H_EE_vs_SH$
 
 # TO CONTINUE - look \# cnetplot & ggtangle options to fix!
 
+<https://github.com/YuLab-SMU/enrichplot/issues/322>
+
+geom_edge(aes(linetype = relationship),
+
+arrow = arrow(length = unit(2, 'mm')),
+
+colour = "darkgrey", position = position, linewidth = 1) +
+
+Simplified has more unique but arranges hierarchy a bit weirdly
+
+20 is the sweet spot for full page appendix figure e.g. - HxA_EE_OLD_vs_SH_OLD\$CC
+
 ```{r}
+# TEST PLOT 
+set.seed(123)
 # clusterProfiler's version of the plotGOgraph - goplot
 # see v2 clusterProfiler script for modifying emapplot - same principles here!
-goplot(
-  # GO_gsea_EExAge_msstats_v3.2.2_t1_cp_v3.4.2_t2$GO_results$H_EE_vs_SH$CC,
-   GO_gsea_EExAge_cp_v3.4.2_t2_simplified$sim_GO_res$H_EE_vs_SH$BP,
-       color = "NES", geom = "text", showCategory = 10) +
+go_p <- goplot(
+  GO_gsea_EExAge_msstats_v3.2.2_t1_cp_v3.4.2_t2$GO_results$HxA_EE_OLD_vs_SH_OLD$MF,
+    # GO_gsea_EExAge_cp_v3.4.2_t2_simplified$sim_GO_res$HxA_EE_OLD_vs_SH_OLD$CC,
+  color = "NES",
+  geom = "label",
+  showCategory = 20,
+  layout = igraph::layout_with_sugiyama, # default for DAG
+  ID = "Description") +
   
-  # geom_point(aes(alpha = "p.adjust"), size=6) +
-  scale_color_continuous_diverging("Blue-Red 2", name = "NES") #+
-  # scale_fill_discrete_divergingx("Temps") +
-  # geom_cnet_label(node_label = "all", # from ggtangle
-  #                 size = 2, color = "grey10",
-  #                 fontface = "italic")
+  scale_fill_continuous_diverging("Blue-Red 2", name = "NES", alpha = .95,
+                                  na.value = scales::alpha("grey90", 0.70)) +
+  theme(
+    legend.position = "bottom",
+    legend.key.size = unit(0.3, "cm"),
+    legend.title = element_text(size = 8, color = "grey10"),
+    legend.text = element_text(size = 7, color = "grey10"),
+    legend.margin = margin(-5,0,5,0),
+    plot.background = element_rect(fill = "#DDE9D6", color = NA),
+    plot.margin = margin(t = 0, r = 5, b = 0, l = 5, unit = "pt") # add space 2 margin
+  ) 
+
+# FINETUNING AESTHETICS
+# lines & arrows
+go_p$layers[[1]]$aes_params$linewidth <- 0.5
+
+# geoms
+go_p$layers[[2]]$aes_params$colour <- "grey10"
+go_p$layers[[2]]$aes_params$size <- 3 # overwrite layer w/ size
+# go_p$layers[[2]]$geom_params$max.overlaps <- 15
+go_p$layers[[2]]$geom_params$box.padding <- 0 # gets rid of weird black lines?
+
+
+# ## COLOR GO MF, BP, CC Label
+# # matches node_data with _ e.g Molecular_Function, or Biological_Process
+# root_row <- node_data[grepl("_", node_data$Term), ]
+# 
+# go_p <- go_p + # color separately with orange bg
+#   annotate("label",
+#            x = root_row$x, y = root_row$y,
+#            label = root_row$Term, alpha = 0.9,
+#            fill = "orange", size =3.9)
+
+go_p
 
 #args(goplot)
+# go_p$layers[[1]] # segments/lines
+# go_p$layers[[2]] # geom/box - get settings 
 ```
+
+### GO Plot Loop
+
+#### set up
+
+```{r}
+comp_colors <- c( # comparison colors
+  "H_EE_vs_SH"  = "#D3E3CA", # HOUSING
+  "HxA_EE_YNG_vs_SH_YNG" = "#E4EEDF",
+  "HxA_EE_OLD_vs_SH_OLD" = "#E4EEDF",
+  
+  "A_YNG_vs_OLD" = "#DBD9E8", # AGE
+    "HxA_EE_YNG_vs_EE_OLD" = "#EAE8F1",
+    "HxA_SH_YNG_vs_SH_OLD" = "#EAE8F1",
+  
+  "HxA_EE_YNG_vs_SH_OLD" = "#FFFFFF", # extras
+  "HxA_EE_OLD_vs_SH_YNG" = "#FFFFFF"
+)
+
+GP_comps <- names(GO_gsea_EExAge_msstats_v3.2.2_t1_cp_v3.4.2_t2$GO_results[1:6]) # list of comparisons 
+
+ontologies <- c("BP", "CC","MF") # GO ontology types 
+
+GO_plots_list <- list() #empty vector for go plots
+```
+
+#### loop
+
+```{r}
+for (comp in GP_comps) {
+  for (ont in ontologies) {
+    
+    res <- GO_gsea_EExAge_msstats_v3.2.2_t1_cp_v3.4.2_t2$GO_results[[comp]][[ont]] # regular
+    
+    go_p <- tryCatch({
+      p <- goplot(res, # GO PLOT 
+        color = "NES", geom = "label", showCategory = 25) +
+        
+        scale_fill_continuous_diverging("Blue-Red 2", alpha = .95, name = "NES",  # fill color
+                                        na.value = scales::alpha("grey90", 0.70)) +
+        
+      labs(subtitle = sprintf("GO DAG Plot (%s) - Top 25 from %s", ont, comp)) +
+
+        theme(legend.position = "bottom", # THEME
+              legend.key.size = unit(0.35, "cm"),
+              legend.title = element_text(size = 7.5, color = "grey10"),
+              legend.text = element_text(size = 7, color = "grey10"),
+              legend.margin = margin(-5,0,5,0),
+              plot.subtitle = element_text(size = 9, color = "grey10", face = "italic"),
+              plot.background = element_rect(fill = comp_colors[[comp]], # compcol
+                                             color = NA),
+              plot.margin = margin(t = 0, r = 5, b = 0, l = 5, unit = "pt")) 
+        
+      # FINETUNING AESTHETICS
+      # lines & arrows
+      p$layers[[1]]$aes_params$linewidth <- 0.5
+      # geoms
+      p$layers[[2]]$aes_params$colour <- "grey10"
+      p$layers[[2]]$aes_params$size <- 3 # overwrite layer w/ size
+      p$layers[[2]]$geom_params$box.padding <- 0 # gets rid of weird blacklines?
+      
+      p # print plot 
+      
+      
+    }, error = function(e) { # IF failed e.g. no
+      message(sprintf("failed plot for %s: %s :(", comp, e$message))
+      NULL
+    })
+    
+    
+    # SAVE TO LIST
+    GO_plots_list[[comp]][[ont]] <- go_p
+    
+    if (!is.null(go_p)) { # EXPORT
+    ggsave( #PDF
+      filename = sprintf("%s_GOplot_DAG_GO_%s_%s_top25_8x12.pdf", Sys.Date(), comp, ont),
+      plot=go_p, width=8, height=12, units="in")
+    
+    ggsave( # PNG
+      filename = sprintf("%s_GOplot_DAG_GO_%s_%s_top25_8x12.png", Sys.Date(), comp, ont),
+      plot=go_p, width=8, height=12, units="in")
+    }
+    
+  }
+}
+
+# e.g. error message is failed plot for HxA_EE_YNG_vs_SH_OLD: Some vertex names in `d` are not listed in `vertices` :(
+```
+
+```{r}
+plot_grid(GO_plots_list$H_EE_vs_SH$CC,GO_plots_list$H_EE_vs_SH$BP)
+plot_grid(GO_plots_list$H_EE_YNG_vs_SH_YNG$CC,GO_plots_list$H_EE_YNG_vs_SH_YNG$BP)
+plot_grid(GO_plots_list$A_YNG_vs_OLD$CC,GO_plots_list$A_YNG_vs_OLD$BP)
+```
+
+## Other plots 
 
 ```{r}
 enrichplot::manhattanplot(GO_gsea_EExAge_msstats_v3.2.2_t1_cp_v3.4.2_t2$GO_results$H_EE_vs_SH$MF)
@@ -712,7 +856,7 @@ GO_CC_POI <- unique(GO_tibs_df_6$ID) # 705 omg! nvm too many
 
 GO_sim_tibs_df_6_split_brain <- GO_sim_tibs_df_6_split %>%
   filter(Label %in%  c("H_EE_vs_SH", "A_YNG_vs_OLD")) %>%
-  filter(str_detect(Description, regex("axon|dendrite|schwann|myelin|glutamate|gaba|synap|dense|bouton|nerve|neuro|vesicle", ignore_case = TRUE)))
+  filter(str_detect(Description, regex("axon|dendrite|schwann|myelin|glutamate|gaba|synap|dense|bouton|nerve|neuro|vesicle|paranodal", ignore_case = TRUE))) #43
 
 GO_ONT <- c("CC", "BP", "MF")
 unique_brain <- unique(GO_sim_tibs_df_6_split_brain$ID)
@@ -723,7 +867,6 @@ GO_brain_volcano_list <- vector(mode = "list")
 ```{r}
 for(go in unique_brain) {
   # HUH? error caused by capital GO?!?!, but go okay? weird! or conflict w/ GO col
-  
   
   
   # 1 - PREPARE THE DATA
@@ -758,6 +901,16 @@ for(go in unique_brain) {
   prot_sums <- my_prots %>% # this is needed to avoid overplotting
     dplyr::select(Label, up, down) %>%
     unique()
+  
+  mapped_totals <- my_prots %>%  # for mapped total
+    ungroup() %>%
+    summarise(n_distinct(gene)) %>%
+    tibble::deframe()
+  
+  gs_size <- GO_sim_tibs_df_6_split %>% # for geneset size
+    filter(ID == go) %>%
+    dplyr::distinct(setSize) %>%
+    tibble::deframe()
   
   
   path_sig <- GO_sim_tibs_df_6 %>% # GET DETAILS FOR ANNOTATING SIG 
@@ -794,7 +947,17 @@ for(go in unique_brain) {
     
     ggplot(aes(x = log2FC, y = -log10(adj.pvalue))) +
     
-    geom_point(aes(fill = case_when( # conditional ass for color mapping
+
+    geom_hline(yintercept = -log10(0.05),
+               linetype = "dashed", linewidth = 0.1,
+               color = "grey30") +
+    geom_hline(yintercept = -log10(0.1),linetype = "dotted",
+               linewidth = 0.1, color = "grey45") +
+    geom_vline(xintercept = c(0),linetype = "solid",
+               linewidth = 0.1, color = "grey20") +
+
+    
+    ggrastr::geom_point_rast(aes(fill = case_when( # condit ass for color mapping
       adj.pvalue < 0.05 & log2FC > 0 ~ "up_adjp.05", # up sig .05
       adj.pvalue < 0.05 & log2FC < 0 ~ "down_adjp.05", # down sig .05
       adj.pvalue < 0.1 & log2FC > 0 ~ "up_adjp.1", # up 0.1
@@ -806,7 +969,8 @@ for(go in unique_brain) {
         adj.pvalue < 0.1 & log2FC > 0 ~ "up_adjp.1", # up 0.1
         adj.pvalue < 0.1 & log2FC < 0 ~ "down_adjp.1", # down .1
         TRUE ~ "ns" )), # catch the rest
-       size = 1.6, shape = 21, stroke = 0.01) +
+       size = 1.7, shape = 21, stroke = 0.03,
+      raster.dpi = getOption("ggrastr.default.dpi", 330)) +
     
     scale_fill_manual(values = c("firebrick", # coloring
                                   "royalblue3",
@@ -825,83 +989,72 @@ for(go in unique_brain) {
                                   "ns")) +
     scale_alpha_manual( # alpha mapping
       values = c( # darker for more significant!
-        up_adjp.05  = 0.2,
-        down_adjp.05 = 0.2,
-        up_adjp.1   = 0.2,
-        down_adjp.1 = 0.2,
-        ns = 0.1
-      )) +
+        up_adjp.05  = 0.3,
+        down_adjp.05 = 0.3,
+        up_adjp.1   = 0.3,
+        down_adjp.1 = 0.3,
+        ns = 0.1)) +
     
     
-    geom_point(data = my_prots, # ORGANE POINTS
-               aes(x = log2FC, y = -log10(adj.pvalue)),
-               alpha = .4, size = 1.5, shape = 21,
-               fill = "#E17C05FF", color = "#FCA842FF") +
-
+    geom_point_rast(data = my_prots, # ORGANE POINTS | ggrastr
+                    aes(x = log2FC, y = -log10(adj.pvalue)),
+                    alpha = .5, size = 1.75, shape = 21,
+                    fill = "#E17C05FF", color = "#FCA842FF",
+                    raster.dpi = getOption("ggrastr.default.dpi", 330)) + 
+    
     geom_text_repel(data =  my_lg_prot, # TOP 6 MOST SIG ANNO
                     aes(x = log2FC, y = -log10(adj.pvalue),
                         label = gene,
                         color = log2FC > 0), # color mapping (see below)
                     max.overlaps = 30, size = 2.1, # gene text on points
-                    min.segment.length = .5, segment.alpha = 0.5,
-                    segment.size = 0.2) +
-                    # nudge_x = 0.155) +
+                    min.segment.length = .5, segment.alpha = 0.3,
+                    segment.size = 0.2, alpha = 0.9) +
 
 
     # NUM SIG UP & DOWN! | use sep df, overwise overplots
     geom_text(data = prot_sums, # up
               aes(label = paste0(up, " \U2191")),
-              x = 1.4, y = 5.65, size = 3.1, color = "firebrick") +
+              x = 1.4, y = 5.6, size = 3.2, color = "firebrick") +
     geom_text(data = prot_sums, # down
               aes(label = paste0(down, " \U2193")),
-              x = -1.45, y = 5.65, size = 3.1, color = "royalblue3") +
+              x = -1.45, y = 5.6, size = 3.2, color = "royalblue3") +
 
 
     geom_text(data = path_sig_lab, # GSEA SIGNIFICANCE LABEL
               aes(label = paste0(sig_val),
-                  y = 4.9,
+                  y = 4.85,
                   x = ifelse(NES > 0, 1.525, -1.525), # side if neg or pos
                   color = NES > 0), # col - TRUE FALSE
-              size = 3.2) +
+              size = 3.3) +
     scale_color_manual( # based on TRUE FALSE give color!
       values = c(`TRUE` = "firebrick", `FALSE` = "royalblue3")) +
-
-
+    
+    
     # limits - rm 17 (but none are leading edge - shrunken for comparisons)
     scale_x_continuous(limits = c(-2,2),
                        expand = c(0, 0)) +
     scale_y_continuous(limits = c(0,6),
                        expand = c(0.04, 0)) +
-
-    geom_hline(yintercept = -log10(0.05),
-               linetype = "dashed", linewidth = 0.1,
-               color = "grey30") +
-    geom_hline(yintercept = -log10(0.1),linetype = "dotted",
-               linewidth = 0.1, color = "grey45") +
-    geom_vline(xintercept = c(0),linetype = "solid",
-               linewidth = 0.1, color = "grey20") +
-
-
-    labs(subtitle = paste0("GO ", my_go, " - ", my_title, " (", my_id, ")")) +
-
-
-    # facet_wrap(~Label, nrow = 1) +
+    
+    
+    labs(subtitle = paste0("GO ", my_go, " - ", my_title, " (", my_id, ") (",
+                           mapped_totals, "/", gs_size, ")")) +
+    
     facet_wrap2(~Label, nrow = 1,
-                strip = strip
-                ) +
-
+                strip = strip) + 
+    
     theme_bw() +
     theme(
-      # strip.background.x = element_rect(fill = my_level_colors),
       legend.position = "none",
-      plot.subtitle = element_text(size = 8.5, vjust = 0),
-      axis.title = element_text(size =7.5),
-      axis.text = element_text(size =7),
+      plot.subtitle = element_text(size = 8, vjust = 0, color = "grey10"),
+      axis.title = element_text(size =7, color = "grey10"),
+      axis.text = element_text(size =6.5, color = "grey10"),
       axis.ticks = element_blank(),
-      strip.text = element_text(size = 6.5),
-      panel.grid = element_blank()
+      strip.text = element_text(size = 6.2, color = "grey10"),
+      panel.grid = element_blank(),
+      strip.background = element_rect(linewidth = 0.25, color = "grey10"),
+      panel.border = element_rect(linewidth = 0.25, color = "grey10")
     )
-  
   
   print(vol_plot)
   
@@ -912,4 +1065,9 @@ for(go in unique_brain) {
   print(paste0("Done for ", go, "! :D"))
   
 }
+```
+
+```{r}
+plot_grid(plotlist = GO_brain_volcano_list[37:43],
+          ncol = 2)
 ```
