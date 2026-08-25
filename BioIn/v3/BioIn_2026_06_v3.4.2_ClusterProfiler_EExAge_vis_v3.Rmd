@@ -803,7 +803,7 @@ plot_grid(GO_plots_list$H_EE_YNG_vs_SH_YNG$CC,GO_plots_list$H_EE_YNG_vs_SH_YNG$B
 plot_grid(GO_plots_list$A_YNG_vs_OLD$CC,GO_plots_list$A_YNG_vs_OLD$BP)
 ```
 
-## Other plots 
+## Other plots
 
 ```{r}
 enrichplot::manhattanplot(GO_gsea_EExAge_msstats_v3.2.2_t1_cp_v3.4.2_t2$GO_results$H_EE_vs_SH$MF)
@@ -851,12 +851,15 @@ GO_sim_tibs_df_6_split  <- GO_sim_tibs_df_6 %>%
 ```
 
 ```{r}
-GO_CC_POI <- unique(GO_tibs_df_6$ID) # 705 omg! nvm too many 
+# GO_CC_POI <- unique(GO_tibs_df_6$ID) # 705 omg! nvm too many 
 
 
 GO_sim_tibs_df_6_split_brain <- GO_sim_tibs_df_6_split %>%
   filter(Label %in%  c("H_EE_vs_SH", "A_YNG_vs_OLD")) %>%
-  filter(str_detect(Description, regex("axon|dendrite|schwann|myelin|glutamate|gaba|synap|dense|bouton|nerve|neuro|vesicle|paranodal", ignore_case = TRUE))) #43
+  filter(str_detect(Description, regex(
+    # "axon|dendrite|schwann|myelin|glutamate|gaba|synap|dense|bouton|nerve|neuro|vesicle|paranodal",
+    "proton-transporting two-sector ATPase complex|monoatomic ion channel complex|proton-transporting ATP synthase complex|proton-transporting two-sector ATPase complex|channel activity",
+    ignore_case = TRUE))) #43
 
 GO_ONT <- c("CC", "BP", "MF")
 unique_brain <- unique(GO_sim_tibs_df_6_split_brain$ID)
@@ -1070,4 +1073,9 @@ for(go in unique_brain) {
 ```{r}
 plot_grid(plotlist = GO_brain_volcano_list[37:43],
           ncol = 2)
+```
+
+```{r}
+plot_grid(plotlist = GO_brain_volcano_list[1:4],
+          ncol = 1)
 ```
