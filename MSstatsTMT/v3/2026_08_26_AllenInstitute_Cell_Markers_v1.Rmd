@@ -1,0 +1,81 @@
+---
+title: "2026_08_26_AllenInstitute_Cell_Markers_v1"
+author: "Stephanie Huang"
+date: "2026-08-26"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Allen Institute Cell Markers
+
+```{r}
+library(readxl)
+library(tidyverse)
+```
+
+# Wang et al., 2025 
+
+Human brain - gestational to infancy (adolescence?) - 29 cell types - classification of early lineages.
+
+- 300-gene panel marker (differentiating 29 cell-types)
+
+- Data from Supplementary File 3 - Sheet 1 (Supplementary Table 3a) containing the top 50 marker genes per cluster
+
+- Data from Supplementary File 5 - Sheet
+
+```{r}
+#top 50 markers per cluster | 8000 x 7 
+s3b_df <- read_excel("input/db/Wang_2025_AllenInstitute_Supp_3.xlsx",
+                     sheet = 'Supplementary Table 3b', skip = 1)
+
+# top 300 curated MERFISH panel (need 2 map to clusters) | 300 x 2
+s5b_df <- read_excel("input/db/Wang_2025_AllenInstitute_Supp_5.xlsx",
+                    sheet = 'Supplementary Table 5b', skip = 1)
+
+# MERFISH cell level data | big sheet 404030 x 13
+s6_df <- read_excel("input/db/Wang_2025_AllenInstitute_Supp_6.xlsx",
+                    sheet = 'Supplementary Table 6', skip = 1)
+```
+
+```{r}
+str(s6_df)
+unique(s6_df$Region) # V1 or PFC
+unique(s6_df$Group) # 2nd tri, 3rd tri, Infancy
+unique(s6_df$Subclass) # 10
+unique(s6_df$Type) # 29! okay so 29 is from this?
+length(unique(s6_df$Cluster)) # 75 - nope
+# length(unique(s3_df$r)) # 160
+
+
+s6_df_trm <- s6_df %>%
+  select(Class:Type) %>% 
+  unique() # drop to unique only - 29
+```
+
+```{r}
+s3b_s5b <- left_join(s3b_df, s5b_df, #8000x8
+                   by = join_by(Gene == `Gene Name`)) 
+
+
+unique(s3b_s5b$Gene) # not 300?? when ensembl only?
+```
+
+```{r}
+s3_s5_s6 <- left_join(s3b_s5b,s6_df_trm,
+                      by = join_by(`Cell type` == Type)) # 1700 x 10
+```
+
+```{r}
+# MAPPING MAKES SENSE NOW - GFAP astrocyte, SST GABA
+s3_s5_s6_check <- s3_s5_s6 %>%
+  filter(str_detect(regex("GFAP|SST|PENK|GRIA1|SVEP1|NPY|CCK|GRIA4",
+                          ignore_case = TRUE), Gene))
+```
+
+```{r}
+s3_s5_s6_curated <- s3_s5_s6 %>%
+            drop_na(`ENSEMBL ID`)
+```
