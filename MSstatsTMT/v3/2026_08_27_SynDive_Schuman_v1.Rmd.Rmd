@@ -1,0 +1,239 @@
+---
+title: "2026_08_27_SynDive_Schuman_v1.Rmd"
+output: html_document
+---
+
+- <https://syndive.org/>
+
+- <https://brain.mpg.de/schuman>
+
+- <https://r4ds.hadley.nz/arrow.html> (for Apache Parquet format - arrow package)
+
+- <https://jolars.github.io/eulerr/articles/visualization.html#labeling>
+
+```{r}
+library(tidyverse)
+library(arrow) # for parquet
+library(eulerr)
+library(UpSetR)
+library(cowplot)
+library(ggh4x)
+```
+
+```{r}
+# Differential Synaptic Protein Abundance across Synapse Types
+df1 <- read_parquet("input/db/syndiveDataset_vanoostrum_mm_proteomics_SynapticProteomeFoldChangeFractions.parquet")
+
+# Expressed Synaptic Proteins across Brain Regions and Cell Types
+df2 <- read_parquet("input/db/syndiveDataset_vanoostrum_mm_proteomics_SynapticProteomeExpression.parquet")
+
+# Synapse-Type Enriched Proteins across Brain Regions
+df3 <- read_parquet("input/db/syndiveDataset_vanoostrum_mm_proteomics_SynapticProteomeEnrichedType.parquet")
+```
+
+```{r}
+#comp
+load("input/MSstatsTMT/comp/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_comp.rda") 
+```
+
+```{r}
+comp <- mapped_comp_v3.2.2_EExAge_t1 
+
+comp <-  comp %>%
+  filter(is.na(issue)) %>% # keeps rows with issue == na (so comps that are ok)
+  filter(!str_detect(log2FC, "Inf")) %>% # remove infinity/missing FC values
+  filter(!(Label %in% c("HxA_EE_YNG_vs_SH_OLD","HxA_EE_OLD_vs_SH_YNG"))) %>%
+  mutate(Direction = if_else(log2FC > 0, "Up", "Down")) 
+
+
+comp$Label <- factor(comp$Label,
+                            levels = c( "H_EE_vs_SH",
+                                        "HxA_EE_YNG_vs_SH_YNG",
+                                        "HxA_EE_OLD_vs_SH_OLD",
+                                        "A_YNG_vs_OLD", 
+                                        "HxA_EE_YNG_vs_EE_OLD",
+                                        "HxA_SH_YNG_vs_SH_OLD"))   
+  
+```
+
+------------------------------------------------------------------------
+
+## df1
+
+```{r}
+str(df1)
+summary(df1)
+unique(df1$value_sample) # olf, hip, str, cereb, cortex + diff markers.
+
+
+df1_cortex <- df1 %>%
+  filter(str_detect(value_sample, regex("cortex", ignore_case = TRUE))) 
+
+df1_cortex_topg <- df1_cortex %>%
+  group_by(value_sample) %>%
+  filter(
+    min_rank(desc(value_numeric)) <= 25 | # most positive
+      min_rank(value_numeric) <= 25 # most negaitve
+  ) %>%
+  pull(gene_symbol)
+  
+# plot(df1_cortex$value_numeric) # holy middle after filtering
+```
+
+```{r}
+tile_1 <- df1_cortex %>%
+  filter(gene_symbol %in% df1_cortex_topg) %>%
+  ggplot(aes(x = value_sample, y = reorder(gene_symbol, value_numeric),
+             fill = value_numeric )) +
+  geom_tile(color = "grey10") +
+  colorspace::scale_fill_continuous_diverging("Blue-Red 2", mid = 0) +
+  theme(
+    # axis.text.x = element_text(angle = 90, hjust = 1),
+        axis.text.y = element_text(hjust = 1, face =  "italic"),
+         legend.key.size = unit(0.5, "cm")) # size of legend key icon)
+
+tile_1
+```
+
+------------------------------------------------------------------------
+
+## df3 +
+
+```{r}
+str(df3)
+summary(df3)
+unique(df3$value_sample) # olf, hip, str, cereb, cortex + diff markers.
+
+df3_cortex <- df3 %>%
+  filter(str_detect(value_sample, regex("cortex", ignore_case = TRUE))) %>%
+  filter(value_numeric == 1) %>% # gets presence
+  select(value_sample, gene_symbol) # select only 2 cols
+
+df3_cortex_list <- df3_cortex %>% # make list for eullerr
+  split(.$value_sample) %>%
+  map(~pull(., gene_symbol)) # gets 7 gene lists from each
+```
+
+```{r}
+#eulerr plot 
+# set.seed(123)
+plot(euler(df3_cortex_list,
+           # shape="ellipse"
+           ),
+     # quantities = TRUE,
+     quantities = list(type = c("percent", "counts")),
+      fill = list(fill = c("#2aa198", "#b58900", "#859900", "#cb4b16",
+                           "#dc322f", "#d33682", "#6c71c4")),
+     alpha = 0.5
+     
+     # labels = list(placement = "elbow"),
+     # main = "van Ossumm et al., 2023 - df3"
+     )
+
+# plot(euler(df3_cortex_list))
+```
+
+```{r}
+df3_gene_counts <- df3_cortex %>%
+  group_by(gene_symbol) %>%
+  summarise(n_types = n_distinct(value_sample), #no. unique brainareas gene is in
+            types = paste(sort(unique(value_sample)), collapse = " | "), # concat the cell types
+            .groups = "drop") # rm group to collapse
+
+df3_unique_genes <- df3_gene_counts %>% filter(n_types == 1) # lists genes that are only inone group/type
+df3_unique_genes %>% count(types, sort = TRUE) # tally of unique genes | matches eulerr percentages 
+
+
+df3_genes_all <- df3_gene_counts %>% filter(n_types == 7) # genes in all 7 
+
+df3_genes_2 <- df3_gene_counts %>% filter(n_types == 2) # genes in 2
+
+
+```
+
+### mapped tile plots
+
+```{r}
+comp_joined_1 <- left_join(comp, df3_unique_genes,
+                         by = join_by(gene == gene_symbol)) %>% # 64392 x 20 
+  drop_na(types) %>% # remove blank type -> 3328 x 20 
+  mutate(ranking = sign(log2FC)*(-log10(pvalue))) %>%
+  group_by(Label) %>%
+  filter(
+    min_rank(desc(ranking)) <= 100 | # most positive
+      min_rank(ranking) <=100 # most negaitve
+  )
+
+unique(comp_joined_1$gene) # >400
+unique(comp_joined_1$types) # all 7 seen! 
+```
+
+```{r}
+comp_colors <- c( # comparison colors
+  "H_EE_vs_SH"  = "#AFCC9F", # HOUSING
+  "HxA_EE_YNG_vs_SH_YNG" = "#D4E4CB",
+  "HxA_EE_OLD_vs_SH_OLD" = "#D4E4CB",
+  "A_YNG_vs_OLD" = "#BFBBD5", # AGE
+  "HxA_EE_YNG_vs_EE_OLD" = "#DDDCE9",
+  "HxA_SH_YNG_vs_SH_OLD" = "#DDDCE9")
+
+
+
+labels4tile <- unique(comp_joined_1$Label)
+tile_plots_list <- list()
+tile_plots_list_w_labs <- list()
+```
+
+```{r}
+for (lb in labels4tile) {
+  
+  
+  tile_df <- comp_joined_1 %>%
+    filter(Label == lb) %>% 
+    arrange(types, gene) %>%
+    mutate(gene = fct_inorder(gene)) 
+  
+  strip_color <- comp_colors[[lb]]
+  
+  
+  tileplot <- ggplot(tile_df, aes(x = Label, y = gene,
+                                  fill = types, color = Direction,
+                                  alpha = adj.pvalue)) +
+    geom_tile() +
+    
+    scale_color_manual(values = c("#2380c1","#d33682"))+
+    scale_fill_manual(values = c("#2aa198",  "#b58900", "#859900", "#cb4b16",
+                                 "#dc322f",  "#d33682", "#6c71c4")) +
+  scale_alpha_continuous(limits = c(0, 0.9), # fixed - so consistnet across
+                         range = c(1,0.35), # value range
+                         oob = scales::squish) + # so doesn't NA if out of range
+    
+  scale_x_discrete(expand = expansion(mult = c(0.0,0.0))) +
+  scale_y_discrete(expand = expansion(mult = c(0.0,0.0))) +
+    
+  facet_wrap(Label~Direction, scales = "free_y", space = "free_x")+
+
+    theme_bw() +
+    theme(
+      # legend.position = "none",
+      strip.background = element_rect(fill =strip_color), 
+      axis.text.y = element_text(hjust = 1, face =  "italic"),
+      axis.title = element_blank(),
+      axis.text.x = element_blank(),
+      axis.ticks.x = element_blank(),
+      legend.key.size = unit(0.3, "cm")) # size of legend key icon)
+  
+  print(tileplot)
+  
+  # tile_plots_list[[lb]] <-  tileplot # save
+  tile_plots_list_w_labs[[lb]] <-  tileplot # save
+}
+```
+
+```{r}
+# plot_grid(plotlist = c(tile_plots_list_nolg[4:5],tile_plots_list[1],
+#                        tile_plots_list_nolg[1:2],tile_plots_list[6]))
+
+plot_grid(plotlist= tile_plots_list[c(5,4,3,1,6,2)])
+# plot_grid(plotlist= tile_plots_list_w_labs[c(5,4,3,1,6,2)])
+```
