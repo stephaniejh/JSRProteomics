@@ -3,6 +3,10 @@ title: "2026_08_27_SynDive_Schuman_v1.Rmd"
 output: html_document
 ---
 
+***(van Oostrum et al., 2023)** The proteomic landscape of synaptic diversity across brain regions and cell types (Cell Resource)*
+
+- DOI: [10.1016/j.cell.2023.09.028](https://doi.org/10.1016/j.cell.2023.09.028)
+
 - <https://syndive.org/>
 
 - <https://brain.mpg.de/schuman>
@@ -11,13 +15,17 @@ output: html_document
 
 - <https://jolars.github.io/eulerr/articles/visualization.html#labeling>
 
+## Setup
+
 ```{r}
+library(readxl)
 library(tidyverse)
 library(arrow) # for parquet
 library(eulerr)
 library(UpSetR)
 library(cowplot)
 library(ggh4x)
+library(ggrepel)
 ```
 
 ```{r}
@@ -34,6 +42,10 @@ df3 <- read_parquet("input/db/syndiveDataset_vanoostrum_mm_proteomics_SynapticPr
 ```{r}
 #comp
 load("input/MSstatsTMT/comp/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_comp.rda") 
+#psum
+load("input/MSstatsTMT/psum/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_psum.rda") # 
+#anno
+anno <- read_csv("input/anno/EEv&SH_F&M_TMT_anno_v3_df_b_check_sorted_2025_12_31.csv") 
 ```
 
 ```{r}
@@ -53,10 +65,34 @@ comp$Label <- factor(comp$Label,
                                         "A_YNG_vs_OLD", 
                                         "HxA_EE_YNG_vs_EE_OLD",
                                         "HxA_SH_YNG_vs_SH_OLD"))   
-  
+```
+
+```{r}
+# Map details & shorten name
+psum <- left_join(mapped_psum_v3.2.2_EExAge,
+                                       anno,
+                                       by = join_by(
+                                         BioReplicate == BioReplicate,
+                                         Mixture == Mixture,
+                                         Channel == Channel)) %>%
+  dplyr::rename(Condition = Condition.x , Housing_c_anno = Condition.y) %>%
+  mutate(Age = ifelse(PND > 100, "OLD", "YNG")) %>%
+  mutate(Age = factor(Age, levels = c("YNG", "OLD"))) %>% # so YNG is 1st
+  mutate(across(c(Housing, Sex, Year, Cohort, Litter, exp_helper),
+         as.factor)) # auto alphabetical order (not really needed?)
+
+psum$Condition <- factor(psum$Condition,
+                         levels = c("EE_YNG", "SH_YNG",
+                                    "EE_OLD", "SH_OLD"))
+
+
+#Check 
+colnames(psum)
 ```
 
 ------------------------------------------------------------------------
+
+# Part 1 - Data from SynDive
 
 ## df1
 
@@ -97,7 +133,7 @@ tile_1
 
 ------------------------------------------------------------------------
 
-## df3 +
+## df3 + Venn prep
 
 ```{r}
 str(df3)
@@ -106,6 +142,15 @@ unique(df3$value_sample) # olf, hip, str, cereb, cortex + diff markers.
 
 df3_cortex <- df3 %>%
   filter(str_detect(value_sample, regex("cortex", ignore_case = TRUE))) %>%
+  mutate(value_sample = case_when(
+    value_sample == "cortex_Camk2a" ~ "Camk2a (cortex)",
+    value_sample == "cortex_Syn1" ~ "Syn1 (cortex)",
+    value_sample == "cortex_Gad2" ~ "Gad2 (cortex)",
+    value_sample == "cortex-inhibitory_Gad2" ~ "Gad2 (cortex-inhib)",
+    value_sample == "cortex-inhibitory_PV" ~ "Pvalb (cortex-inhib)",
+    value_sample == "cortex-inhibitory_SST" ~ "Sst (cortex-inhib)",
+    value_sample == "cortex-inhibitory_VIP" ~ "Vip (cortex-inhib)"
+  )) %>%
   filter(value_numeric == 1) %>% # gets presence
   select(value_sample, gene_symbol) # select only 2 cols
 
@@ -114,7 +159,9 @@ df3_cortex_list <- df3_cortex %>% # make list for eullerr
   map(~pull(., gene_symbol)) # gets 7 gene lists from each
 ```
 
-```{r}
+### Eulerr of shared & unique makers
+
+```{r fig.height=9, fig.width=12}
 #eulerr plot 
 # set.seed(123)
 plot(euler(df3_cortex_list,
@@ -125,7 +172,6 @@ plot(euler(df3_cortex_list,
       fill = list(fill = c("#2aa198", "#b58900", "#859900", "#cb4b16",
                            "#dc322f", "#d33682", "#6c71c4")),
      alpha = 0.5
-     
      # labels = list(placement = "elbow"),
      # main = "van Ossumm et al., 2023 - df3"
      )
@@ -147,11 +193,9 @@ df3_unique_genes %>% count(types, sort = TRUE) # tally of unique genes | matches
 df3_genes_all <- df3_gene_counts %>% filter(n_types == 7) # genes in all 7 
 
 df3_genes_2 <- df3_gene_counts %>% filter(n_types == 2) # genes in 2
-
-
 ```
 
-### mapped tile plots
+### mapped tile plots of unique marker genes
 
 ```{r}
 comp_joined_1 <- left_join(comp, df3_unique_genes,
@@ -160,8 +204,8 @@ comp_joined_1 <- left_join(comp, df3_unique_genes,
   mutate(ranking = sign(log2FC)*(-log10(pvalue))) %>%
   group_by(Label) %>%
   filter(
-    min_rank(desc(ranking)) <= 100 | # most positive
-      min_rank(ranking) <=100 # most negaitve
+    min_rank(desc(ranking)) <= 50 | # most positive
+      min_rank(ranking) <=50# most negaitve
   )
 
 unique(comp_joined_1$gene) # >400
@@ -169,6 +213,17 @@ unique(comp_joined_1$types) # all 7 seen!
 ```
 
 ```{r}
+type_colors <- c( # type
+  "Camk2a (cortex)" = "#2aa198",
+  "Syn1 (cortex)" = "#859900",
+  "Gad2 (cortex)" = "#b58900",
+  "Gad2 (cortex-inhib)" = "#dc322f",
+  "Pvalb (cortex-inhib)" = "#cb4b16",
+  "Sst (cortex-inhib)" = "#d33682" ,
+  "Vip (cortex-inhib)" = "#6c71c4" 
+)
+
+
 comp_colors <- c( # comparison colors
   "H_EE_vs_SH"  = "#AFCC9F", # HOUSING
   "HxA_EE_YNG_vs_SH_YNG" = "#D4E4CB",
@@ -176,7 +231,6 @@ comp_colors <- c( # comparison colors
   "A_YNG_vs_OLD" = "#BFBBD5", # AGE
   "HxA_EE_YNG_vs_EE_OLD" = "#DDDCE9",
   "HxA_SH_YNG_vs_SH_OLD" = "#DDDCE9")
-
 
 
 labels4tile <- unique(comp_joined_1$Label)
@@ -202,38 +256,347 @@ for (lb in labels4tile) {
     geom_tile() +
     
     scale_color_manual(values = c("#2380c1","#d33682"))+
-    scale_fill_manual(values = c("#2aa198",  "#b58900", "#859900", "#cb4b16",
-                                 "#dc322f",  "#d33682", "#6c71c4")) +
+    scale_fill_manual(values = type_colors,
+                      guide = guide_legend(nrow = 2, byrow = TRUE)) +
   scale_alpha_continuous(limits = c(0, 0.9), # fixed - so consistnet across
-                         range = c(1,0.35), # value range
+                         range = c(1,0.5), # value range
+                         # guide = "none",
+                        guide = guide_legend(nrow = 2, byrow = TRUE),
                          oob = scales::squish) + # so doesn't NA if out of range
     
   scale_x_discrete(expand = expansion(mult = c(0.0,0.0))) +
   scale_y_discrete(expand = expansion(mult = c(0.0,0.0))) +
     
   facet_wrap(Label~Direction, scales = "free_y", space = "free_x")+
+      # facet_grid(types~Label+Direction, scales = "free", space = "free")+
+
 
     theme_bw() +
     theme(
       # legend.position = "none",
+      legend.position  = "bottom",
       strip.background = element_rect(fill =strip_color), 
       axis.text.y = element_text(hjust = 1, face =  "italic"),
       axis.title = element_blank(),
       axis.text.x = element_blank(),
       axis.ticks.x = element_blank(),
-      legend.key.size = unit(0.3, "cm")) # size of legend key icon)
+      strip.text = element_text(size =7, color = "grey10"),
+      # legend.title = element_text(size =8, color = "grey10"),
+      legend.title = element_blank(),
+      legend.text = element_text(size =7, color = "grey10",
+                                 margin = margin(l = 0.05, unit = "cm")),
+      legend.key.size = unit(0.3, "cm")
+    )
   
-  print(tileplot)
+  
+  #print(tileplot)
   
   # tile_plots_list[[lb]] <-  tileplot # save
   tile_plots_list_w_labs[[lb]] <-  tileplot # save
 }
 ```
 
-```{r}
-# plot_grid(plotlist = c(tile_plots_list_nolg[4:5],tile_plots_list[1],
-#                        tile_plots_list_nolg[1:2],tile_plots_list[6]))
-
-plot_grid(plotlist= tile_plots_list[c(5,4,3,1,6,2)])
-# plot_grid(plotlist= tile_plots_list_w_labs[c(5,4,3,1,6,2)])
+```{r fig.height=14, fig.width=10}
+plot_grid(plotlist= tile_plots_list_w_labs[c(3,5,2,6,4,1)])
 ```
+
+```{r fig.height=36, fig.width=6}
+list_dist_df3_tile <- df3_unique_genes %>%
+    arrange(types, gene_symbol) %>%
+    mutate(gene = fct_inorder(gene_symbol)) %>%
+    ggplot(aes(n_types, y=gene, fill=types)) +
+    geom_tile(alpha = 0.9, color="grey10") +
+
+    scale_fill_manual(values = type_colors,
+                      guide = guide_legend(nrow = 1, byrow = TRUE)) +  
+      
+  scale_x_discrete(expand = expansion(mult = c(0.0,0.0))) +
+  scale_y_discrete(expand = expansion(mult = c(0.0,0.0))) +
+  labs(subtitle = "Unique Cortex Synapse Marker Gene (433) (df3 - van Oostrum et al., 2023)") +
+    theme_bw() +
+    theme(
+      # legend.position = "none",
+      legend.position  = "bottom",
+      strip.background = element_rect(fill =strip_color), 
+      axis.text.y = element_text(hjust = 1, face =  "italic"),
+      axis.title = element_blank(),
+      axis.text.x = element_blank(),
+      axis.ticks.x = element_blank(),
+      strip.text = element_text(size =7, color = "grey10"),
+      # legend.title = element_text(size =8, color = "grey10"),
+      legend.title = element_blank(),
+      legend.text = element_text(size =7, color = "grey10",
+                                 margin = margin(l = 0.05, unit = "cm")),
+      legend.key.size = unit(0.3, "cm")
+    )
+  
+list_dist_df3_tile      
+```
+
+------------------------------------------------------------------------
+
+# Part 2 - Data from paper/suppdatatables!
+
+## 2.1 Gad2-SypTOM vs Camk2a-SypTOM 
+
+```{r}
+s_df1 <- read_excel("input/db/mmc1_(vanOostrum_2023).xlsx",
+                    sheet = "C) Gad2-vs-Camk2a") 
+
+s_df1 <- s_df1 %>%
+  mutate(gene = sub(" .*", "", GeneName), .after = GeneName) %>%  #keep 1st (primary)
+  filter(!is.na(gene)) %>% # removes SypTOM
+  mutate(type = if_else(log2FC > 0, "Gad2", "Camk2a"))
+
+
+s_df1_sig_list <- s_df1 %>%
+  filter(FC_adj.pvalue < 0.05 & log2FC > 1 | log2FC < -1) 
+
+str(s_df1)
+colnames(s_df1)
+```
+
+```{r fig.height=7, fig.width=12}
+gad2_v_camk2a_dots <- ggplot(s_df1, aes(x = log2FC, y = -log10(FC_adj.pvalue),
+                                        label = gene, color = type)) +
+  geom_point(shape = 1) +
+    geom_text_repel(max.overlaps = 10, size = 2.5, # gene text on points
+                  color = "grey10",
+                 segment.size	= 0.2, segment.alpha = 0.5, min.segment.length = 0.5) +
+  scale_color_manual(values = c("#2896A6","#C65A4A"))+
+  theme_void()
+
+gad2_v_camk2a_dots
+```
+
+```{r fig.height=6, fig.width=12}
+gad2_v_camk2a_bars <- s_df1 %>%
+  filter(!is.na(gene)) %>%
+  filter(FC_adj.pvalue < 0.05 & log2FC > 1 | log2FC < -1) %>%
+  ggplot(aes(x = reorder(gene, log2FC), y = log2FC, fill = type)) +
+  geom_bar(stat = "identity", color = "grey10",
+           linewidth = 0.3, alpha =0.7) +
+
+  scale_fill_manual(values = c("#2896A6","#C65A4A"), name = "Enriched")+
+  labs(y = "Gad2-SynTOM vs Camk2a-SynTOM") +
+  theme_bw() +
+  theme(
+    legend.position = "bottom",
+    legend.title =  element_text(size = 9),
+    axis.text.x = element_text(angle = 90, hjust = 1, vjust=0.5,
+                               face = "italic"),
+    axis.title.x = element_blank(),
+    axis.title.y = element_text(size = 9),
+    panel.border = element_rect(color = "grey10", linewidth = 0.3),
+    panel.grid = element_blank()
+  ) 
+
+gad2_v_camk2a_bars 
+                               
+                              
+```
+
+```{r}
+# lattice::barchart(log2FC~gene, data = s_df1, 
+#                   origin = 0,
+#          main = "Bar Chart", 
+#          xlab = "Type", 
+#          ylab = "Values")
+```
+
+```{r}
+psum_gad2_v_camk2a <- left_join(comp, s_df1_sig_list[, c("gene", 'type')],
+                               by =  join_by("gene" == "gene")) %>%
+  drop_na(type)
+
+EI_tile_plots_list <- list()
+
+```
+
+```{r}
+for(lb in labels4tile) {
+  
+  tile_df <- psum_gad2_v_camk2a %>%
+    filter(Label == lb) %>% 
+    arrange(Direction, gene) %>%
+    mutate(gene = fct_inorder(gene)) 
+  
+  strip_color <- comp_colors[[lb]]
+  
+  
+  tileplot <- ggplot(tile_df, aes(x = Label, y = gene,
+                                  fill = Direction, color = type,
+                                  alpha = adj.pvalue)) +
+    geom_tile() +
+    
+    scale_fill_manual(values = c("#2380c1","#d33682"))+
+    scale_color_manual(values =c("#2aa198","#b58900"),
+                      guide = guide_legend(nrow = 1, byrow = TRUE)) +
+  scale_alpha_continuous(limits = c(0, 0.9), # fixed - so consistnet across
+                         range = c(1,0.5), # value range
+                         # guide = "none",
+                        guide = guide_legend(nrow = 1, byrow = TRUE),
+                         oob = scales::squish) + # so doesn't NA if out of range
+    
+  scale_x_discrete(expand = expansion(mult = c(0.0,0.0))) +
+  scale_y_discrete(expand = expansion(mult = c(0.0,0.0))) +
+    
+  # facet_wrap(TypeLabel~Direction, scales = "free_y", space = "free_x")+
+      facet_grid(type~Label, scales = "free", space = "free")+
+
+    
+    theme_bw() +
+    theme(
+      legend.position = "none",
+      strip.background.x = element_rect(fill =strip_color), 
+      strip.background.y = element_rect(color = 'grey10', fill = 'grey90'), 
+      strip.text.y = element_text(size = 7.5, face = "italic",
+                                 margin = margin(t = 1, b = 1, l = 1.5, r = 1.5)),
+      strip.text.x = element_text(size = 6),
+      
+      axis.text.y = element_text(hjust = 1, face =  "italic", size = 8.5),
+      axis.title = element_blank(),
+      axis.text.x = element_blank(),
+      axis.ticks = element_blank(),
+      # axis.text.y = element_blank(),
+      panel.border = element_rect(fill = NA,color = "grey10"), #plotbor
+      # axis.ticks = element_line(linewidth = .1, colour = "grey15"),
+      panel.spacing.y = unit(0.25, "cm"), # vert spacing
+      panel.spacing.x = unit(0, "cm") # horizontal spacing 
+    )
+  
+  # 
+  # print(tileplot)
+
+  EI_tile_plots_list[[lb]] <-  tileplot # save
+  
+}
+```
+
+```{r fig.height=15, fig.width=10}
+plot_grid(plotlist = EI_tile_plots_list[c(3,5,2,6,4,1)], nrow = 1)
+```
+
+## 2.2 - s_df3 - anti-correlation pairs
+
+```{r}
+s_df3 <- read_excel("input/db/mmc3_(vanOostrum_2023).xlsx",
+                    sheet = "D) negative family correlations") 
+```
+
+```{r}
+s_df3_l <- s_df3 %>%
+  arrange(GeneNameA) %>% # arr alpha
+  mutate(set = row_number()) %>% # add pair no.,
+  pivot_longer(cols = c("GeneNameA", "GeneNameB"),
+               names_to = "marker",
+               names_prefix = "GeneName",
+               values_to = "gene") %>%
+  mutate(marker = if_else(marker == "A", "Camk2a", "Gad2")) %>%
+  select(set:gene) # keep 3
+
+
+psum_s_df3_sets <- left_join(psum, s_df3_l,
+                              by = join_by(gene == gene)) %>%
+  drop_na(set)
+```
+
+```{r fig.height=7, fig.width=12}
+psum_s_df3_sets_boxplot <- psum_s_df3_sets %>%
+  filter((set %in% c(12:22))) %>%
+  ggplot(aes(x = interaction(marker,gene, lex.order = TRUE,sep = "\n"),
+             y = Abundance, fill = Housing)) +
+  geom_boxplot(alpha = 0.75, color = "grey10") +
+      stat_summary(fun=mean, geom="point", position = position_dodge(width = 0.7),
+               shape=4, size = 1, stroke = 0.5, color ="grey10") + #displays mean
+  facet_wrap(~set, space = "free_x", scale="free")+
+      # scale_color_manual(values = c("#2aa198", "#b58900"))+
+  scale_fill_manual(values = c("#66A61EFF", "#E6AB02FF")) + # housing colors 
+  # # facet_nested(~set+marker, scale = "free") +
+  # facet_grid(set~marker, space="free") +
+  theme_bw() +
+  theme(
+    legend.position = "none",
+    axis.title.x = element_blank()
+  )
+  
+psum_s_df3_sets_boxplot
+
+```
+
+### Figure_6g
+
+```{r}
+in_markers <- data.frame(in_marker = c(rep("Pvalb", 9), rep("Vip", 9),
+                                    rep("Sst", 5), rep("Gad2_In", 4)),
+                         gene = c(
+                           'Pvalb', 'Kcnc1', 'Kcnc2', 'Kcnc3', 'Hcn1', 'Hcn2', 'Vamp1', 'Inpp5j', 'Timm13',
+                           'Vip', 'Cnr1', 'Calb2', 'Grm7', 'Grm1', 'Dag1', 'Adcy2', 'Traf3', 'Nrxn2', # Vip
+                           'Calb1', 'Rab3b', 'Icam5', 'Atp2b4', 'Nos1', # Sst
+                           'Lamp5', 'Sncg', 'Ppp1r1b', 'Cplx3' #Gad2
+                                )
+                        )
+
+psum_in_markers <- left_join(psum, in_markers,
+                             by = join_by("gene" == "gene")) %>%
+  drop_na(in_marker)
+
+
+```
+
+```{r fig.height=6, fig.width=12}
+
+psum_in_marker_bp <- psum_in_markers %>%
+  # filter((set %in% c(12:22))) %>%
+  ggplot(aes(x =gene, y = Abundance, fill = Condition, color = Age)) +
+  geom_boxplot(alpha = 0.75, linewidth = 0.2, outlier.shape = 1) +
+  stat_summary(fun=mean, geom="point", position = position_dodge(width = 0.7),
+               shape=4, size = 1, stroke = 0.5) + #displays mean
+  
+  scale_color_manual(values = c("#803300","#654A87")) + # housing colors 
+  # scale_color_manual(values = c("#2aa198", "#b58900"))+
+  scale_fill_manual(values = c("#66A61EFF", "#E6AB02FF",
+                               "#66A61EFF","#E6AB02FF")) + # housing colors 
+  
+  facet_wrap(~in_marker, space = "free_x", scale="free_x")+
+  ylim(c(4.5,9)) +
+  
+  theme_bw() +
+  theme(
+    legend.position = "none",
+    axis.title.x = element_blank()
+  )
+
+psum_in_marker_bp
+```
+
+## 2.3 Inhibitory Cortex Table S5A
+
+```{r}
+s_df5a <- read_excel("input/db/mmc5_(vanOostrum_2023).xlsx")
+
+str(s_df5a)
+```
+
+```{r}
+s_df5a_l <- s_df5a %>%
+  pivot_longer(
+    cols = Gad2_PV_Label:VIP_SST_FC_adjpvalue,
+    names_to = c("comparison", ".value"), # value is spec below - so label, log2fc, fc etc
+    names_pattern = "(.+)_(Label|log2FC|FC_adjpvalue)" # capture end pattern |deals w/_
+  ) %>%
+  rename(adjp_in = FC_adjpvalue,
+         lab_in = Label,
+         subtype_prot = `Subtype Proteome`,
+         gene = GeneName,
+         log2FC_in = log2FC) %>%
+  filter(adjp_in <= 0.05)
+
+colnames(s_df5a_l)
+
+s_df5a_list <- s_df5a_l %>%
+  split(.$subtype_prot) %>%
+  map(~pull(., gene)) # gets 7 gene lists from each
+```
+
+### 
