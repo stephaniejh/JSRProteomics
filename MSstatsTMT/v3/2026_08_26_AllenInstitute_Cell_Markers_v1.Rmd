@@ -16,7 +16,7 @@ library(readxl)
 library(tidyverse)
 ```
 
-# Wang et al., 2025 
+# Wang et al., 2025
 
 Human brain - gestational to infancy (adolescence?) - 29 cell types - classification of early lineages.
 

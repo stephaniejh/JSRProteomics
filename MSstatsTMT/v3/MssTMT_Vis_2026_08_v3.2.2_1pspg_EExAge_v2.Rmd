@@ -924,7 +924,7 @@ SynDiv <- mapped_comp %>%
 ```{r}
 # 7 cortical interneurons (Makaram 2004) + Tac1 & Penk + Pcsk1n (protSAAS), Folh1, pmch
 neuropep_inhib <- c( "Calb1", "Calb2", 'Cck',  "Npy", "Sst", 'Pvalb', "Vip",
-                     "Tac1", 'Penk',  "Pcsk1n", "Pmch", "Folh1")
+                     "Tac1", 'Penk',  "Pcsk1n", "Pmch", "Folh1", "Lamp5")
 
 vanOostrum_basic_markers <- c('Camk2a', 'Dat1', 'Slc6a3',
                               'Gad2', 'Vip', 'Sst', 'Pvalb', 'Syn1'
@@ -944,9 +944,9 @@ vanOostrum_syn_pairs <- c('Syt12', 'Syt2',  'Sv2b', 'Sv2c',
 # filter(gene %in% c("Gad2", "Slc32a1", "Gphn") |
 #          grepl("^Gabb|^Gabr|^Slc6a", gene))
 
-# GLUTAMATE
+## GLUTAMATE
 # filter( #gene %in% c("Camk2a") | #glutamate
-#        grepl("^Gria|^Grin|^Grm|Grik|Slc1a|Slc17a|Cacng", gene))
+#        grepl("^Gria|^Grin|^Grm|Grik|Slc17a6|Slc17a7|Slc17a8|Cacng", gene))
 
 # Glial - Myelin, Astrocytes, Microglia
 glial <- c('Mbp', 'Mag','Mog', 'Omg', 'Olig1', 'Olig2', 'Sox10', 'Plp1', # myelin/olig
@@ -973,19 +973,19 @@ EE_syn_check <- mapped_psum %>%
 
   
   # filter(gene %in% vanOostrum_syn_pairs) %>%
-  # filter(gene %in% neuropep_inhib) %>%
+  filter(gene %in% neuropep_inhib) %>%
   
   # filter(gene %in% c("Gad2", "Slc32a1", "Gphn") | #GABA
   #          grepl("^Gabb|^Gabr|^Slc6a", gene)) %>%
   
   # filter( #gene %in% c("Camk2a") | #glutamate
-  #        grepl("^Gria|^Grin|^Grm|Grik|Slc1a|Slc17a|Cacng", gene)) %>%
+  #        grepl("^Gria|^Grin|^Grm|Grik|Slc17a6|Slc17a7|Slc17a8|Cacng|Reln", gene)) %>%
   
   # filter(gene %in% glial) %>%
   
   # filter(gene %in% PNN) %>%
   
-  filter(gene %in% vanOostrum_basic_markers) %>%
+  # filter(gene %in% vanOostrum_basic_markers) %>%
   
   ggplot(aes(x = interaction(Age, Housing, 
                              sep = "\n", # space
