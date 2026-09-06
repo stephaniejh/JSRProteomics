@@ -915,11 +915,16 @@ kegg_POI  <- c(
   
   ) 
 
-# kegg_POI <- unique(KEGG_tibs_df_6$ID)
+kegg_POI <- unique(KEGG_tibs_df_6$ID)
 
 # EMPTY PLOT LIST 
 kegg_volcano_list <-  vector(mode = "list")
+```
 
+```{r}
+# output directory | if na will create
+kegg_out_dir <- "output/plots/2026_09/kegg_map_vol"
+if (!dir.exists(kegg_out_dir)) dir.create(kegg_out_dir, recursive = TRUE)
 ```
 
 ```{r}
@@ -976,7 +981,7 @@ for(kp in kegg_POI) {
   
   my_lg_prot <- my_prots %>% #LABEL LEADING GENE???
     arrange(adj.pvalue) %>% # not quite - 6 most sig proteins
-    slice_head(n = 6)
+    slice_head(n = 7)
   
   
     strip <- strip_themed( # green for 1st 3 (housing) & Lavender for last 3 (age)
@@ -999,13 +1004,15 @@ for(kp in kegg_POI) {
     scale_y_continuous(limits = c(0,6),
                        expand = c(0.04, 0)) +
     
+
+    
     geom_hline(yintercept = -log10(0.05),
-               linetype = "dashed", linewidth = 0.1,
-               color = "grey50", alpha = 0.5) +
+               linetype = "dashed", linewidth = 0.15,
+               color = "grey50", alpha = 0.55) +
     geom_hline(yintercept = -log10(0.1),linetype = "dotted",
-               linewidth = 0.1, color = "grey60", alpha = 0.5) +
+               linewidth = 0.15, color = "grey60", alpha = 0.55) +
     geom_vline(xintercept = c(0),linetype = "solid",
-               linewidth = 0.1, color = "grey35", alpha = 0.5) +
+               linewidth = 0.15, color = "grey40", alpha = 0.5) +
     
 
     ggrastr::geom_point_rast(aes(fill = case_when( # conditional ass for color mapping
@@ -1059,6 +1066,7 @@ for(kp in kegg_POI) {
                     aes(x = log2FC, y = -log10(adj.pvalue),
                         label = gene,
                         color = log2FC > 0), # color mapping (see below)
+                    force = 1.5, nudge_y = .2,
                     max.overlaps = 30, size = 2.1, # gene text on points
                     min.segment.length = .5, segment.alpha = 0.3,
                     segment.size = 0.2, alpha = 0.9) +
@@ -1113,7 +1121,24 @@ for(kp in kegg_POI) {
   
   # _____________________________________
   # 3 - SAVE THE PLOTS
-  kegg_volcano_list[[kp]] <- vol_plot
+  # kegg_volcano_list[[kp]] <- vol_plot
+  
+  # _____________________________________
+  # 4 - PRINT OUT PLOTS - all
+  # ggsave(
+  #   filename = file.path(kegg_out_dir , paste0("2026_09_", kp, "_map_vol.pdf")),
+  #   plot = vol_plot,
+  #   width = 7.6, height = 1.9, units = "in",
+  #   device = cairo_pdf
+  # )
+  # 
+  # ggsave(
+  #   filename = file.path(kegg_out_dir , paste0("2026_09_", kp, "_map_vol.png")),
+  #   plot = vol_plot,
+  #   width = 7.6, height = 1.9, units = "in",
+  #   dpi = 330
+  # )
+  
   
   print(paste0("Done for ", kp, "! :D"))
   
@@ -1143,31 +1168,47 @@ REACT_tibs_df_6_entrez_split <- REACT_tibs_df_6 %>%
 ```
 
 ```{r}
+REACT_TOP_LVL <- c(
+    # TOP-LEVEL REACTOME
+  "REACTOME_DNA_REPLICATION",
+  "REACTOME_METABOLISM_OF_RNA",
+  "REACTOME_DNA_REPAIR",
+  "REACTOME_CELL_CYCLE",
+  "REACTOME_PROGRAMMED_CELL_DEATH",
+  "REACTOME_EXTRACELLULAR_MATRIX_ORGANIZATION",
+  "REACTOME_TRANSPORT_OF_SMALL_MOLECULES",
+  "REACTOME_PROTEIN_LOCALIZATION",
+  # "REACTOME_HEMOSTASIS",
+  # "REACTOME_CIRCADIAN_CLOCK",
+  'REACTOME_NEURONAL_SYSTEM', # L1 (TOP LEVEL)
+  "REACTOME_NEURONAL_SYSTEM",
+  "REACTOME_VESICLE_MEDIATED_TRANSPORT",
+  
+  "REACTOME_APOPTOSIS",
+  "REACTOME_REGULATION_OF_APOPTOSIS",
+  # "REACTOME_PROGRAMMED_CELL_DEATH",
+  "REACTOME_AGGREPHAGY",
+  "REACTOME_SELECTIVE_AUTOPHAGY"
+  
+)
+
+
+## EMPTY PLOT LIST 
+reactome_TOP_volcano_list <-  vector(mode = "list")
+```
+
+```{r}
 # GET REACTOME PATHVWAYS OF INTEREST 
 REACT_POI  <- c(
-  #TOP-LEVEL REACTOME
-  # "REACTOME_DNA_REPLICATION",
-  # "REACTOME_METABOLISM_OF_RNA", 
-  # "REACTOME_DNA_REPAIR",
-  # "REACTOME_CELL_CYCLE",
-  # "REACTOME_PROGRAMMED_CELL_DEATH",
-  # "REACTOME_EXTRACELLULAR_MATRIX_ORGANIZATION",
-  # "REACTOME_TRANSPORT_OF_SMALL_MOLECULES",
-  # "REACTOME_PROTEIN_LOCALIZATION",
-  # # "REACTOME_HEMOSTASIS",
-  # # "REACTOME_CIRCADIAN_CLOCK",
-  # "REACTOME_NEURONAL_SYSTEM",
-  # "REACTOME_VESICLE_MEDIATED_TRANSPORT",
-  # 
   # 
   # # SIGNALLING PATHWAYS
-  # "REACTOME_PROLONGED_ERK_ACTIVATION_EVENTS",
-  # "REACTOME_DISEASES_OF_SIGNAL_TRANSDUCTION_BY_GROWTH_FACTOR_RECEPTORS_AND_SECOND_MESSENGERS",
-  # "REACTOME_INTRACELLULAR_SIGNALING_BY_SECOND_MESSENGERS",
-  # "REACTOME_REGULATION_OF_RAS_BY_GAPS",
-  # "REACTOME_PTEN_REGULATION",
-  # "REACTOME_MAPK_FAMILY_SIGNALING_CASCADES",
-  # "REACTOME_FCERI_MEDIATED_NF_KB_ACTIVATION",
+  "REACTOME_PROLONGED_ERK_ACTIVATION_EVENTS",
+  "REACTOME_DISEASES_OF_SIGNAL_TRANSDUCTION_BY_GROWTH_FACTOR_RECEPTORS_AND_SECOND_MESSENGERS",
+  "REACTOME_INTRACELLULAR_SIGNALING_BY_SECOND_MESSENGERS",
+  "REACTOME_REGULATION_OF_RAS_BY_GAPS",
+  "REACTOME_PTEN_REGULATION",
+  "REACTOME_MAPK_FAMILY_SIGNALING_CASCADES",
+  "REACTOME_FCERI_MEDIATED_NF_KB_ACTIVATION",
   # "REACTOME_",
   # "REACTOME_",
   # "REACTOME_",
@@ -1254,59 +1295,71 @@ REACT_POI  <- c(
 ##_L1_CELL-CELL_COMMUNICATION_(づ ◕‿◕ )づ_____
 ##_L2_Cell_junction_organization__
 ##_L3_Cell-cell_junction_org__
-"REACTOME_ADHERENS_JUNCTIONS_INTERACTIONS" #L4
+"REACTOME_ADHERENS_JUNCTIONS_INTERACTIONS", #L4
   
 
   
   
   
-  # "REACTOME_CELL_CYCLE",
-  # "REACTOME_SYNTHESIS_OF_DNA",
-  # "REACTOME_DNA_REPLICATION",
-  # "REACTOME_SWITCHING_OF_ORIGINS_TO_A_POST_REPLICATIVE_STATE",
-  # "REACTOME_MITOTIC_G1_PHASE_AND_G1_S_TRANSITION",
-  # "REACTOME_S_PHASE",
-  # "REACTOME_M_PHASE",
-  # "REACTOME_APC_C_MEDIATED_DEGRADATION_OF_CELL_CYCLE_PROTEINS",
-  # "REACTOME_CYCLIN_A_CDK2_ASSOCIATED_EVENTS_AT_S_PHASE_ENTRY",
-  # "REACTOME_STABILIZATION_OF_P53",
+  "REACTOME_CELL_CYCLE",
+  "REACTOME_SYNTHESIS_OF_DNA",
+  "REACTOME_DNA_REPLICATION",
+  "REACTOME_SWITCHING_OF_ORIGINS_TO_A_POST_REPLICATIVE_STATE",
+  "REACTOME_MITOTIC_G1_PHASE_AND_G1_S_TRANSITION",
+  "REACTOME_S_PHASE",
+  "REACTOME_M_PHASE",
+  "REACTOME_APC_C_MEDIATED_DEGRADATION_OF_CELL_CYCLE_PROTEINS",
+  "REACTOME_CYCLIN_A_CDK2_ASSOCIATED_EVENTS_AT_S_PHASE_ENTRY",
+  "REACTOME_STABILIZATION_OF_P53",
   # 
   # 
   # 
   # 
-  # "REACTOME_APOPTOSIS",
-  # "REACTOME_REGULATION_OF_APOPTOSIS",
-  # "REACTOME_PROGRAMMED_CELL_DEATH",
-  # "REACTOME_AGGREPHAGY",
-  # "REACTOME_SELECTIVE_AUTOPHAGY",
-  # 
-  # "REACTOME_MRNA_SPLICING",
-  # "REACTOME_CHOLESTEROL_BIOSYNTHESIS",
+  "REACTOME_APOPTOSIS",
+  "REACTOME_REGULATION_OF_APOPTOSIS",
+  "REACTOME_PROGRAMMED_CELL_DEATH",
+  "REACTOME_AGGREPHAGY",
+  "REACTOME_SELECTIVE_AUTOPHAGY",
   
+  "REACTOME_MRNA_SPLICING",
+  "REACTOME_CHOLESTEROL_BIOSYNTHESIS",
+
   # ##_IMMUNE_SYSTEM____________________________
-  # "REACTOME_CYTOKINE_SIGNALING_IN_IMMUNE_SYSTEM", # CYTOKINE IMMUNE
-  # "REACTOME_INTERLEUKIN_1_FAMILY_SIGNALING", 
-  # "REACTOME_INTERLEUKIN_12_FAMILY_SIGNALING", 
-  # "REACTOME_TNFR2_NON_CANONICAL_NF_KB_PATHWAY", 
-  # 
-  # "REACTOME_ADAPTIVE_IMMUNE_SYSTEM", # ADATIVE IMMUNE
-  # "REACTOME_TCR_SIGNALING",
-  # "REACTOME_SIGNALING_BY_THE_B_CELL_RECEPTOR_BCR",
-  # 
-  # "REACTOME_COMPLEMENT_CASCADE", # INNATE IMMUNE
-  # "REACTOME_FC_EPSILON_RECEPTOR_FCERI_SIGNALING",
-  # "REACTOME_C_TYPE_LECTIN_RECEPTORS_CLRS",
-  # "REACTOME_FCGAMMA_RECEPTOR_FCGR_DEPENDENT_PHAGOCYTOSIS"
+  "REACTOME_CYTOKINE_SIGNALING_IN_IMMUNE_SYSTEM", # CYTOKINE IMMUNE
+  "REACTOME_INTERLEUKIN_1_FAMILY_SIGNALING",
+  "REACTOME_INTERLEUKIN_12_FAMILY_SIGNALING",
+  "REACTOME_TNFR2_NON_CANONICAL_NF_KB_PATHWAY",
+  #
+  "REACTOME_ADAPTIVE_IMMUNE_SYSTEM", # ADATIVE IMMUNE
+  "REACTOME_TCR_SIGNALING",
+  "REACTOME_SIGNALING_BY_THE_B_CELL_RECEPTOR_BCR",
+  #
+  "REACTOME_COMPLEMENT_CASCADE", # INNATE IMMUNE
+  "REACTOME_FC_EPSILON_RECEPTOR_FCERI_SIGNALING",
+  "REACTOME_C_TYPE_LECTIN_RECEPTORS_CLRS",
+  "REACTOME_FCGAMMA_RECEPTOR_FCGR_DEPENDENT_PHAGOCYTOSIS"
   )
 
-# reactome_volcano_top_lvl_list <- reactome_volcano_toplevel_list 
+
+
 
 ## EMPTY PLOT LIST 
 reactome_volcano_list <-  vector(mode = "list")
 ```
 
 ```{r}
-for(rct in REACT_POI) {
+# JUST PRINT OUT, instead of saving to list
+# ALL reactomes
+REACT_POI_all <- unique(REACT_tibs_df_6$ID) # all 311
+
+# output directory | if na will create
+react_out_dir <- "output/plots/2026_09/react_map_vol"
+if (!dir.exists(react_out_dir)) dir.create(react_out_dir, recursive = TRUE)
+```
+
+```{r}
+for(rct in REACT_TOP_LVL) {
+  
 
 # 1 - PREPARE THE DATA
   my_genes <- REACT_tibs_df_6_entrez_split %>%
@@ -1360,7 +1413,7 @@ for(rct in REACT_POI) {
   
   my_lg_prot <- my_prots %>% #LABEL LEADING GENE???
     arrange(adj.pvalue) %>% # not quite - 6 most sig proteins
-    slice_head(n = 6)
+    slice_head(n = 7)
   
   
     strip <- strip_themed( # green for 1st 3 (housing) & Lavender for last 3 (age)
@@ -1373,7 +1426,6 @@ for(rct in REACT_POI) {
   # 2 - MAKE THE VOLCANO PLOTS!!!
   vol_plot <- protein_comp_entrez %>%
     filter(!(Label %in% c("HxA_EE_OLD_vs_SH_YNG", "HxA_EE_YNG_vs_SH_OLD"))) %>%
-    
     ggplot(aes(x = log2FC, y = -log10(adj.pvalue))) +
     
     
@@ -1384,12 +1436,12 @@ for(rct in REACT_POI) {
                        expand = c(0.04, 0)) +
     
     geom_hline(yintercept = -log10(0.05),
-               linetype = "dashed", linewidth = 0.1,
-               color = "grey50", alpha = 0.5) +
+               linetype = "dashed", linewidth = 0.15,
+               color = "grey50", alpha = 0.55) +
     geom_hline(yintercept = -log10(0.1),linetype = "dotted",
-               linewidth = 0.1, color = "grey60", alpha = 0.5) +
+               linewidth = 0.15, color = "grey60", alpha = 0.55) +
     geom_vline(xintercept = c(0),linetype = "solid",
-               linewidth = 0.1, color = "grey35", alpha = 0.5) +
+               linewidth = 0.15, color = "grey40", alpha = 0.5) +
 
 
     ggrastr::geom_point_rast(aes(fill = case_when( # conditional ass for color mapping
@@ -1441,6 +1493,7 @@ for(rct in REACT_POI) {
                     aes(x = log2FC, y = -log10(adj.pvalue),
                         label = gene,
                         color = log2FC > 0), # color mapping (see below)
+                      force = 1.5, nudge_y = .2,
                     max.overlaps = 30, size = 2.1, # gene text on points
                     min.segment.length = .5, segment.alpha = 0.3,
                     segment.size = 0.2, alpha = 0.9) +
@@ -1489,8 +1542,26 @@ for(rct in REACT_POI) {
   print(vol_plot)
 
   # _____________________________________
-  # 3 - SAVE THE PLOTS
-  reactome_volcano_list[[rct]] <- vol_plot
+  # 3 - SAVE THE PLOTS - selected in re-run
+  # reactome_volcano_list[[rct]] <- vol_plot
+  reactome_TOP_volcano_list[[rct]] <- vol_plot
+  
+  # _____________________________________
+  # 4 - PRINT OUT PLOTS - all
+  # ggsave(
+  #   filename = file.path(react_out_dir, paste0("2026_09_", rct, "_map_vol.pdf")),
+  #   plot = vol_plot,
+  #   width = 7.6, height = 1.9, units = "in",
+  #   device = cairo_pdf
+  # )
+  # 
+  # ggsave(
+  #   filename = file.path(react_out_dir, paste0("2026_09_", rct, "_map_vol.png")),
+  #   plot = vol_plot,
+  #   width = 7.6, height = 1.9, units = "in",
+  #   dpi = 330
+  # )
+  
   
   print(paste0("Done for ", rct))
   
@@ -1544,6 +1615,15 @@ plot_grid(kegg_volcano_list$rno04014,
 ```
 
 #### KEGG DNA, RNA, & PROTEIN
+
+```{r}
+# Mitophagy (rno04137), Purine Metabolism (rno00230), base excision (rno03410)
+plot_grid(kegg_volcano_list$rno04137, kegg_volcano_list$rno00230,
+          kegg_volcano_list$rno03410,
+          ncol = 1,
+          labels = c("a","b", "c"),
+          label_colour = "grey10", label_size = 11)
+```
 
 ```{r}
 # KEGG ATP-dependent chromatin remodelling & Spliceosome
@@ -1776,4 +1856,179 @@ plot_grid(plotlist = reactome_volcano_list[12:17],
 # ggsave("2026_03_31_REACT_other_brain_mapped_volcano_330dpi.png", dpi = 330)
 ```
 
+#### Reactome Top Levels
+
+```{r}
+plot_grid(
+  # plotlist = reactome_TOP_volcano_list[c(1,3,4,5)],
+  plotlist = reactome_TOP_volcano_list[c(5,11:14)],
+  ncol = 1,
+  labels = c("a","b","c", "d"),
+  label_colour = "grey10", label_size = 11)
+```
+
 ------------------------------------------------------------------------
+
+## Typed out MISC
+
+### Reactome
+
+```{r}
+# GET REACTOME PATHVWAYS OF INTEREST 
+REACT_POI  <- c(
+  #TOP-LEVEL REACTOME
+  # "REACTOME_DNA_REPLICATION",
+  # "REACTOME_METABOLISM_OF_RNA", 
+  # "REACTOME_DNA_REPAIR",
+  # "REACTOME_CELL_CYCLE",
+  # "REACTOME_PROGRAMMED_CELL_DEATH",
+  # "REACTOME_EXTRACELLULAR_MATRIX_ORGANIZATION",
+  # "REACTOME_TRANSPORT_OF_SMALL_MOLECULES",
+  # "REACTOME_PROTEIN_LOCALIZATION",
+  # # "REACTOME_HEMOSTASIS",
+  # # "REACTOME_CIRCADIAN_CLOCK",
+  # "REACTOME_NEURONAL_SYSTEM",
+  # "REACTOME_VESICLE_MEDIATED_TRANSPORT",
+  # 
+  # 
+  # # SIGNALLING PATHWAYS
+  # "REACTOME_PROLONGED_ERK_ACTIVATION_EVENTS",
+  # "REACTOME_DISEASES_OF_SIGNAL_TRANSDUCTION_BY_GROWTH_FACTOR_RECEPTORS_AND_SECOND_MESSENGERS",
+  # "REACTOME_INTRACELLULAR_SIGNALING_BY_SECOND_MESSENGERS",
+  # "REACTOME_REGULATION_OF_RAS_BY_GAPS",
+  # "REACTOME_PTEN_REGULATION",
+  # "REACTOME_MAPK_FAMILY_SIGNALING_CASCADES",
+  # "REACTOME_FCERI_MEDIATED_NF_KB_ACTIVATION",
+  # "REACTOME_",
+  # "REACTOME_",
+  # "REACTOME_",
+  # "REACTOME_",
+  # "REACTOME_",
+
+  
+##_L1_NEURONAL_SYSTEM__(づ ◕‿◕ )づ____
+'REACTOME_NEURONAL_SYSTEM', # L1 (TOP LEVEL)
+
+##_L2_Transmission_across_the_chemical_synapse_
+'REACTOME_TRANSMISSION_ACROSS_CHEMICAL_SYNAPSES', #L2
+
+##_L3_Neurotransmitter_release_cycle_
+'REACTOME_NEUROTRANSMITTER_RELEASE_CYCLE', #L3
+'REACTOME_GLUTAMATE_NEUROTRANSMITTER_RELEASE_CYCLE', #L4
+'REACTOME_GABA_SYNTHESIS_RELEASE_REUPTAKE_AND_DEGRADATION', #L4
+
+##_L3_Neurotransmitter_receptors_&_postsynaptic_signal_transduciton_
+'REACTOME_NEUROTRANSMITTER_RECEPTORS_AND_POSTSYNAPTIC_SIGNAL_TRANSMISSION', #L3
+##_L4_Glutamate_binding_activation_of_AMPA_&_synaptic_plasticity
+'REACTOME_TRAFFICKING_OF_AMPA_RECEPTORS', #L5
+
+##_L4_Activation_of_NMDA_receptors_PSD_events
+'REACTOME_UNBLOCKING_OF_NMDA_RECEPTORS_GLUTAMATE_BINDING_AND_ACTIVATION', #L5
+'REACTOME_ASSEMBLY_AND_CELL_SURFACE_PRESENTATION_OF_NMDA_RECEPTORS', #L5
+##_L5_Post_NMDA_receptor_activation_events_
+'REACTOME_CREB1_PHOSPHORYLATION_THROUGH_THE_ACTIVATION_OF_ADENYLATE_CYCLASE', #L6
+
+
+##_L2_Protein-protein_interactions_at_the_synapse_
+'REACTOME_NEUREXINS_AND_NEUROLIGINS', #L3
+
+##_L2_Potassium_Channels_
+'REACTOME_POTASSIUM_CHANNELS', #L2
+'REACTOME_VOLTAGE_GATED_POTASSIUM_CHANNELS', #L3
+  
+
+###_1_DEVELOPMENTAL_BIOLOGY!__(づ ◕‿◕ )づ____
+##_L2_NERVOUS_SYSTEM_DEVELOPMENT______
+'REACTOME_NERVOUS_SYSTEM_DEVELOPMENT',
+##_L3_Axon_Guidance_______
+##_L4_L1CAM_interactions___
+'REACTOME_L1CAM_INTERACTIONS', #L4 
+'REACTOME_INTERACTION_BETWEEN_L1_AND_ANKYRINS', #L5
+'REACTOME_RECYCLING_PATHWAY_OF_L1', #L5
+
+##_L4_EPH-Ephrin_signalling___
+'REACTOME_EPH_EPHRIN_SIGNALING', #L4
+'REACTOME_EPHB_MEDIATED_FORWARD_SIGNALING', #L5
+
+##_L4_Signalling_by_ROBO_receptors___
+'REACTOME_SIGNALING_BY_ROBO_RECEPTORS', #L4
+'REACTOME_REGULATION_OF_EXPRESSION_OF_SLITS_AND_ROBOS', #L5
+
+##_L4_Semaphorin_interactions___
+'REACTOME_SEMAPHORIN_INTERACTIONS', #L4
+'REACTOME_CRMPS_IN_SEMA3A_SIGNALING', #L5
+'REACTOME_SEMA3A_PAK_DEPENDENT_AXON_REPULSION', #L5
+'REACTOME_OTHER_SEMAPHORIN_INTERACTIONS', #L5
+
+##_L2_LGI-ADAM_interactions___
+'REACTOME_LGI_ADAM_INTERACTIONS',
+
+
+
+
+
+
+##_L1_EXTRACELLUAR_MATRIX_ORGANIZATION_(づ ◕‿◕ )づ_____
+'REACTOME_EXTRACELLULAR_MATRIX_ORGANIZATION', # L1 (TOP LEVEL)
+
+##_L2_ECM_Proteoglycans__
+"REACTOME_ECM_PROTEOGLYCANS", #L2
+
+##_L2_Non-integrin_membrane-ECM_interactions__
+'REACTOME_FORMATION_OF_THE_DYSTROPHIN_GLYCOPROTEIN_COMPLEX_DGC', #L3 
+
+##_L2_Laminin_Interactions__
+'REACTOME_LAMININ_INTERACTIONS', #L2
+
+
+
+##_L1_CELL-CELL_COMMUNICATION_(づ ◕‿◕ )づ_____
+##_L2_Cell_junction_organization__
+##_L3_Cell-cell_junction_org__
+"REACTOME_ADHERENS_JUNCTIONS_INTERACTIONS" #L4
+  
+
+  
+  
+  
+  # "REACTOME_CELL_CYCLE",
+  # "REACTOME_SYNTHESIS_OF_DNA",
+  # "REACTOME_DNA_REPLICATION",
+  # "REACTOME_SWITCHING_OF_ORIGINS_TO_A_POST_REPLICATIVE_STATE",
+  # "REACTOME_MITOTIC_G1_PHASE_AND_G1_S_TRANSITION",
+  # "REACTOME_S_PHASE",
+  # "REACTOME_M_PHASE",
+  # "REACTOME_APC_C_MEDIATED_DEGRADATION_OF_CELL_CYCLE_PROTEINS",
+  # "REACTOME_CYCLIN_A_CDK2_ASSOCIATED_EVENTS_AT_S_PHASE_ENTRY",
+  # "REACTOME_STABILIZATION_OF_P53",
+  # 
+  # 
+  # 
+  # 
+  # "REACTOME_APOPTOSIS",
+  # "REACTOME_REGULATION_OF_APOPTOSIS",
+  # "REACTOME_PROGRAMMED_CELL_DEATH",
+  # "REACTOME_AGGREPHAGY",
+  # "REACTOME_SELECTIVE_AUTOPHAGY",
+  # 
+  # "REACTOME_MRNA_SPLICING",
+  # "REACTOME_CHOLESTEROL_BIOSYNTHESIS",
+  
+  # ##_IMMUNE_SYSTEM____________________________
+  # "REACTOME_CYTOKINE_SIGNALING_IN_IMMUNE_SYSTEM", # CYTOKINE IMMUNE
+  # "REACTOME_INTERLEUKIN_1_FAMILY_SIGNALING", 
+  # "REACTOME_INTERLEUKIN_12_FAMILY_SIGNALING", 
+  # "REACTOME_TNFR2_NON_CANONICAL_NF_KB_PATHWAY", 
+  # 
+  # "REACTOME_ADAPTIVE_IMMUNE_SYSTEM", # ADATIVE IMMUNE
+  # "REACTOME_TCR_SIGNALING",
+  # "REACTOME_SIGNALING_BY_THE_B_CELL_RECEPTOR_BCR",
+  # 
+  # "REACTOME_COMPLEMENT_CASCADE", # INNATE IMMUNE
+  # "REACTOME_FC_EPSILON_RECEPTOR_FCERI_SIGNALING",
+  # "REACTOME_C_TYPE_LECTIN_RECEPTORS_CLRS",
+  # "REACTOME_FCGAMMA_RECEPTOR_FCGR_DEPENDENT_PHAGOCYTOSIS"
+  )
+
+# reactome_volcano_top_lvl_list <- reactome_volcano_toplevel_list 
+```

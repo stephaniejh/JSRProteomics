@@ -160,6 +160,24 @@ HM_tibs_df_6$Label <- factor(HM_tibs_df_6$Label,
 
 ```
 
+```{r}
+msig_hall_gt <- HM_tibs_df_6 %>%
+  mutate(Description = gsub("^HALLMARK_", "", Description)) %>%
+  dplyr::select(!c(ID, core_enrichment)) %>%
+  gt(groupname_col = "Label") %>%
+  fmt_number(decimals = 3,
+             columns = c("enrichmentScore", "NES","pvalue",
+                         "p.adjust", "qvalue")) %>%
+  gtExtras::gt_theme_nytimes() %>%
+  opt_vertical_padding(scale = 0.3) %>%
+  tab_options(
+    row_group.font.weight = "bold",
+      row_group.font.size = "13px"
+  )
+
+msig_hall_gt
+```
+
 ------------------------------------------------------------------------
 
 ## MSigDB Lolliplot Redo
@@ -200,18 +218,18 @@ lolliplot <- function(data,
                   fill = {{fill_1}}),
              shape = 21) +
     # scale_alpha(range = c(.95,.3)) + # rev alpha so darker = more sig | all
-    scale_alpha(range = c(.95,.45)) + #  GO TRIM VERSION so matches others
+    scale_alpha(range = c(.99,.49)) + #  GO TRIM VERSION so matches others
     geom_hline(yintercept = 0, color = 'grey20', linewidth = 0.1) +
     scale_color_manual(breaks = c("Up", "Down"),
                      # values = c("#dc322f", "#268bd2"),
                      guide = 'none') + 
     scale_size_continuous(range = c(3,9), # map size oflolly (set size)
                           guide = guide_legend(nrow = 1)) + # 1 row
-    # scale_size_continuous(range = c(2,8),
-    #      guide = guide_legend(nrow=1)) + # map size oflolly (set size) | GO BP
     
-    # scale_fill_continuous_diverging("Blue-Red 3") + # colorspace
-    scale_fill_continuous_diverging("Blue-Red 2", mid = 0) +
+    # scale_fill_continuous_diverging("Blue-Red 2") + # colorspace
+    scale_fill_gradient2(low="#4a6fe3", mid="#e2e2e2", high="#d33f6a",
+                         midpoint = 0,
+                        limits = c(-3.5, 3.5)) +
 
     
     scale_x_discrete(labels = scales::label_wrap(width = 50)) + # break text |
@@ -236,9 +254,10 @@ lolliplot <- function(data,
     
     theme_bw() +
     theme(
+      plot.subtitle = element_text(color = "grey10", size = 9),
       strip.text.y = element_text(angle = 0, size = 8.5),
       strip.text.x = element_text(size = 7),
-      strip.background.y = element_rect(fill = fill_alpha("grey80", 0.5 )), 
+      strip.background.y = element_rect(fill = fill_alpha("grey80", 0.3 )), 
       panel.spacing.y = unit(0, "lines"), # or "cm", "in", etc.
       
     axis.text.x = element_text(angle = 90, hjust = 1, color = "grey15",
@@ -248,6 +267,8 @@ lolliplot <- function(data,
                                size = 8.5, face = 'italic',
                                lineheight = .7), # <1 smaller distances breaks
     axis.title.y = element_blank(),
+    axis.title.x = element_text(color = "grey10", size = 8.5),
+    axis.ticks = element_line(color = "grey10", linewidth = 0.3),
     
     legend.margin = margin(-10,0,-5,0), # (top, right, bot, left) | bottom ver
     legend.title = element_text(face = 'italic', size =8,
@@ -257,7 +278,12 @@ lolliplot <- function(data,
     legend.box.just = "right", # right justify legend box,
     legend.direction = "horizontal",
     
-    legend.position = legend_pos) 
+    legend.position = legend_pos,
+    
+    panel.border = element_rect(linewidth = 0.3, color = "grey10"),
+    panel.spacing.x = unit(.15, "cm"),
+    panel.grid.major = element_line(color = "grey90", linewidth = 0.1),
+    panel.grid.minor = element_line(color = "grey90", linewidth = 0.1)) 
     
 }
 ```
@@ -273,7 +299,6 @@ HM_lol <- HM_tibs_df_6 %>%
             legend_pos = "bottom")
 
 HM_lol
-
 ```
 
 ------------------------------------------------------------------------
@@ -345,7 +370,7 @@ for(hm in Msig_HM_POI) {
   
   my_lg_prot <- my_prots %>% #LABEL LEADING GENE???
     arrange(adj.pvalue) %>% # not quite - 6 most sig proteins
-    slice_head(n = 6)
+    slice_head(n = 7)
   
   
     strip <- strip_themed( # green for 1st 3 (housing) & Lavender for last 3 (age)
