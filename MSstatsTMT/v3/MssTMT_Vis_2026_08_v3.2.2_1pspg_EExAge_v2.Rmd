@@ -629,8 +629,10 @@ plot_grid(plotlist = Age_main_20_psum_plot_list$Up[6:10], ncol = 1) # 7.5 x 10.5
 
 - <https://forum.posit.co/t/reordering-plot-based-on-another-dataframe/26467/3>
 
+#### psum theme
+
 ```{r}
-my_psum_facet_theme <- my_theme +
+my_psum_facet_theme <- 
   theme(
     axis.text.y = element_text(size = 6.5, color ="grey10"),
     axis.text.x = element_text(size = 5.5, color ="grey10"),
@@ -922,6 +924,13 @@ SynDiv <- mapped_comp %>%
 ```
 
 ```{r}
+# Neurotrophins, growthfactors T Systems & Signalling
+neurotrophins_list <- c("Ntrk2", "Ntrk3", "Ntf3", "BDNF", 'Sort1', 'Mmp9', 'Mecp2')
+
+growth_factors_list <- c("Igf1", "Igf2",
+                        'Fgfr2', 'Vgf')
+
+
 # 7 cortical interneurons (Makaram 2004) + Tac1 & Penk + Pcsk1n (protSAAS), Folh1, pmch
 neuropep_inhib <- c( "Calb1", "Calb2", 'Cck',  "Npy", "Sst", 'Pvalb', "Vip",
                      "Tac1", 'Penk',  "Pcsk1n", "Pmch", "Folh1", "Lamp5")
@@ -972,20 +981,22 @@ EE_syn_check <- mapped_psum %>%
   mutate(Condition = forcats::fct_reorder(Condition, PND)) %>% # reoder by PND (no)
 
   
-  # filter(gene %in% vanOostrum_syn_pairs) %>%
-  filter(gene %in% neuropep_inhib) %>%
+  # # filter(gene %in% vanOostrum_syn_pairs) %>%
+  # filter(gene %in% neuropep_inhib) %>%
   
   # filter(gene %in% c("Gad2", "Slc32a1", "Gphn") | #GABA
   #          grepl("^Gabb|^Gabr|^Slc6a", gene)) %>%
   
   # filter( #gene %in% c("Camk2a") | #glutamate
-  #        grepl("^Gria|^Grin|^Grm|Grik|Slc17a6|Slc17a7|Slc17a8|Cacng|Reln", gene)) %>%
-  
+  #        grepl("^Gria|^Grin|^Grm|Grik|Slc17a6|Slc17a7|Slc17a8|Cacng|Reln|^Htr", gene)) %>%
+
   # filter(gene %in% glial) %>%
   
   # filter(gene %in% PNN) %>%
   
   # filter(gene %in% vanOostrum_basic_markers) %>%
+  
+  filter(gene %in% neurotrophins_list) %>%
   
   ggplot(aes(x = interaction(Age, Housing, 
                              sep = "\n", # space
