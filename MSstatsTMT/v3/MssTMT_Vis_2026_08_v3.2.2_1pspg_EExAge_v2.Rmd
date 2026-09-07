@@ -50,6 +50,15 @@ load("input/MSstatsTMT/comp/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_comp.rda") 
 #anno
 anno <- read_csv("input/anno/EEv&SH_F&M_TMT_anno_v3_df_b_check_sorted_2025_12_31.csv") 
 # double check later!
+
+load("input/db/rat_ref_proteome_2025_12_13_51872x295.rda")
+```
+
+```{r}
+colnames(rat_ref_proteome_2025_12_13)
+
+ref_rat_trm <- rat_ref_proteome_2025_12_13 %>%
+  select(Entry, Gene.Names, Protein.families, Keywords)
 ```
 
 ## Map/Fix names - aka + bunch of extra annotation info!
@@ -68,7 +77,9 @@ mapped_psum <- left_join(mapped_psum_v3.2.2_EExAge,
   mutate(Age = ifelse(PND > 100, "OLD", "YNG")) %>%
   mutate(Age = factor(Age, levels = c("YNG", "OLD"))) %>% # so YNG is 1st
   mutate(across(c(Housing, Sex, Year, Cohort, Litter, exp_helper),
-         as.factor)) # auto alphabetical order (not really needed?)
+         as.factor)) %>% # auto alphabetical order (not really needed?)
+  
+  left_join(ref_rat_trm, by = join_by("Protein" == "Entry"))
 
 # mapped_psum$Age <- factor(mapped_psum$Age, # WAIT NOT NEEDED?
 #                           levels = c(YNG))
@@ -116,7 +127,9 @@ mapped_comp <- mapped_comp_v3.2.2_EExAge_t1 %>%
   mutate(sig_no_up_lab = sum(adj.pvalue < 0.05 & log2FC > 0), # up
          sig_no_down_lab = sum(adj.pvalue < 0.05 & log2FC < 0)) %>%  #  down
   
-  mutate(Direction = ifelse(log2FC > 0, "Up", "Down"))
+  mutate(Direction = ifelse(log2FC > 0, "Up", "Down")) %>%
+  
+  left_join(ref_rat_trm, by = join_by("Protein" == "Entry"))
 
 # check 
 head(mapped_comp) 
@@ -634,11 +647,13 @@ plot_grid(plotlist = Age_main_20_psum_plot_list$Up[6:10], ncol = 1) # 7.5 x 10.5
 ```{r}
 my_psum_facet_theme <- 
   theme(
-    axis.text.y = element_text(size = 6.5, color ="grey10"),
-    axis.text.x = element_text(size = 5.5, color ="grey10"),
+    axis.text.y = element_text(size = 7, color ="grey10"),
+    axis.text.x = element_text(size = 6, color ="grey10"),
+    axis.title.y= element_text(size = 9.5, color ="grey10"),
     axis.title.x = element_blank(),
-  
+    
     panel.spacing = unit(0.2, "cm"),  # Removes space between panel 
+    legend.title = element_text(color = "grey10", face = "italic",  size = 9),
     legend.margin = margin(-5,0,0,0), # space between plot & legend
     legend.key.size = unit(0.5, "cm"), # size of legend key icon,
     axis.ticks = element_line(linewidth = .1, colour = "grey15"),
@@ -647,8 +662,9 @@ my_psum_facet_theme <-
     strip.text = element_text(face = "italic", size = 10.5),
     plot.title = element_text(size = 11.5,  color = "grey10",face = "italic"),
     plot.subtitle = element_text(size = 9,  color = "grey10",face = "italic"),
-    panel.grid.major = element_line(color = "grey90", linewidth = 0.1),
-    panel.grid.minor = element_line(color = "grey95", linewidth = 0.1),
+    panel.grid.major = element_line(color = "grey90", linewidth = 0.15),
+    panel.grid.minor = element_line(color = "grey95", linewidth = 0.15),
+    legend.position = "bottom"
   )
 ```
 
@@ -691,6 +707,7 @@ EE_facet_up_plot <- mapped_psum %>%
        ) +
   
   facet_wrap(~gene, ncol = 6, scale = "free_y") +
+  theme_bw() +
     my_psum_facet_theme +
   theme(
     legend.position = "none"
@@ -738,7 +755,7 @@ EE_facet_down_plot <- mapped_psum %>%
     labs(title = "\U2193 Downregulated in EE",
        # subtitle = "Above adj.p > .05 but below adj.p <.23"
        ) +
-  
+  theme_bw() +
   facet_wrap(~gene, ncol = 6, scale = "free_y") +
   my_psum_facet_theme
 
@@ -800,6 +817,7 @@ Age_facet_up_plot <- mapped_psum %>%
   labs(title = "\U2191 Upregulated in YNG ") +
   
   facet_wrap(~gene, ncol = 6, scale = "free_y") +
+    theme_bw() +
     my_psum_facet_theme
 
 
@@ -841,6 +859,7 @@ Age_facet_down_plot <- mapped_psum %>%
   scale_y_continuous(labels = label_number(accuracy = 0.1)) + # 1dp
   labs(title = "\U2193 Downregulated in YNG ") +
   facet_wrap(~gene, ncol = 6, scale = "free_y") +
+    theme_bw() +
   my_psum_facet_theme
 
 Age_facet_down_plot
@@ -912,6 +931,15 @@ me_and_paban <- EE_main_only %>%
 ## Synaptic Proteins Psum
 
 ```{r}
+neurotrophins <- mapped_comp %>%
+  filter(str_detect(Protein.families, regex("growth", ignore_case = TRUE)))
+
+# 
+growth_factors <- mapped_comp %>%
+  filter(str_detect(Keywords, regex("Growth factor", ignore_case = TRUE)))
+```
+
+```{r}
 list_SynDiv <- c("Camk2a", "Dlg4", 'Gphn', 'Gad2')
 ```
 
@@ -925,7 +953,12 @@ SynDiv <- mapped_comp %>%
 
 ```{r}
 # Neurotrophins, growthfactors T Systems & Signalling
-neurotrophins_list <- c("Ntrk2", "Ntrk3", "Ntf3", "BDNF", 'Sort1', 'Mmp9', 'Mecp2')
+
+
+neurotrophins_list <- c("Ntrk2", "Ntrk3", "Ntf3", "Bdnf", 'Sort1',
+                        'Mmp3', 'Mmp7', 'Ngfr', 'Plat', 'Furin',
+                        'Hdgf', 'Igf2r')
+
 
 growth_factors_list <- c("Igf1", "Igf2",
                         'Fgfr2', 'Vgf')
@@ -980,9 +1013,15 @@ EE_syn_check <- mapped_psum %>%
   
   mutate(Condition = forcats::fct_reorder(Condition, PND)) %>% # reoder by PND (no)
 
+  filter(gene %in% neurotrophins_list) %>%
+  # filter(str_detect(Keywords, regex("Growth factor", ignore_case = TRUE))) %>%
+  
   
   # # filter(gene %in% vanOostrum_syn_pairs) %>%
   # filter(gene %in% neuropep_inhib) %>%
+  
+  
+  # filter(str_detect(Keywords, regex("Growth factor", ignore_case = TRUE))) %>%
   
   # filter(gene %in% c("Gad2", "Slc32a1", "Gphn") | #GABA
   #          grepl("^Gabb|^Gabr|^Slc6a", gene)) %>%
@@ -996,7 +1035,6 @@ EE_syn_check <- mapped_psum %>%
   
   # filter(gene %in% vanOostrum_basic_markers) %>%
   
-  filter(gene %in% neurotrophins_list) %>%
   
   ggplot(aes(x = interaction(Age, Housing, 
                              sep = "\n", # space
@@ -1020,7 +1058,8 @@ EE_syn_check <- mapped_psum %>%
                      name = "Sex (Year)") +
   # guides(y.sec = 'axis') + # adds 2nd y axis (right side)
   scale_y_continuous(labels = label_number(accuracy = 0.1)) + # 1dp
-  facet_wrap(~gene, ncol = 7, scale = "free_y") +
+  facet_wrap(~gene, ncol =  7, scale = "free_y") +
+    theme_bw() +
   my_psum_facet_theme
 
 EE_syn_check
