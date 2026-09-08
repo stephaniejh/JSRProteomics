@@ -649,7 +649,7 @@ my_psum_facet_theme <-
   theme(
     axis.text.y = element_text(size = 7, color ="grey10"),
     axis.text.x = element_text(size = 6, color ="grey10"),
-    axis.title.y= element_text(size = 9.5, color ="grey10"),
+    axis.title.y= element_text(size = 9, color ="grey10"),
     axis.title.x = element_blank(),
     
     panel.spacing = unit(0.2, "cm"),  # Removes space between panel 
@@ -956,7 +956,7 @@ SynDiv <- mapped_comp %>%
 
 
 neurotrophins_list <- c("Ntrk2", "Ntrk3", "Ntf3", "Bdnf", 'Sort1',
-                        'Mmp3', 'Mmp7', 'Ngfr', 'Plat', 'Furin',
+                        'Mmp3', 'Mmp7', 'Ngfr', 'Plat', 'Furin', 'Plg',
                         'Hdgf', 'Igf2r')
 
 
@@ -1058,7 +1058,7 @@ EE_syn_check <- mapped_psum %>%
                      name = "Sex (Year)") +
   # guides(y.sec = 'axis') + # adds 2nd y axis (right side)
   scale_y_continuous(labels = label_number(accuracy = 0.1)) + # 1dp
-  facet_wrap(~gene, ncol =  7, scale = "free_y") +
+  facet_wrap(~gene, ncol =  8, scale = "free_y") +
     theme_bw() +
   my_psum_facet_theme
 
