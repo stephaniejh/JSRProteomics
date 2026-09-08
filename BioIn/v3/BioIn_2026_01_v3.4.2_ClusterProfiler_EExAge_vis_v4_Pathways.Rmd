@@ -1121,7 +1121,7 @@ for(kp in kegg_POI) {
   
   # _____________________________________
   # 3 - SAVE THE PLOTS
-  # kegg_volcano_list[[kp]] <- vol_plot
+  kegg_volcano_list[[kp]] <- vol_plot
   
   # _____________________________________
   # 4 - PRINT OUT PLOTS - all
@@ -1185,16 +1185,58 @@ REACT_TOP_LVL <- c(
   "REACTOME_VESICLE_MEDIATED_TRANSPORT",
   
   "REACTOME_APOPTOSIS",
-  "REACTOME_REGULATION_OF_APOPTOSIS",
-  # "REACTOME_PROGRAMMED_CELL_DEATH",
-  "REACTOME_AGGREPHAGY",
-  "REACTOME_SELECTIVE_AUTOPHAGY"
-  
+
 )
 
 
 ## EMPTY PLOT LIST 
 reactome_TOP_volcano_list <-  vector(mode = "list")
+```
+
+```{r}
+# Reactome list - nt
+p1_reactome_list <- c(
+  "REACTOME_DISEASES_OF_SIGNAL_TRANSDUCTION_BY_GROWTH_FACTOR_RECEPTORS_AND_SECOND_MESSENGERS",
+  "REACTOME_INTRACELLULAR_SIGNALING_BY_SECOND_MESSENGERS",
+  "REACTOME_MAPK_FAMILY_SIGNALING_CASCADES",
+  "REACTOME_PROLONGED_ERK_ACTIVATION_EVENTS",
+  "REACTOME_REGULATION_OF_RAS_BY_GAPS",
+  ##_L5_Post_NMDA_receptor_activation_events_
+'REACTOME_CREB1_PHOSPHORYLATION_THROUGH_THE_ACTIVATION_OF_ADENYLATE_CYCLASE', #L6
+  
+  "REACTOME_PTEN_REGULATION",
+  "REACTOME_MAPK_FAMILY_SIGNALING_CASCADES",
+  "REACTOME_FCERI_MEDIATED_NF_KB_ACTIVATION",
+  
+  "REACTOME_ACTIVATION_OF_NF_KAPPAB_IN_B_CELLS",
+  "REACTOME_DECTIN_1_MEDIATED_NONCANONICAL_NF_KB_SIGNALING",
+  "REACTOME_TNFR2_NON_CANONICAL_NF_KB_PATHWAY",
+  
+  
+  # TOP-level CELL CYCLE & DEATH 
+  "REACTOME_DNA_REPLICATION",
+  "REACTOME_DNA_REPAIR",
+  "REACTOME_CELL_CYCLE",
+  "REACTOME_PROGRAMMED_CELL_DEATH",
+  "REACTOME_APOPTOSIS",
+  "REACTOME_REGULATION_OF_APOPTOSIS",
+  "REACTOME_AGGREPHAGY",
+  "REACTOME_SELECTIVE_AUTOPHAGY",
+  
+  
+  "REACTOME_SWITCHING_OF_ORIGINS_TO_A_POST_REPLICATIVE_STATE",
+  "REACTOME_MITOTIC_G1_PHASE_AND_G1_S_TRANSITION",
+  "REACTOME_S_PHASE",
+  "REACTOME_M_PHASE",
+  "REACTOME_APC_C_MEDIATED_DEGRADATION_OF_CELL_CYCLE_PROTEINS",
+  "REACTOME_CYCLIN_A_CDK2_ASSOCIATED_EVENTS_AT_S_PHASE_ENTRY",
+  "REACTOME_STABILIZATION_OF_P53",
+  
+  "REACTOME_RHO_GTPASE_EFFECTORS"
+  
+)
+
+p1_reactome_volcano_list <-  vector(mode = "list")
 ```
 
 ```{r}
@@ -1209,13 +1251,7 @@ REACT_POI  <- c(
   "REACTOME_PTEN_REGULATION",
   "REACTOME_MAPK_FAMILY_SIGNALING_CASCADES",
   "REACTOME_FCERI_MEDIATED_NF_KB_ACTIVATION",
-  # "REACTOME_",
-  # "REACTOME_",
-  # "REACTOME_",
-  # "REACTOME_",
-  # "REACTOME_",
 
-  
 ##_L1_NEURONAL_SYSTEM__(づ ◕‿◕ )づ____
 'REACTOME_NEURONAL_SYSTEM', # L1 (TOP LEVEL)
 
@@ -1358,7 +1394,9 @@ if (!dir.exists(react_out_dir)) dir.create(react_out_dir, recursive = TRUE)
 ```
 
 ```{r}
-for(rct in REACT_TOP_LVL) {
+
+# for (rct in REACT_TOP_LVL) {
+for(rct in p1_reactome_list) { # P1 - NT BDNF, dna rep, death, CA2+
   
 
 # 1 - PREPARE THE DATA
@@ -1544,7 +1582,8 @@ for(rct in REACT_TOP_LVL) {
   # _____________________________________
   # 3 - SAVE THE PLOTS - selected in re-run
   # reactome_volcano_list[[rct]] <- vol_plot
-  reactome_TOP_volcano_list[[rct]] <- vol_plot
+  # reactome_TOP_volcano_list[[rct]] <- vol_plot
+  p1_reactome_volcano_list[[rct]] <- vol_plot
   
   # _____________________________________
   # 4 - PRINT OUT PLOTS - all
@@ -1569,9 +1608,10 @@ for(rct in REACT_TOP_LVL) {
 ```
 
 ```{r}
-plot_grid(plotlist = reactome_volcano_list[1:12], ncol = 2)
-
+# plot_grid(plotlist = reactome_volcano_list[1:12], ncol = 2)
 # ggsave("2026_03_23_REACT_21_volcanos_300dpi.png", dpi = 300) # 11.4 x 5.99
+
+plot_grid(plotlist = p1_reactome_volcano_list[1:27], ncol = 3)
 ```
 
 ------------------------------------------------------------------------
@@ -1856,6 +1896,8 @@ plot_grid(plotlist = reactome_volcano_list[12:17],
 # ggsave("2026_03_31_REACT_other_brain_mapped_volcano_330dpi.png", dpi = 330)
 ```
 
+---
+
 #### Reactome Top Levels
 
 ```{r}
@@ -1865,6 +1907,28 @@ plot_grid(
   ncol = 1,
   labels = c("a","b","c", "d"),
   label_colour = "grey10", label_size = 11)
+```
+
+```{r}
+#2026_09_08 - p1 Ca 2+ signalling
+plot_grid(
+  #  cAMP signalling # cGMP-PKG & Calcium isngalling + REACTOME CREB1 AC
+  kegg_volcano_list$rno04024,
+  kegg_volcano_list$rno04022, kegg_volcano_list$rno04020,
+  p1_reactome_volcano_list$REACTOME_CREB1_PHOSPHORYLATION_THROUGH_THE_ACTIVATION_OF_ADENYLATE_CYCLASE,
+  labels = c("a", "b", "c", "d"),
+  label_colour = "grey10", label_size = 11,  ncol = 1)
+```
+
+```{r}
+#2026_09_08 - p1 APOPTOSIS 
+plot_grid(
+  # REACT APOPTOSIS
+  p1_reactome_volcano_list$REACTOME_PROGRAMMED_CELL_DEATH,
+  p1_reactome_volcano_list$REACTOME_APOPTOSIS,
+  p1_reactome_volcano_list$REACTOME_REGULATION_OF_APOPTOSIS,
+  labels = c("a", "b"),
+  label_colour = "grey10", label_size = 11,  ncol = 1)
 ```
 
 ------------------------------------------------------------------------
