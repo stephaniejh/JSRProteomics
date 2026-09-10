@@ -1654,6 +1654,10 @@ plot_grid(kegg_volcano_list$rno04014,
 # dev.off()
 ```
 
+```{r}
+
+```
+
 #### KEGG DNA, RNA, & PROTEIN
 
 ```{r}
@@ -1896,7 +1900,7 @@ plot_grid(plotlist = reactome_volcano_list[12:17],
 # ggsave("2026_03_31_REACT_other_brain_mapped_volcano_330dpi.png", dpi = 330)
 ```
 
----
+------------------------------------------------------------------------
 
 #### Reactome Top Levels
 
@@ -1926,8 +1930,28 @@ plot_grid(
   # REACT APOPTOSIS
   p1_reactome_volcano_list$REACTOME_PROGRAMMED_CELL_DEATH,
   p1_reactome_volcano_list$REACTOME_APOPTOSIS,
-  p1_reactome_volcano_list$REACTOME_REGULATION_OF_APOPTOSIS,
+  # p1_reactome_volcano_list$REACTOME_REGULATION_OF_APOPTOSIS,
   labels = c("a", "b"),
+  label_colour = "grey10", label_size = 11,  ncol = 1)
+```
+
+```{r}
+#2026_09_08 - p1 kegg purine & base excision repair
+plot_grid(
+  kegg_volcano_list$rno00230, kegg_volcano_list$rno03410,
+  labels = c("a", "b"),
+  label_colour = "grey10", label_size = 11,  ncol = 1)
+```
+
+```{r}
+#2026_0910 - 
+plot_grid(
+  # REACT APOPTOSIS
+  p1_reactome_volcano_list$REACTOME_PTEN_REGULATION,
+  p1_reactome_volcano_list$REACTOME_DECTIN_1_MEDIATED_NONCANONICAL_NF_KB_SIGNALING,
+  p1_reactome_volcano_list$REACTOME_TNFR2_NON_CANONICAL_NF_KB_PATHWAY,
+  p1_reactome_volcano_list$REACTOME_FCERI_MEDIATED_NF_KB_ACTIVATION,
+  labels = c("a", "b", "c"),
   label_colour = "grey10", label_size = 11,  ncol = 1)
 ```
 

@@ -937,6 +937,12 @@ neurotrophins <- mapped_comp %>%
 # 
 growth_factors <- mapped_comp %>%
   filter(str_detect(Keywords, regex("Growth factor", ignore_case = TRUE)))
+
+calcium_channel <- mapped_comp %>%
+  filter(str_detect(Keywords, regex("Calcium Channel", ignore_case = TRUE))) 
+
+calcium_prots <- c('Cacng3', 'Cacna2d2', 'Cacng2' , 'Cacna2d3' , 
+                   'Ryr2' , 'Itpr1' , 'Prkaca', 'Camkk1')
 ```
 
 ```{r}
@@ -1013,8 +1019,10 @@ EE_syn_check <- mapped_psum %>%
   
   mutate(Condition = forcats::fct_reorder(Condition, PND)) %>% # reoder by PND (no)
 
-  filter(gene %in% neurotrophins_list) %>%
+  # filter(gene %in% neurotrophins_list) %>%
   # filter(str_detect(Keywords, regex("Growth factor", ignore_case = TRUE))) %>%
+    filter(gene %in%  calcium_prots) %>%
+
   
   
   # # filter(gene %in% vanOostrum_syn_pairs) %>%
