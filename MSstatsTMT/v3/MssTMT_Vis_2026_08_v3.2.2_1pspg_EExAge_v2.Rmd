@@ -945,15 +945,15 @@ calcium_channel <- mapped_comp %>%
 
 calcium_prots <- mapped_comp %>%
     filter(grepl("^Grin1|Grin2|Camk|Calm|Ryr|Cacng|Cacna|Prkc|Prka|Gnb|Gng|Gna|
-Itpr", gene)) %>%
+Itpr|Slc8", gene)) %>%
   filter(!(Label %in% c("HxA_EE_YNG_vs_SH_OLD", "HxA_EE_OLD_vs_SH_YNG"))) %>% # 6 plot
-  filter(adj.pvalue <= 0.11) # 7 proteins
+  filter(adj.pvalue <= 0.2) # 7 proteins
 
 
 Ras_prots <- mapped_comp %>%
     filter(grepl("^Mapk3|Ras|Nras", gene)) %>%
   filter(!(Label %in% c("HxA_EE_YNG_vs_SH_OLD", "HxA_EE_OLD_vs_SH_YNG"))) %>% # 6 plot
-  filter(adj.pvalue <= 0.11) # 7 proteins
+  filter(adj.pvalue <= 0.2) # 7 proteins
 
 
 
@@ -1041,7 +1041,7 @@ EE_syn_check <- mapped_psum %>%
   # filter(str_detect(Keywords, regex("Growth factor", ignore_case = TRUE))) %>%
     # filter(gene %in%  calcium_prots) %>%
 
-  filter(grepl("^Grin1|Grin2|Camk2|Camk4|Calm|Ryr2|Cacng|Cacna|Prkc|Prkar2b|Prkaca|Prkac|Gnb14|Gng13", gene)) %>%
+  filter(grepl("^Grin1|Grin2|Camk2|Camk4|Calm|Ryr2|Cacng|Prkar2b|Prkaca|Prkac|Gnb14|Slc8", gene)) %>%
   
   # # filter(gene %in% vanOostrum_syn_pairs) %>%
   # filter(gene %in% neuropep_inhib) %>%

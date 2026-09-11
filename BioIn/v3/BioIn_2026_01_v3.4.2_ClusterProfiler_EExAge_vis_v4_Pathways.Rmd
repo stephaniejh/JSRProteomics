@@ -1955,6 +1955,18 @@ plot_grid(
   label_colour = "grey10", label_size = 11,  ncol = 1)
 ```
 
+```{r}
+# REACTOME INTRACELLULAR SIGNALLING - 6 paths
+plot_grid(
+  p1_reactome_volcano_list$REACTOME_DISEASES_OF_SIGNAL_TRANSDUCTION_BY_GROWTH_FACTOR_RECEPTORS_AND_SECOND_MESSENGERS,
+  p1_reactome_volcano_list$REACTOME_INTRACELLULAR_SIGNALING_BY_SECOND_MESSENGERS,
+  p1_reactome_volcano_list$REACTOME_PTEN_REGULATION,
+  p1_reactome_volcano_list$REACTOME_MAPK_FAMILY_SIGNALING_CASCADES,
+  p1_reactome_volcano_list$REACTOME_PROLONGED_ERK_ACTIVATION_EVENTS,
+  p1_reactome_volcano_list$REACTOME_REGULATION_OF_RAS_BY_GAPS,
+  ncol = 1, labels = c("a","b", "c", "d", "e", "f"), label_colour = "grey10", label_size = 11)
+```
+
 ------------------------------------------------------------------------
 
 ## Typed out MISC
