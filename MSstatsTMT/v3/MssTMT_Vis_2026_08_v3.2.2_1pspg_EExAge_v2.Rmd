@@ -129,7 +129,8 @@ mapped_comp <- mapped_comp_v3.2.2_EExAge_t1 %>%
   
   mutate(Direction = ifelse(log2FC > 0, "Up", "Down")) %>%
   
-  left_join(ref_rat_trm, by = join_by("Protein" == "Entry"))
+  left_join(ref_rat_trm, by = join_by("Protein" == "Entry")) %>%
+  filter(!(Label %in% c("HxA_EE_YNG_vs_SH_OLD", "HxA_EE_OLD_vs_SH_YNG"))) # 6 plots
 
 # check 
 head(mapped_comp) 
@@ -178,7 +179,6 @@ strip_colors <- strip_themed( # green for 1st 3 (housing) & Lavender for last 3 
 # prev had from 1 df but over plots repeately & cant index since mapped_comp huge.
 sig_volcano_sum <- mapped_comp %>%
   dplyr::select(Label, sig_no_up_lab, sig_no_down_lab) %>%
-  filter(!(Label %in% c("HxA_EE_YNG_vs_SH_OLD", "HxA_EE_OLD_vs_SH_YNG"))) %>% # 6 plot
   filter(!(Label %in% c("A_YNG_vs_OLD",
                         "HxA_EE_YNG_vs_EE_OLD", "HxA_SH_YNG_vs_SH_OLD"))) %>%
   # filter(!(Label %in% c("H_EE_vs_SH",
@@ -189,15 +189,13 @@ sig_volcano_sum <- mapped_comp %>%
 mapped_comp$Label <- factor(
   mapped_comp$Label,
   levels = c( "H_EE_vs_SH", "HxA_EE_YNG_vs_SH_YNG", "HxA_EE_OLD_vs_SH_OLD",
-              "A_YNG_vs_OLD",  "HxA_EE_YNG_vs_EE_OLD", "HxA_SH_YNG_vs_SH_OLD",
-              "HxA_EE_YNG_vs_SH_OLD", "HxA_EE_OLD_vs_SH_YNG"))
+              "A_YNG_vs_OLD",  "HxA_EE_YNG_vs_EE_OLD", "HxA_SH_YNG_vs_SH_OLD"))
 ```
 
 ```{r}
 # unique(mapped_comp$Label)
 # unicodes for up \U2191 & down \U2193
 big_volcano <- mapped_comp %>%
-  filter(!(Label %in% c("HxA_EE_YNG_vs_SH_OLD", "HxA_EE_OLD_vs_SH_YNG"))) %>% # 6 plot
   
   filter(!(Label %in% c("A_YNG_vs_OLD",
                       "HxA_EE_YNG_vs_EE_OLD", "HxA_SH_YNG_vs_SH_OLD"))) %>%
@@ -938,6 +936,12 @@ neurotrophins <- mapped_comp %>%
 growth_factors <- mapped_comp %>%
   filter(str_detect(Keywords, regex("Growth factor", ignore_case = TRUE)))
 
+developmental_protein <- mapped_comp %>%
+  filter(str_detect(Keywords, regex("Developmental protein", ignore_case = TRUE)))
+
+transcription_factors <- mapped_comp %>%
+  filter(str_detect(description, regex("Transcription factor", ignore_case = TRUE)))
+
 calcium_channel <- mapped_comp %>%
   filter(str_detect(Keywords, regex("Calcium Channel", ignore_case = TRUE))) 
 
@@ -946,13 +950,11 @@ calcium_channel <- mapped_comp %>%
 calcium_prots <- mapped_comp %>%
     filter(grepl("^Grin1|Grin2|Camk|Calm|Ryr|Cacng|Cacna|Prkc|Prka|Gnb|Gng|Gna|
 Itpr|Slc8", gene)) %>%
-  filter(!(Label %in% c("HxA_EE_YNG_vs_SH_OLD", "HxA_EE_OLD_vs_SH_YNG"))) %>% # 6 plot
   filter(adj.pvalue <= 0.2) # 7 proteins
 
 
 Ras_prots <- mapped_comp %>%
     filter(grepl("^Mapk3|Ras|Nras", gene)) %>%
-  filter(!(Label %in% c("HxA_EE_YNG_vs_SH_OLD", "HxA_EE_OLD_vs_SH_YNG"))) %>% # 6 plot
   filter(adj.pvalue <= 0.2) # 7 proteins
 
 
@@ -1089,7 +1091,6 @@ EE_syn_check <- mapped_psum %>%
   my_psum_facet_theme
 
 EE_syn_check
-
 ```
 
 ```{r}
@@ -1358,3 +1359,7 @@ myelin_plot <- mapped_psum %>%
 
 myelin_plot
 ```
+
+------------------------------------------------------------------------
+
+## 
