@@ -77,5 +77,25 @@ s3_s5_s6_check <- s3_s5_s6 %>%
 
 ```{r}
 s3_s5_s6_curated <- s3_s5_s6 %>%
-            drop_na(`ENSEMBL ID`)
+            drop_na(`ENSEMBL ID`) %>%
+  mutate(gene = str_to_title(Gene), .after = "Gene")
+```
+
+```{r}
+# # export curated dataset
+# write_excel_csv(s3_s5_s6_curated, "output/general/2026_09_15_Wang_2025_Allen_dev_cell_markers_s3_s5_s6_curated_v1.csv")
+```
+
+------------------------------------------------------------------------
+
+<https://celltypes.brain-map.org/rnaseq/mouse_ctx-hpf_10x?selectedVisualization=Heatmap&colorByFeature=Cell+Type&colorByFeatureValue=Gad1>
+
+<https://brain-map.org/bkp>
+
+```{r}
+allen_general_markers <- c('Gad1','Gad2','Slc32a1','Slc17a7','Lamp5',
+                           'Ndnf','Sncg','Vip','Sst','Chodl',
+                           'Pvalb','Cux2','Rorb','Fezf2','Sulf1',
+                           'Fam84b','Sla2','Foxp2','Nxph4','Aqp4',
+                           'Mbp','Plot','Cldn5','Ctss','C1qa')
 ```
