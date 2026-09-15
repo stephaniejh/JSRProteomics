@@ -51,6 +51,16 @@ rat_lit_re <- read_excel(
            sheet = 'rat_proteins_mRNA')
 ```
 
+```{r}
+# nmarkers from other experimenets
+
+# wang_2025_human_developmental_cell_types_allleninstitute
+allen_wang_markers <- read_csv("input/db/2026_09_15_Wang_2025_Allen_dev_cell_markers_s3_s5_s6_curated_v1.csv") %>%
+  dplyr::select(!c(Average_log2_fold_change:P_value_adjusted))
+
+
+```
+
 ## Wrangle
 
 ```{r}
@@ -334,16 +344,38 @@ wombo_combo_tab #print
 
 ------------------------------------------------------------------------
 
-#### Wombocombo v2 - link
+#### Allen Wang - dev markers - Wombocombo v2 
+
+<https://stackoverflow.com/questions/56810473/uniting-many-rows-into-one-r>
 
 ```{r}
+allen_wang_markers_2 <- allen_wang_markers %>%
+  group_by(Class, Subclass,Gene, gene) %>% # group
+  summarize(`Cell type` = toString(`Cell type`)) %>%
+  ungroup()
+
+# unique genes only e.g. only appears under  class & subclass - allowed multi type
+allen_wang_markers_unq <- allen_wang_markers_2 %>%
+  count(gene) %>%
+  filter(n == 1) %>%  #126/203 unique markers 
+  pull(gene)
+
+
+# combine 
+map_comp_wang_markers_sym <- left_join(mapped_comp_sym, allen_wang_markers_2,
+                                   by = join_by(gene == gene)) %>%
+                                   drop_na(Gene) %>%
+  mutate(class_subclass = paste0(Class, " - ", Subclass)) %>%
+  filter(gene %in% allen_wang_markers_unq)   # extra - get only unique markers
 
 ```
 
 ```{r}
-wombo_combo_tab_v2 <- mapped_comp_sym %>%
-
-  select(c(gene, description, H_EE_vs_SH.sym:HxA_SH_YNG_vs_SH_OLD.adjp)) %>%
+wombo_combo_tab_wang_allen <- map_comp_wang_markers_sym %>%
+  select(c(gene, description, H_EE_vs_SH.sym:HxA_SH_YNG_vs_SH_OLD.adjp,
+           `Cell type`, class_subclass)) %>%
+  
+  
   
   # filter(gene %in%  ALL_neurotrophins_genes) %>%
   
@@ -351,24 +383,26 @@ wombo_combo_tab_v2 <- mapped_comp_sym %>%
   #_______v1_EE_main___
   # mutate(EE_dir = if_else(H_EE_vs_SH.log2FC > 0, "Up \u2191 in EE",
   #                         "Down \u2193 in EE")) %>%
-  # arrange(H_EE_vs_SH.adjp) %>%
+  arrange(class_subclass, H_EE_vs_SH.adjp) %>%
   
  #_______v2_YNG_main___
-   mutate(YNG_dir = if_else(A_YNG_vs_OLD.log2FC > 0, "Up \u2191 in YNG",
-                          "Down \u2193 in YNG")) %>%
-  arrange(A_YNG_vs_OLD.adjp) %>%
+  #  mutate(YNG_dir = if_else(A_YNG_vs_OLD.log2FC > 0, "Up \u2191 in YNG",
+  #                         "Down \u2193 in YNG")) %>%
+  arrange(class_subclass, A_YNG_vs_OLD.adjp) %>%
+
   
   
   #_____
   # add row number after organisation
   mutate(row_id = as.character(row_number())) %>%
 
-  head(55) %>%
+  # head(100) %>%
 
 
  gt(
     # groupname_col = "EE_dir", # v1 -EE main
-    groupname_col = "YNG_dir", # v2 - YNG main
+    # groupname_col = "YNG_dir", # v2 - YNG main
+    groupname_col = "class_subclass", # v2 - YNG main
     rowname_col = "row_id"
     # rowname_col = "gene"
   ) %>%
@@ -415,7 +449,7 @@ wombo_combo_tab_v2 <- mapped_comp_sym %>%
 
   cols_align(
     align = "center",
-    columns = !1:2) %>%
+    columns = !c(1:2, 21)) %>%
   
   tab_style( # Spanner styling 
     style = cell_text(size = "90%"),
@@ -428,12 +462,16 @@ wombo_combo_tab_v2 <- mapped_comp_sym %>%
   
     tab_style( # Prevent breaking of value columns!
     style = cell_text(whitespace = "nowrap"),
-    locations = cells_body(columns = !1:2)) %>%
+    locations = cells_body(columns = !c(1:2, 21))) %>%
   
   
   tab_style( # gene name column styling
     style = cell_text(size = px(12.5), style = "italic"),
     locations = cells_body(columns = gene)) %>%
+  
+    tab_style( # Cell type column styling
+    style = cell_text(size = px(9.5), style = "italic"),
+    locations = cells_body(columns = `Cell type`)) %>%
   
   
   #______UP_____________
@@ -488,7 +526,7 @@ wombo_combo_tab_v2 <- mapped_comp_sym %>%
           spanners = matches("HxA_EE_YNG_vs_EE_OLD|HxA_SH_YNG_vs_SH_OLD"))) 
 
 
-wombo_combo_tab_v2 #print
+wombo_combo_tab_wang_allen #print
 ```
 
 ------------------------------------------------------------------------
