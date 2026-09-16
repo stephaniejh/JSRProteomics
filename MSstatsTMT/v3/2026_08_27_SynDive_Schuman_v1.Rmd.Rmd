@@ -337,7 +337,7 @@ list_dist_df3_tile
 
 # Part 2 - Data from paper/suppdatatables!
 
-## 2.1 Gad2-SypTOM vs Camk2a-SypTOM 
+## 2.1 Gad2-SypTOM vs Camk2a-SypTOM
 
 ```{r}
 s_df1 <- read_excel("input/db/mmc1_(vanOostrum_2023).xlsx",
@@ -599,4 +599,91 @@ s_df5a_list <- s_df5a_l %>%
   map(~pull(., gene)) # gets 7 gene lists from each
 ```
 
-### 
+------------------------------------------------------------------------
+
+```{r}
+alvarez_2017_raw <- read_excel("input/db/Alvarez_Castelao_Schuman_2017_supp_table_8_Camk2a_EE_vs_SH_DEPs.xlsx",
+                               sheet = "regulated proteins (volcano)")
+
+
+colnames(alvarez_2017_raw)
+```
+
+```{r}
+alvarez_2017 <- alvarez_2017_raw  %>%
+  rename("gene_names" = "Gene name(s)",
+         "log2FC" = "Log2 fold change EE-SC",
+         "log_pval" = "-LOG(P-value)",
+         "protein_names" = "Protein name(s)",
+         "sig" = "Significant") %>%
+  mutate(gene = gsub(";.*", "", gene_names), .after = gene_names)  %>%
+  mutate(protein_names = gsub(";\\s*", "; ", protein_names))  %>%
+  mutate(EE_dir = if_else(log2FC > 0, "\U2191 in EE", "\U2193 in EE"),
+         .after = log2FC)
+```
+
+```{r}
+alvarez_2017_volcano <- ggplot(alvarez_2017, 
+                               aes(x = log2FC, y = log_pval,  label = gene_names)) +
+
+  geom_vline(xintercept = c(0),linetype = "solid",
+             linewidth = 0.15, color = "grey75") +
+  
+  ggrastr::geom_point_rast(aes(color = case_when( # conditional ass for color mapping
+    log2FC > 0 ~ "up", # up sig .05
+    log2FC < 0 ~ "down", # down sig .05
+    TRUE ~ "ns" )), # catch the rest
+    size = 1.75,
+    raster.dpi = getOption("ggrastr.default.dpi", 330), alpha = 0.7) +
+  
+  scale_color_manual(values = c("firebrick", # coloring
+                                "royalblue3"),
+                     breaks = c("up", "down")) + 
+  
+  geom_text_repel(max.overlaps = 35, size = 2.2, # gene text on points
+                  color = "grey10",
+                 segment.size	= 0.2, segment.alpha = 0.5, min.segment.length = 0.5) +
+  
+  theme_minimal() +
+  theme(
+    legend.position = "none"
+  )
+ 
+alvarez_2017_volcano  
+```
+
+```{r}
+alvarez_2017_gt <- alvarez_2017 %>%
+
+  select(gene_names,protein_names,sig:EE_dir) %>%
+  arrange(desc(log_pval)) %>%
+  mutate(row_id = as.character(row_number())) %>%
+  gt(groupname_col = "EE_dir",
+     rowname_col = "row_id") %>%
+  
+  
+  cols_label(
+    log_pval = "-log10(pval)"
+  ) %>%
+  
+  
+  
+  tab_style( # STUB STYLE
+  style = list(cell_text(size = px(9), color = "#B3B3B3")),
+  locations = cells_stub()) %>%
+
+    fmt_number(decimals = 2)  %>%
+  tab_options(# GENERAL TABLE OPTIONS
+    table.font.size=11.5, # GENERAL TABLE OPTIONS
+    row_group.font.size = 13,
+  ) %>%
+  
+  tab_style( # gene name column styling
+    style = cell_text(size = px(12.5), style = "italic"),
+    locations = cells_body(columns = gene_names)) %>%
+  
+  opt_vertical_padding(scale = 0.3) #%>% # vert padding
+  
+
+alvarez_2017_gt
+```
