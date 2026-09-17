@@ -83,7 +83,7 @@ lit_review_RNA <- df_joined %>%
       fold_no <= -2.5 ~ '---',
       ),
     Significant = ifelse(Fold_change_old != "NC", 'yes', 'no'), 
-    pvalue = NA, #no pvalues provided
+    pvalue = pval, #nop
     N_tested = 3, # seems to be 3 per time group per housing condition (pg 1)
     Stats_adj = NA, 
     Note = notes,
@@ -104,7 +104,7 @@ lit_review_RNA <- df_joined %>%
 ```{r}
 # # write out lit review df
 # write_excel_csv(lit_review_RNA,
-#                 "output/2026_08_11_Rampon_2024_mRNA_microarray_lit_review_v2.csv")
+#                 "output/2026_08_11_Rampon_2000_mRNA_microarray_lit_review_v2.csv")
 ```
 
 ```{r}
