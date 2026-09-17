@@ -1,0 +1,225 @@
+---
+title: "Alvarez-Castelao_2017_mice_hip_Camk2a_proteomics"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(readxl)
+library(ggrepel)
+library(gt)
+library(ggrastr)
+```
+
+```{r}
+# DEPs
+alvarez_2017_raw <- read_excel("input/Alvarez_Castelao_Schuman_2017_supp_table_8_Camk2a_EE_vs_SH_DEPs.xlsx",
+                               sheet = "regulated proteins (volcano)")
+
+colnames(alvarez_2017_raw)
+
+
+alvarez_2017_GO_BP <- read_excel("input/Alvarez_Castelao_Schuman_2017_supp_table_9_Camk2a_EE_vs_SH_GO.xlsx",
+                               sheet = "GO_Process")
+
+alvarez_2017_GO_CC <- read_excel("input/Alvarez_Castelao_Schuman_2017_supp_table_9_Camk2a_EE_vs_SH_GO.xlsx",
+                               sheet = "GO_Component")
+
+alvarez_2017_GO_MF <- read_excel("input/Alvarez_Castelao_Schuman_2017_supp_table_9_Camk2a_EE_vs_SH_GO.xlsx",
+                               sheet = "GO_Function")
+
+```
+
+```{r}
+alvarez_2017_GO <- bind_rows(list(BP =  alvarez_2017_GO_BP,
+                                  CC = alvarez_2017_GO_CC,
+                                  MF = alvarez_2017_GO_MF), .id = "GO") %>%
+  mutate(driver_genes = str_extract_all(Genes, # look behind 4 [, STR, then ahead -  
+                                        "(?<=\\[|,\\s)[A-Z0-9]+(?=\\s+-\\s+)") %>%
+         map_chr(~ paste(.x, collapse = ", ")) %>% # then collapse w purrr::map_chr
+           str_to_title(), .before = Genes) # then driop "SPTBN1" to "Sptbn1"
+
+```
+
+```{r}
+alvarez_DEPs_2017 <- alvarez_2017_raw  %>%
+  rename("gene_names" = "Gene name(s)",
+         "log2FC" = "Log2 fold change EE-SC",
+         "log_pval" = "-LOG(P-value)",
+         "protein_names" = "Protein name(s)",
+         "sig" = "Significant") %>%
+  mutate(gene = gsub(";.*", "", gene_names), .after = gene_names)  %>%
+  mutate(pval = 10^(-log_pval), .after = log_pval) %>%
+  mutate(protein_names = gsub(";\\s*", "; ", protein_names))  %>%
+  mutate(Direction = if_else(log2FC > 0, "Up", "Down"),.after = log2FC) %>%
+  mutate(EE_dir = if_else(log2FC > 0, "\U2191 in EE", "\U2193 in EE"),
+         .after = Direction) 
+
+unique(alvarez_DEPs_2017$gene)
+
+# replace/recode double ups genes e.g. ones not in uniprot rat, then use 2nd mKIAA0531 - >Kif5c
+# but if both in uniprot - then default to 1st 
+alvarez_DEPs_2017$gene <- replace_values(alvarez_DEPs_2017$gene,
+                                         "mKIAA0705" ~ "Magi2", "Eef1b" ~ "Eef1b2", "Gyk" ~ "Gk",
+                                         "mKIAA0531" ~ "Kif5c", "Epb4.1l1" ~ "Epb41l1")
+
+unique(alvarez_DEPs_2017$gene)
+```
+
+```{r}
+alvarez_DEPs_2017_volcano <- ggplot(alvarez_DEPs_2017, 
+                               aes(x = log2FC, y = log_pval,  label = gene_names)) +
+
+  geom_vline(xintercept = c(0),linetype = "solid",
+             linewidth = 0.15, color = "grey75") +
+  
+  ggrastr::geom_point_rast(aes(color = case_when( # conditional ass for color mapping
+    log2FC > 0 ~ "up", # up sig .05
+    log2FC < 0 ~ "down", # down sig .05
+    TRUE ~ "ns" )), # catch the rest
+    size = 1.75,
+    raster.dpi = getOption("ggrastr.default.dpi", 330), alpha = 0.7) +
+  
+  scale_color_manual(values = c("firebrick", # coloring
+                                "royalblue3"),
+                     breaks = c("up", "down")) + 
+  
+  geom_text_repel(max.overlaps = 35, size = 2.2, # gene text on points
+                  color = "grey10",
+                 segment.size	= 0.2, segment.alpha = 0.5, min.segment.length = 0.5) +
+  
+  theme_minimal() +
+  theme(
+    legend.position = "none"
+  )
+ 
+alvarez_DEPs_2017_volcano  
+```
+
+```{r}
+alvarez_DEPs_2017_gt <- alvarez_DEPs_2017 %>%
+
+  select(gene_names,protein_names,sig:EE_dir) %>%
+  arrange(desc(log_pval)) %>%
+  mutate(row_id = as.character(row_number())) %>%
+  gt(groupname_col = "EE_dir",
+     rowname_col = "row_id") %>%
+  
+
+  cols_label(
+    log_pval = "-log10(pval)"
+  ) %>%
+  
+  
+  
+  tab_style( # STUB STYLE
+  style = list(cell_text(size = px(9), color = "#B3B3B3")),
+  locations = cells_stub()) %>%
+
+    fmt_number(decimals = 2)  %>%
+  tab_options(# GENERAL TABLE OPTIONS
+    table.font.size=11.5, # GENERAL TABLE OPTIONS
+    row_group.font.size = 13,
+  ) %>%
+  
+  tab_style( # gene name column styling
+    style = cell_text(size = px(12.5), style = "italic"),
+    locations = cells_body(columns = gene_names)) %>%
+  
+  opt_vertical_padding(scale = 0.3) #%>% # vert padding
+  
+
+alvarez_DEPs_2017_gt
+```
+
+```{r}
+alvarez_GO_2017_gt <- alvarez_2017_GO %>%
+  
+  select(GO:Enrichment,driver_genes) %>%
+  arrange(`FDR q-value`) %>%
+  mutate(row_id = as.character(row_number())) %>%
+  
+  head(40) %>%
+  
+  gt(groupname_col = "GO",
+     rowname_col = "row_id") %>%
+  
+  cols_label(
+    # log_pval = "-log10(pval)"
+  ) %>%
+  
+  
+  
+  
+  tab_style( # STUB STYLE
+  style = list(cell_text(size = px(9), color = "#B3B3B3")),
+  locations = cells_stub()) %>%
+
+    fmt_number(decimals = 2)  %>%
+  tab_options(# GENERAL TABLE OPTIONS
+    table.font.size=11.5, # GENERAL TABLE OPTIONS
+    row_group.font.size = 13,
+  ) %>%
+  
+  tab_style( # gene name column styling
+    style = cell_text(size = px(9), style = "italic"),
+    locations = cells_body(columns = driver_genes)) %>%
+  
+  opt_vertical_padding(scale = 0.3) #%>% # vert padding
+
+alvarez_GO_2017_gt
+```
+
+```{r}
+# for lit review table 
+lit_review_prot <- alvarez_DEPs_2017 %>%
+  mutate(
+    space = " ",
+    Year = 2017,
+    Author = 'Alvarez-Castelao',
+    Animal = 'Mice',
+    Condition = paste0("CaMK2a-Cre::R26MetRS"),
+    Region = 'Hippocampus',
+    Whole = 'Camk2a-BONCAT',
+    Exp_type = 'Protein',
+    Method = 'PROTEOMICS_LCMS_LFQ_DDA_OS',
+    Used_name = gene_names,
+    Mod = " ",
+    Mod_type = " ",
+    Gene_name = gene, # genename from uniprot
+    Comparison = 2, # 2 - EE vs SH
+    In_EE = Direction,
+    Fold_change = log2FC, # fold_no - numeric col with correct - sign! 
+    Arrows = case_when( # dplyr case when, instead of ifelse
+      log2FC > 2.5 ~ '+++',
+      log2FC > 1 ~ '++',
+      log2FC > .05 ~ '+',
+      log2FC > -.05 ~ '=',
+      log2FC > -1 ~ '-',
+      log2FC > -2.5 ~ '--',
+      log2FC <= -2.5 ~ '---',
+      ),
+    Significant = "yes", # yes for all 225 provided 
+    pvalue = pval, #FDR p-value < 0.02, S0=0.1  (BH adj) - see sheet 1 overview
+    N_tested = 6, # seems to be 6 (based on cols in tab & supp?)
+    Stats_adj = "adjusted", 
+    Note = " ",
+    Full_name = protein_names,
+    Uniprot_rat_accession = " ",
+    Uniprot_entry_name = " ",
+    Uniprot_link = " ",
+    Wikipedia_link =  " ",
+    Curation_method = " ", # 
+    Class_group = " ", #
+    Other_link = " ", #
+    Other_comments = '2026_09_17 - genes from supp table 8 (uniprot not mapped yet)',
+    misc = paste0(gene_names, ' - ', protein_names) # genenames (some multi) - proteins d
+  ) %>%
+  arrange(Condition, desc(In_EE), pvalue, Fold_change) 
+```
+
+```{r}
+# # write out lit review df
+# write_excel_csv(lit_review_prot,
+#                 "output/2026_09_17_Alvarez-Castelao_2017_proteomics_Camk2a_lit_review_v1.csv")
+```
