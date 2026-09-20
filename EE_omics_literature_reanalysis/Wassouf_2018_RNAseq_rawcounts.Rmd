@@ -33,10 +33,9 @@ library(pheatmap) # for heat maps to got with DESeq2
 ```
 
 ```{r}
+#read in raw data
 df_1 <- read_csv("input/Wassouf_2018_RNAseq_GSE96961_rawcounts.csv")
 ```
-
-### 
 
 ### Sample information.
 
@@ -44,30 +43,31 @@ The data was matched to the samples based on the following details.
 
 Example of matching
 
--   See the following link <https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM2546841>
+- See the following link <https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM2546841>
 
-    -   Sample GSM2546841
+  - Sample GSM2546841
 
-    -   Title: WT_SE_1
+  - Title: WT_SE_1
 
-    -   Description - Sample name: I14R018b05
+  - Description - Sample name: I14R018b05
 
-    -   GSM2546842 \| I14R018b06 \| WT_SE_2
+  - GSM2546842 \| I14R018b06 \| WT_SE_2
 
-    -   GSM2546843 \| I14R018b07 \| WT_SE_3
+  - GSM2546843 \| I14R018b07 \| WT_SE_3
 
-    -   GSM2546844 \| I14R018b08 \| WT_SE_4
+  - GSM2546844 \| I14R018b08 \| WT_SE_4
 
-    -   GSM2546845 \| I14R018b01 \| WT_EE_1
+  - GSM2546845 \| I14R018b01 \| WT_EE_1
 
-    -   GSM2546848 \| I14R018b04 \| WT_EE_4
+  - GSM2546848 \| I14R018b04 \| WT_EE_4
 
-    -   GSM2546849 \| I14R018b13 \| TG_SE_1
+  - GSM2546849 \| I14R018b13 \| TG_SE_1
 
-    -   GSM2546853 \| I14R018b09 \| TG_EE_1
+  - GSM2546853 \| I14R018b09 \| TG_EE_1
 
 ```{r}
 summary(df_1)
+colnames(df_1)
 ```
 
 ```{r}
@@ -107,13 +107,14 @@ Interim End - Quick summary note.
 
 Replication attempt of Wassouf et al., 2018 t1/v1 - testing 8 samples only WT_EE vs WT_SE.
 
--   <https://bioconductor.org/packages/release/bioc/vignettes/DESeq2/inst/doc/DESeq2.html>
+- <https://bioconductor.org/packages/release/bioc/vignettes/DESeq2/inst/doc/DESeq2.html>
 
 ## Count matrix input
 
 <https://bioconductor.org/packages/release/bioc/vignettes/DESeq2/inst/doc/DESeq2.html#countmat>
 
 ```{r}
+# give new names to columns so matches those provided in GEO db
 new_names <- c("ENSEMBL",
                'WT_EE__01_01', 'WT_EE__02_02', 'WT_EE__03_03', 'WT_EE__03_04',
                'WT_SE__01_05', 'WT_SE__02_06', 'WT_SE__03_07', 'WT_SE__04_08',
@@ -142,7 +143,7 @@ colnames(df_1) <- new_names # if writing over original
 ```
 
 ```{r}
-# JUST WT SE VS EE
+# JUST WT SE VS EE!
 
 # make matrix from Wassouf et al.'s raw read count csv
 cts <- as.matrix(df_1[, 2:9])
@@ -181,13 +182,14 @@ dds
 #keeps genes/rows with at least 4 samples with 10 or more read counts
 # (size of 4) count of >= 10 is recommened by DESeq2 - keeps 16925
 # but Wassouf did min of 50? - they got 12287.
-# if you do smallestGroupsize 4 * counts =>50 then you get 12315
+# if you do smallestGroupsize 4 * counts =>50 then you get 12315 |
+# 2026_09 - tested >=10 but still gives same no Nas as before, back to 50 to match
 smallestGroupSize <- 4
-keep <- rowSums(counts(dds) >= 50) >= smallestGroupSize 
+keep <- rowSums(counts(dds) >= 50) >= smallestGroupSize
 dds <- dds[keep,] # index dds with keep to select those that meet condition
 ```
 
-Note on factor levels
+#### Note on factor levels
 
 ```{r}
 dds$Housing <- relevel(dds$Housing, ref = "SE") # reference level is SE
@@ -227,9 +229,285 @@ summary(res)
 resOrdered_df <- as.data.frame(resOrdered)
 ```
 
+## NEW CONTINUES FROM HERE!!! (2026_09_20)
+
+## Filtered version
+
 ```{r}
+# NEW 
+resOrdered_df_adjp.1 <- resOrdered_df %>%
+  filter(padj <=0.1) %>%  #60 
+  tibble::rownames_to_column(var = "ENSEMBL")
+
+resOrdered_df_adjp.15 <- resOrdered_df %>%
+  filter(padj <=0.15) %>%  #105 results
+  tibble::rownames_to_column(var = "ENSEMBL")
+```
+
+```{r}
+write_excel_csv(resOrdered_df_adjp.15, "output/2026_09_20_Wassouf_2018_DESeq2_renalysis_WTonly_EEvsSE_adjp15_105.csv")
+```
+
+```{r}
+ensembl_2_uniprot <- read_excel("input/Wassouf_2018_DESeq_test_1_EEvsSE_p01_Ensembl_2_Uniprot_idmapping_2025_12_22.xlsx")
+
+ensembl_2_uniprot <- ensembl_2_uniprot %>%
+   mutate(existence_ranking = case_when( # ranking level of evidence
+    `Protein existence` == "Evidence at protein level" ~ 5,
+    `Protein existence` == "Evidence at transcript level" ~ 4,
+    `Protein existence` == "Inferred from homology" ~ 3, 
+    `Protein existence` == "Predicted" ~ 2, 
+    `Protein existence` == "Uncertain" ~ 1
+    ), .after = `Protein existence`) %>%
+  mutate(across(where(is.character), ~ na_if(.x, ""))) 
+   
+# need to run in separate line as mouse ref is input (otheriwise object not found )
+ensembl_2_uniprot <- ensembl_2_uniprot %>% 
+  mutate(occupied = rowSums(!is.na(ensembl_2_uniprot)))
+```
+
+```{r}
+resOrdered_df_adjp.15_mapped <- left_join(resOrdered_df_adjp.15, ensembl_2_uniprot,
+                                       by = join_by(ENSEMBL == From)) # 397x31
+#1 unmapped
+```
+
+```{r}
+length(unique(resOrdered_df_adjp.15_mapped$ENSEMBL)) # 105
+
+resOrdered_df_adjp.15_mf <- resOrdered_df_adjp.15_mapped %>%  #397
+  filter(!is.na(Entry)) %>%  #396
+  filter(!is.na(padj)) %>%  #396
+  group_by(ENSEMBL) %>% # keeps unique ensembl!
+  filter(if(any(Reviewed == "reviewed", na.rm = TRUE)) {
+    Reviewed == "reviewed" # keeps reviewed if possible
+  } else{TRUE})  %>% #149 
+  slice_max(Annotation, n = 1) %>% # 129 - keep highest anno ranking!
+  slice_max(`Protein existence`, n = 1) %>%  #129 still
+  slice_max(occupied, n = 1, with_ties = FALSE) %>% # 104 - keep highest complete
+  mutate(Regulation = ifelse(log2FoldChange > 0, "Up", "Down"),
+         .after = lfcSE) %>% # add up or down col
+  arrange(Regulation, padj)
+
+
+# checks
+length(unique(resOrdered_df_adjp.15_mf$ENSEMBL)) # 104
+length(unique(resOrdered_df_adjp.15_mf$`Gene Names`)) # 104
+length(unique(resOrdered_df_adjp.15_mf$`Gene Names (primary)`)) # 104
+length(unique(resOrdered_df_adjp.15_mf$Entry)) # 104
+colnames(resOrdered_df_adjp.15_mf)
+```
+
+```{r}
+# write_excel_csv(resOrdered_df_adjp.15_mf,
+#    "output/2026_09_20_Wassouf_EEvsSH_WTonly_resOrdered_df_adjp15_mapped104.csv")
+```
+
+------------------------------------------------------------------------
+
+### Unfiltered version (but rm no adj.p vals)
+
+```{r}
+resOrdered_df_full <- resOrdered_df %>% # 12315
+  filter(!is.na(padj)) %>% # 1800
+  tibble::rownames_to_column(var = "ENSEMBL")
+```
+
+```{r}
+resOrdered_df_full_map <- left_join(resOrdered_df_full, ensembl_2_uniprot,
+                                       by = join_by(ENSEMBL == From)) #2105
+```
+
+```{r}
+length(unique(resOrdered_df_full_map$ENSEMBL)) # 2105
+
+resOrdered_df_full_mf <- resOrdered_df_full_map %>%  # 2105
+  filter(!is.na(Entry)) %>%  #404 
+  filter(!is.na(padj)) %>%  #404 - same since filtered above
+  group_by(ENSEMBL) %>% # keeps unique ensembl!
+  filter(if(any(Reviewed == "reviewed", na.rm = TRUE)) {
+    Reviewed == "reviewed" # keeps reviewed if possible
+  } else{TRUE}) %>% #152
+  slice_max(Annotation, n = 1) %>% # 134 - keep highest anno ranking!
+  slice_max(`Protein existence`, n = 1) %>%  #134 still
+  slice_max(occupied, n = 1, with_ties = FALSE) %>% # 109 - keep highest complete
+  mutate(Regulation = ifelse(log2FoldChange > 0, "up", "down"),
+         .after = lfcSE) %>% # add up or down col
+  arrange(Regulation, padj)
+
+
+# # checks
+length(unique(resOrdered_df_full_map$ENSEMBL)) # 1810
+length(unique(resOrdered_df_full_map$`Gene Names`)) # 168
+length(unique(resOrdered_df_full_map$`Gene Names (primary)`)) # 110
+length(unique(resOrdered_df_full_map$Entry)) # 405
+colnames(resOrdered_df_full_map)
+```
+
+```{r}
+# write_excel_csv(resOrdered_df_full_mf,
+#    "output/2026_09_20_Wassouf_EEvsSH_WTonly_resOrdered_df_full_noNAs_mapped109.csv")
+```
+
+------------------------------------------------------------------------
+
+## Lit Review map (new - 2026_09_20)
+
+Note generally matches directional of results in their paper (+ Supplementary) - e.g. shank1, Psd95 Shank3 up in EE while Nap1l5 down in EE etc -
+
+BUT not entirely consistent with their supp figure 4b (which Perez 2024 compares to) - see below
+
+```{r}
+# for lit review table 
+lit_review_transcriptomics <- resOrdered_df_full_mf %>%
+  mutate(
+    space = " ",
+    Year = 2018,
+    Author = 'Wassouf',
+    Animal = 'Mice',
+    Condition = 'WT',
+    Region = 'Hippocampus',
+    Whole = 'Yes',
+    Exp_type = 'mRNA',
+    Method = 'TRANSCRIPTOMICS_RNAseq',
+    Used_name = paste0(`Gene Names (primary)`, ' - ', `ENSEMBL`),
+    Mod = " ",
+    Mod_type = " ",
+    Gene_name = `Gene Names (primary)`, 
+    Comparison = 2, # EE vs SH
+    In_EE = Regulation,
+    Fold_change = log2FoldChange, # see also lfcSE
+    Arrows = case_when( # dplyr case when, instead of ifelse
+      log2FoldChange > 2.5 ~ '+++',
+      log2FoldChange> 1 ~ '++',
+      log2FoldChange > .05 ~ '+',
+     log2FoldChange > -.05 ~ '=',
+      log2FoldChange> -1 ~ '-',
+      log2FoldChange > -2.5 ~ '--',
+     log2FoldChange <= -2.5 ~ '---',
+      ),
+    Significant = if_else(padj <= 0.05, "yes", "no"),
+    pvalue = padj,
+    N_tested = '4', # 4 WT per group 4 EE WT vs 4 SH WT
+    Stats_adj = 'adjusted',
+    Note = ' ',
+    Full_name = `Protein names`,
+    Uniprot_rat_accession = Entry,
+    Uniprot_entry_name = `Entry Name`,
+    Uniprot_link = ifelse(!is.na(Entry),
+        paste0('https://www.uniprot.org/uniprotkb/', Entry,'/entry'),' '),
+    Wikipedia_link = ifelse(!is.na(Entry),
+          paste0('https://en.wikipedia.org/wiki/', `Gene Names (primary)`), ' '),
+    
+    Curation_method = case_when(
+      Reviewed == "reviewed" ~ "auto - mice ENSEMBL 2 uniprot ref & reviewed ( mice primary gene name)",
+      Reviewed == "unreviewed"  ~ "auto - mice ENSEMBL 2 uniprot ref & unreviewed ( mice primary gene name)" ),
+    
+    Class_group = ' ',
+    Other_link = ' ',
+    Other_comments = 'see Wassouf_2018_RNAseq_rawcounts.Rmd EE lit review script',
+    misc = paste0(ENSEMBL, '_', `Gene Names (primary)`, '_(',  `Protein names`,')')
+  ) %>%
+  arrange(desc(In_EE), Gene_name)
+
+```
+
+```{r}
+# # write out lit review df | done 2026_09_20!
+# write_excel_csv(lit_review_transcriptomics,
+#    "output/2026_09_20_Wassouf_2018_RNAseq_mRNA_lit_review_WT_only_EEvsSH.csv")
+
+```
+
+### Manual curation
+
+Confused - so in supplementary fig 4b there are 23 up and 15 down which is 38, but in their supp fig 4a pic it says 41 DEG (23 up & 18 down.)
+
+Not sure if missing is a matter of mapping because hard 2 tell from ENSEMBL alone (check later) or maybe due to using all mice (transgenic & WT)
+
+```{r}
+# Comparison to Wassouf 2018 (from supp figure 4b) 
+# perez comp has 22 + 15 - this is 23 + 15 
+down <- c('Tmsb10','Stmn1','Tle2','Ebf4','Echdc2','Cdh22','Arx',
+          'Camk2n2','Ccdc136','Nap1l5','Dpp10','Gng4','Myoc','Sbsn','Coro6')
+
+up <- c('Nptx2','Klk8','Lingo3','Bok','Lrrc10b','Lct',
+        'Aldh1a1','Anxa11','Sipa1l3','Dagla','Syt12',
+        'Kif17','Rasd1','Iqgap2','Tanc1','Sema5a', 'Trpc6',
+        'Bdnf','Ptgs2','Plk5','Pdyn','Egr3','Fosb')
+```
+
+```{r}
+wassouf_DEG <- data.frame(Direction_w  = c(rep("up", 23), rep("down", 15)),
+                            gene = c(up, down)) 
+```
+
+```{r}
+down_check <-resOrdered_df_full_mf %>% # 2 only - Nap1l5 & Stmn1
+  filter(`Gene Names (primary)` %in% down)
+
+up_check <-resOrdered_df_full_mf %>% # 2 only -  Sipa1l3 & Dagla
+  filter(`Gene Names (primary)` %in% up)
+```
+
+```{r}
+lit_review_manual <- wassouf_DEG %>%
+  mutate(
+    space = " ",
+    Year = 2018,
+    Author = 'Wassouf',
+    Animal = 'Mice',
+    Condition = 'WT & TG',
+    Region = 'Hippocampus',
+    Whole = 'Yes',
+    Exp_type = 'mRNA',
+    Method = 'TRANSCRIPTOMICS_RNAseq',
+    Used_name = gene,
+    Mod = " ",
+    Mod_type = " ",
+    Gene_name = gene, 
+    Comparison = 2, # EE vs SH
+    In_EE = Direction_w,
+    Fold_change = " ", # see also lfcSE
+    Arrows = " ",
+    Significant = "yes",
+    pvalue = " ",
+    N_tested = ' ', # 4 WT per group 4 EE WT vs 4 SH WT
+    Stats_adj = ' ',
+    Note = 'Manual curation from Wassouf 2018 Supp Fig 4B (38 - 23 up & 15 down) - only (up) Nap1l5 & Stmn1 & (down) Sipa1l3 & Dagla overlapped with the WT EE vs SH re-analysis uniprot automap - not sure if lack of overlap is due to missing data or mapping from ENSEMBL 2 UNIPROT??? possibly due to their analysis actually using all 16 mice including transgenic',
+    Full_name = " ",
+    Uniprot_rat_accession = " ",
+    Uniprot_entry_name = " ",
+    Uniprot_link = " ",
+    Wikipedia_link = " ",
+    Curation_method = "Manually by gene name from Supp Fig 4B",
+    Class_group = ' ',
+    Other_link = ' ',
+    Other_comments = 'see Wassouf_2018_RNAseq_rawcounts.Rmd EE lit review script',
+    misc = ' ') %>%
+  arrange(desc(In_EE), Gene_name)
+```
+
+```{r}
+# write out manual lit review df | done 2026_09_20!
+# write_excel_csv(lit_review_manual,
+#    "output/2026_09_20_Wassouf_2018_RNAseq_mRNA_manual_sfig4B_38_lit_review_WT&TG_EEvsSH.csv")
+```
+
+------------------------------------------------------------------------
+
+------------------------------------------------------------------------
+
+# Below here is old - don't use!
+
+```{r}
+# OLD 
 resOrdered_df_p.01 <- resOrdered_df %>%
-  filter(pvalue <=0.01) %>%  #267 results
+  filter(pvalue <=0.01) %>%  #267 results | still lots of NAs
+  tibble::rownames_to_column(var = "ENSEMBL")
+
+resOrdered_df_p.015 <- resOrdered_df %>%
+  filter(pvalue <=0.015) %>%  #330 results
   tibble::rownames_to_column(var = "ENSEMBL")
 ```
 
@@ -271,24 +549,24 @@ Map significant ones
 
 ------------------------------------------------------------------------
 
-Uniprot.ws error so just manually get from uniprot_id mapping
+## Uniprot.ws error so just manually get from uniprot_id mapping
 
 ```{r}
-ensembl_2_uniprot <- read_excel("input/Wassouf_2018_DESeq_test_1_EEvsSE_p01_Ensembl_2_Uniprot_idmapping_2025_12_22.xlsx")
-
-ensembl_2_uniprot <- ensembl_2_uniprot %>%
-   mutate(existence_ranking = case_when( # ranking level of evidence
-    `Protein existence` == "Evidence at protein level" ~ 5,
-    `Protein existence` == "Evidence at transcript level" ~ 4,
-    `Protein existence` == "Inferred from homology" ~ 3, 
-    `Protein existence` == "Predicted" ~ 2, 
-    `Protein existence` == "Uncertain" ~ 1
-    ), .after = `Protein existence`) %>%
-  mutate(across(where(is.character), ~ na_if(.x, ""))) 
-   
-# need to run in separate line as mouse ref is input (otheriwise object not found )
-ensembl_2_uniprot <- ensembl_2_uniprot %>% 
-  mutate(occupied = rowSums(!is.na(ensembl_2_uniprot)))
+# ensembl_2_uniprot <- read_excel("input/Wassouf_2018_DESeq_test_1_EEvsSE_p01_Ensembl_2_Uniprot_idmapping_2025_12_22.xlsx")
+# 
+# ensembl_2_uniprot <- ensembl_2_uniprot %>%
+#    mutate(existence_ranking = case_when( # ranking level of evidence
+#     `Protein existence` == "Evidence at protein level" ~ 5,
+#     `Protein existence` == "Evidence at transcript level" ~ 4,
+#     `Protein existence` == "Inferred from homology" ~ 3, 
+#     `Protein existence` == "Predicted" ~ 2, 
+#     `Protein existence` == "Uncertain" ~ 1
+#     ), .after = `Protein existence`) %>%
+#   mutate(across(where(is.character), ~ na_if(.x, ""))) 
+#    
+# # need to run in separate line as mouse ref is input (otheriwise object not found )
+# ensembl_2_uniprot <- ensembl_2_uniprot %>% 
+#   mutate(occupied = rowSums(!is.na(ensembl_2_uniprot)))
 ```
 
 ```{r}
@@ -302,17 +580,19 @@ resOrdered_df_p.01_mapped <- left_join(resOrdered_df_p.01, ensembl_2_uniprot,
 
 resOrdered_df_p.01_mf <- resOrdered_df_p.01_mapped %>% # 850
   filter(!is.na(Entry)) %>% # 842
-  filter(!is.na(padj)) %>% # 404
-  group_by(ENSEMBL) %>%
+  filter(!is.na(padj)) %>% # 404 | if KEEP NAs instead -> FINS on 259
+  group_by(ENSEMBL) %>% # keeps unique ensembl!
   filter(if(any(Reviewed == "reviewed", na.rm = TRUE)) {
     Reviewed == "reviewed" 
   } else{TRUE})  %>% #154
   slice_max(Annotation, n = 1) %>% # 134 | or 109 no ties
   slice_max(`Protein existence`, n = 1) %>% #134 sill
   slice_max(occupied, n = 1, with_ties = FALSE) %>% # 119 | or 109 with ties
-  mutate(Regulation = ifelse(log2FoldChange > 0, "Up", "Down"), .after = lfcSE) # add up or down column
+  mutate(Regulation = ifelse(log2FoldChange > 0, "Up", "Down"),
+         .after = lfcSE) %>% # add up or down col
+  arrange(Regulation, padj)
 
-# checks
+# checks  || if keep NAs is 267 instead
 length(unique(resOrdered_df_p.01_mf$ENSEMBL)) # 109 |109
 length(unique(resOrdered_df_p.01_mf$`Gene Names`)) # 111 | 109
 length(unique(resOrdered_df_p.01_mf$`Gene Names (primary)`)) # 109 | 109
@@ -323,9 +603,16 @@ colnames(resOrdered_df_p.01_mf)
 ```{r}
 # write_excel_csv(resOrdered_df_p.01_mf,
 #                 "output/2025_12_23_Wassouf_test_1_EEvsSH_WTonly_mapped_109.csv")
+
+# re-export to see
+# write_excel_csv(resOrdered_df_p.01_mf,
+#                 "output/2025_09_20_Wassouf_test_1_EEvsSH_WTonly_mapped_109.csv")
+
+# write_excel_csv(resOrdered_df_p.01_mf,
+#                 "output/2026_09_20_Wassouf_test_1_EEvsSH_WTonly_mapped_259_w_NAs.csv")
 ```
 
-## Results Plots
+## Results Plots (old)
 
 ```{r}
 volcano_adjpv <- ggplot(resOrdered_df_p.01_mf, 
