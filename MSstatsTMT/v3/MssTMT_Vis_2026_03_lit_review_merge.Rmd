@@ -2692,6 +2692,7 @@ Perez_2024 <- merged %>%
 # pull protein list
 Perez_list <- merged %>%
   filter(Author == "Perez" & Exp_type == "Protein") %>%
+    # filter(Author == "Perez" & Exp_type == "mRNA") %>%
   filter(pvalue <= 0.05) %>%  #
   pull(Gene_name) %>% #
   unique() # 1074
@@ -2915,6 +2916,35 @@ me_and_perez_p_gt <- me_and_perez_p %>%
   
 
 me_and_perez_p_gt  #print
+```
+
+#### Tw
+
+```{r}
+# proteins - done for all,yng, old
+temp_perez_p_list <- perez_p %>%
+  filter(Condition == "old") %>%
+  mutate(ranking = sign(Fold_change)*(-log10(pvalue))) %>%
+  group_by(Gene_name) %>%
+  summarise(ranking = mean(ranking, na.rm = TRUE)) %>%
+  arrange(-ranking) 
+
+
+# just swapped out young & old & all - 
+# write_excel_csv(temp_perez_p_list, "output/general/2026_09_22_temp_perez_p_old_ranked_genelist_for_test.csv")
+```
+
+```{r}
+# mRNA - done for all for now - lots of NAs 
+temp_perez_t_list <- perez_t %>%
+  filter(Condition == "all") %>%
+  mutate(ranking = sign(Fold_change)*(-log10(pvalue))) %>%
+  group_by(Gene_name) %>%
+  summarise(ranking = mean(ranking, na.rm = TRUE)) %>%
+  arrange(-ranking) 
+
+
+# write_excel_csv(temp_perez_t_list, "output/general/2026_09_22_temp_perez_t_mRNA_all_ranked_genelist_for_test.csv")
 ```
 
 ### Alvarez-Castelao et al., 2017 (Schuman Lab)
@@ -4056,7 +4086,7 @@ me_and_lit_top250_AGE_gt <- merged_top250_AGE %>%
 me_and_lit_top250_AGE_gt  #print
 ```
 
-# Top Lit findings 
+# Top Lit findings
 
 unique(merged_EElit_2_or_more\$Gene_name)
 
@@ -4293,6 +4323,17 @@ merged_EElit_2more_comp_gt <- merged_EElit_2more_comp %>%
 merged_EElit_2more_comp_gt  #print
 ```
 
-```{r}
+------------------------------------------------------------------------
 
+```{r}
+# about the same! 
+quick_gl_test_EEvsSH <- mapped_comp %>%
+  filter(Label == "H_EE_vs_SH") %>%
+  mutate(ranking = sign(log2FC)*(-log10(adj.pvalue))) %>%
+  group_by(gene) %>%
+  summarise(ranking = mean(ranking, na.rm = TRUE)) %>%
+  arrange(-ranking) 
+
+
+# write_excel_csv(quick_gl_test_EEvsSH, "output/general/2026_09_22_quick_genelist_test_EEvsSH.csv")
 ```
