@@ -883,17 +883,37 @@ GO_sim_tibs_df_6_split_brain <- GO_sim_tibs_df_6_split %>%
   filter(Label %in%  c("H_EE_vs_SH", "A_YNG_vs_OLD")) %>%
   filter(str_detect(Description, regex(
     # "axon|dendrite|schwann|myelin|glutamate|gaba|synap|dense|bouton|nerve|neuro|vesicle|paranodal",
-    "proton-transporting two-sector ATPase complex|monoatomic ion channel complex|proton-transporting ATP synthase complex|proton-transporting two-sector ATPase complex|channel activity",
+    # "proton-transporting two-sector ATPase complex|monoatomic ion channel complex|proton-transporting ATP synthase complex|proton-transporting two-sector ATPase complex|channel activity"
+    
+    # 2- GE & PP 
+    # "proteasome|ubiquitin|ligase"
+    "ribonucleo|splic|chromatin|methylosome|Sm-like|SWI/SNF"
+    
+    
+    
+    ,
     ignore_case = TRUE))) #43
 
-GO_ONT <- c("CC", "BP", "MF")
-unique_brain <- unique(GO_sim_tibs_df_6_split_brain$ID)
+# GO_ONT <- c("CC", "BP", "MF")
 
-GO_brain_volcano_list <- vector(mode = "list")
+#GO_ONT <- c("CC", "BP", "MF")
+#unique_brain <- unique(GO_sim_tibs_df_6_split_brain$ID)
+
+#GO_brain_volcano_list <- vector(mode = "list")
+
 ```
 
 ```{r}
-for(go in unique_brain) {
+
+GO_2_plot <- unique(GO_sim_tibs_df_6_split$ID[GO_sim_tibs_df_6_split$GO == "MF"])
+
+# output directory | if na will create
+react_out_dir <- "output/plots/2026_09/GO_map_vol/MF"
+if (!dir.exists(react_out_dir)) dir.create(react_out_dir, recursive = TRUE)
+```
+
+```{r}
+for(go in GO_2_plot) {
   # HUH? error caused by capital GO?!?!, but go okay? weird! or conflict w/ GO col
   
   
@@ -908,6 +928,12 @@ for(go in unique_brain) {
     dplyr::distinct(Description) %>%
     tibble::deframe()
   
+  my_filetitle <- GO_sim_tibs_df_6_split %>%
+    filter(ID == go) %>%
+    mutate(filename = gsub("[^[:alnum:]]", "_", Description)) %>%
+    dplyr::distinct(filename) %>%
+    tibble::deframe()
+
   my_id <- GO_sim_tibs_df_6_split %>%
     filter(ID == go) %>%
     dplyr::distinct(ID) %>%
@@ -917,8 +943,9 @@ for(go in unique_brain) {
     filter(ID == go) %>%
     dplyr::distinct(GO) %>%
     tibble::deframe()
-  
-  
+    
+
+
   my_prots <- protein_comp_entrez %>% # from MSstatsTMT protein comps w ENTREZ map
     filter(!(Label %in% c("HxA_EE_OLD_vs_SH_YNG", "HxA_EE_YNG_vs_SH_OLD"))) %>%
     filter(gene %in% my_genes) %>%
@@ -959,7 +986,7 @@ for(go in unique_brain) {
   
   my_lg_prot <- my_prots %>% #LABEL LEADING GENE???
     arrange(adj.pvalue) %>% # not quite - 6 most sig proteins
-    slice_head(n = 6)
+    slice_head(n = 7)
   
   
     strip <- strip_themed( # green for 1st 3 (housing) & Lavender for last 3 (age)
@@ -977,12 +1004,12 @@ for(go in unique_brain) {
     
 
     geom_hline(yintercept = -log10(0.05),
-               linetype = "dashed", linewidth = 0.1,
-               color = "grey30") +
+               linetype = "dashed", linewidth = 0.15,
+               color = "grey50", alpha = 0.55) +
     geom_hline(yintercept = -log10(0.1),linetype = "dotted",
-               linewidth = 0.1, color = "grey45") +
+               linewidth = 0.15, color = "grey60", alpha = 0.55) +
     geom_vline(xintercept = c(0),linetype = "solid",
-               linewidth = 0.1, color = "grey20") +
+               linewidth = 0.15, color = "grey40", alpha = 0.5) +
 
     
     ggrastr::geom_point_rast(aes(fill = case_when( # condit ass for color mapping
@@ -1035,6 +1062,7 @@ for(go in unique_brain) {
                         label = gene,
                         color = log2FC > 0), # color mapping (see below)
                     max.overlaps = 30, size = 2.1, # gene text on points
+                    force = 1.5, nudge_y = .2,
                     min.segment.length = .5, segment.alpha = 0.3,
                     segment.size = 0.2, alpha = 0.9) +
 
@@ -1088,7 +1116,29 @@ for(go in unique_brain) {
   
   # _____________________________________
   # 3 - SAVE THE PLOTS
-  GO_brain_volcano_list[[go]] <- vol_plot
+  # GO_brain_volcano_list[[go]] <- vol_plot
+  
+  
+  
+  ##_____________________________________
+  ## 4 - PRINT OUT PLOTS - all
+  ggsave(
+    filename = file.path(react_out_dir, paste0("2026_09_GO_", my_go, "_", my_filetitle, "_map_vol.pdf")),
+    plot = vol_plot,
+    width = 7.6, height = 1.9, units = "in",
+    device = cairo_pdf
+  )
+
+  ggsave(
+    filename = file.path(react_out_dir, paste0("2026_09_GO_", my_go, "_", my_filetitle, "_map_vol.png")),
+    plot = vol_plot,
+    width = 7.6, height = 1.9, units = "in",
+    dpi = 330
+  )
+  
+  
+  
+  
   
   print(paste0("Done for ", go, "! :D"))
   
@@ -1096,11 +1146,15 @@ for(go in unique_brain) {
 ```
 
 ```{r}
-plot_grid(plotlist = GO_brain_volcano_list[37:43],
-          ncol = 2)
+plot_grid(plotlist = GO_brain_volcano_list[1:14],
+          ncol = 3)
 ```
 
 ```{r}
 plot_grid(plotlist = GO_brain_volcano_list[1:4],
           ncol = 1)
 ```
+
+------------------------------------------------------------------------
+
+C8 Cell Types
