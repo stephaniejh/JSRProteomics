@@ -40,6 +40,7 @@ library(ggh4x)
 library(ggrepel) # geom_text_repel
 library(ggrastr) # for volcano points! 
 library(gt)
+library(magick) # for tintbar
 ```
 
 ## Load Data
@@ -1153,6 +1154,166 @@ plot_grid(plotlist = GO_brain_volcano_list[1:14],
 ```{r}
 plot_grid(plotlist = GO_brain_volcano_list[1:4],
           ncol = 1)
+```
+
+------------------------------------------------------------------------
+
+```{r}
+set.seed(123)
+
+# p1 <- emapplot(
+#   GO_gsea_EExAge_cp_v3.4.2_t2_simplified$pw_sim_GO_terms$H_EE_vs_SH$CC, color = "NES",
+#   showCategory = 50, min_edge = 0.25, size_edge = 0.35, size_category = 1.7,
+#   layout="with_fr",
+#   node_label = "group",
+#   label_format = 3) +
+#   scale_color_continuous_diverging("Blue-Red 2") +
+#   scale_fill_discrete_divergingx("Temps") +
+#   theme(legend.position = "none")  +
+#  geom_cnet_label(node_label = "all", size = 3.5, fontface = "italic")
+# 
+# 
+# p1
+
+p2 <- emapplot(
+  GO_gsea_EExAge_cp_v3.4.2_t2_simplified$pw_sim_GO_terms$H_EE_vs_SH$BP, color = "NES",
+  # showCategory = 50, min_edge = 0.25, size_edge = 0.5, size_category = 1.3,
+  edge_filter = "top_k", top_k = 2, min_edge = 0.2,
+  layout="with_fr", node_label = "none", label_format = 3) +
+  scale_color_continuous_diverging("Blue-Red 2") +
+  scale_fill_discrete_divergingx("Temps") +
+  theme(legend.position = "none")  +
+ geom_cnet_label(node_label = "all", size = 3.5, fontface = "italic")
+
+p2
+
+# p3 <- emapplot(
+#   GO_gsea_EExAge_cp_v3.4.2_t2_simplified$pw_sim_GO_terms$H_EE_vs_SH$MF, color = "NES",
+#   showCategory = 50, min_edge = 0.3, size_edge = 0.35, size_category = 1.7,
+#   layout="nicely", node_label = "none") +
+#   scale_color_continuous_diverging("Blue-Red 2") +
+#   scale_fill_discrete_divergingx("Temps") +
+#   theme(legend.position = "none")  +
+#  geom_cnet_label(node_label = "all", size = 3.5, fontface = "italic")
+# 
+# p3
+```
+
+```{r}
+set.seed(123)
+p4 <- emapplot(
+  GO_gsea_EExAge_cp_v3.4.2_t2_simplified$pw_sim_GO_terms$H_EE_vs_SH$CC, color = "NES",
+  showCategory = 50, min_edge = 0.3, size_edge = 0.35, size_category = 1.5,
+  layout = igraph::layout_with_fr, # force directed
+  node_label = "none",
+  label_format = 3) +
+  scale_color_continuous_diverging("Blue-Red 2") +
+  scale_fill_discrete_divergingx("Temps") +
+  theme(legend.position = "none")  +
+ geom_cnet_label(node_label = "all", size = 3, fontface = "italic")
+
+p4
+```
+
+<https://kateto.net/network-visualization> (igrpah layouts)
+
+```{r}
+library(magick)
+
+ontologies <- c("BP", "CC", "MF")
+# ontologies <- c("BP","MF") # for custom sies
+
+
+label_colors <- c(
+  "H_EE_vs_SH" = "#AFCC9F",
+  "HxA_EE_YNG_vs_SH_YNG" = "#D4E4CB",
+  "HxA_EE_OLD_vs_SH_OLD" = "#D4E4CB",
+  "A_YNG_vs_OLD" = "#BFBBD5",
+  "HxA_EE_YNG_vs_EE_OLD" = "#DDDCE9",
+  "HxA_SH_YNG_vs_SH_OLD" = "#DDDCE9"
+)
+
+labels <- names(GO_gsea_EExAge_cp_v3.4.2_t2_simplified$pw_sim_GO_terms)
+# labels <- "H_EE_vs_SH"
+# labels <- "A_YNG_vs_OLD"
+
+for (lb in labels) {
+  for (ont in ontologies) {
+    # for (dir in c("pos", "neg")) {
+
+      gsea_obj <- GO_gsea_EExAge_cp_v3.4.2_t2_simplified$pw_sim_GO_terms[[lb]][[ont]]
+
+      # keep only positive or negative NES
+      # if (dir == "pos") {
+      #   gsea_obj@result <- gsea_obj@result[gsea_obj@result$NES > 0, ]
+      # } else {
+      #   gsea_obj@result <- gsea_obj@result[gsea_obj@result$NES < 0, ]
+      # }
+
+      p <- emapplot(
+        gsea_obj, color = "NES",
+        showCategory = 50,
+        min_edge = 0.25, size_edge = 0.3, size_category = 1.25,
+        # layout = "nicely",
+        # layout = igraph::layout_with_mds, # ok?
+         # layout = igraph::layout_with_drl, # nope
+          # layout = igraph::layout_nicely, # nice
+        layout = igraph::layout_with_fr, # force directed
+        clusterFunction = stats::kmeans,
+        node_label = "none",
+        label_format = 3) +
+        scale_color_continuous_diverging("Blue-Red 2") +
+        # scale_color_gradient2(low="#4a6fe3", mid="#e2e2e2", high="#d33f6a",
+        #                 midpoint = 0,
+        #                 limits = c(-3.5, 3.5)) +
+        theme(legend.position = "none") +
+        geom_cnet_label(node_label = "all", size = 2.6, fontface = "italic")
+
+      out_png <- paste0("emapplot_", lb, "_", ont, "_",
+                        # dir,
+                        ".png")
+      ggsave(out_png, p, width = 7.75, height = 5.8, dpi = 330, bg = "white")
+      
+      # custom sizes for larger MF & BP in EE but smaller in YNG
+      # ggsave(out_png, p, width = 7.75, height = 6.8, dpi = 330, bg = "white")
+      # ggsave(out_png, p, width = 7.75, height = 4.8, dpi = 330, bg = "white")
+
+      if (file.exists(out_png)) {   # magick tint bar
+        pic <- image_read(out_png) %>%
+         image_border(color = "grey85", geometry = "3x3") # add border b4
+        dets <- image_info(pic)
+        overlay <- image_blank(dets$width/37, dets$height,
+                       color = adjustcolor(label_colors[[lb]], alpha.f = 0.75))
+        tinted <- image_composite(pic, overlay, operator = "over")
+        
+        
+        # ont: top right, larger
+        tinted <- image_annotate(tinted, ont,
+                                 gravity = "northeast", # top right
+                                 location = "+40+30",
+                                 size = round(dets$width/39),
+                                 color = "grey30", weight = 700)
+
+        # lb: bottom right, smaller
+        tinted <- image_annotate(tinted, lb,
+                                 gravity = "southeast", # bottom right 
+                                 location = "+40+30",
+                                 size = round(dets$width/65), # smaller
+                                 color = "grey30", style = "italic")
+        
+      
+        
+        # write out 
+        image_write(tinted, paste0(tools::file_path_sans_ext(out_png),
+                                   "2026_09_tintbar_50fr25both.png"),
+                                  # format = "pdf", density = 330 # for pdf instead
+                                   )
+      } else {
+        warning("Expected file not found: ", out_png)
+      }
+    }
+  }
+# }
 ```
 
 ------------------------------------------------------------------------
