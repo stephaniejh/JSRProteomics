@@ -1393,10 +1393,10 @@ if (!dir.exists(react_out_dir)) dir.create(react_out_dir, recursive = TRUE)
 
 ```{r}
 
-# for (rct in REACT_TOP_LVL) {
+for (rct in REACT_TOP_LVL) {
 # for(rct in p1_reactome_list) { # P1 - NT BDNF, dna rep, death, CA2+
   
-for (rct in REACT_POI) {
+# for (rct in REACT_POI) {
   
 
 # 1 - PREPARE THE DATA
@@ -1581,8 +1581,8 @@ for (rct in REACT_POI) {
 
   # _____________________________________
   # 3 - SAVE THE PLOTS - selected in re-run
-  reactome_volcano_list[[rct]] <- vol_plot
-  # reactome_TOP_volcano_list[[rct]] <- vol_plot
+  # reactome_volcano_list[[rct]] <- vol_plot
+  reactome_TOP_volcano_list[[rct]] <- vol_plot
   # p1_reactome_volcano_list[[rct]] <- vol_plot
   
   # _____________________________________
@@ -1998,16 +1998,24 @@ plot_grid(kegg_volcano_list$rno03082, kegg_volcano_list$rno03040,
 
 ```{r}
 # KEGG Proteasome & Protein Processing in the ER + REACT LOCALISATION!
-plot_grid(kegg_volcano_list$rno03050, 
-          kegg_volcano_list$rno04120,
-          kegg_volcano_list$rno04141,
-          reactome_TOP_volcano_list$REACTOME_PROTEIN_LOCALIZATION,
-          ncol = 1,
-          labels = c("a","b", "c", "d"),
-          label_colour = "grey10", label_size = 11)
+plot_grid(
+  # kegg_volcano_list$rno03050,
+  # kegg_volcano_list$rno04120,
+  # kegg_volcano_list$rno04137,
+  kegg_volcano_list$rno04141,
+  reactome_TOP_volcano_list$REACTOME_PROTEIN_LOCALIZATION,
+  ncol = 1,
+  # labels = c("a","b", "c", "d", "e"),
+  labels = c("a","b"),
+  label_colour = "grey10", label_size = 11)
 
 #2026_09_23_p2_PSP_KEGG_proteas_proER_REACTtop_protloc_map_vol # 3
 #2026_09_23_p2_PSP_KEGG_proteas_UPS_proER_REACTtop_protloc_map_vol # 4
+#2026_10_01_p2_PSP_KEGG_proteo_UPS_proER_mitophag_REACT_T_protloc_map_vol # 5
+
+# smaller subsets prot deg & then protprocessing
+#2026_10_01_p2_PD_KEGG_proteo_UPS_mitophag_map_vol # 3
+#2026_10_01_p2_PP_KEGG_proER_REACT_T_protloc_map_vol # 2
 ```
 
 ------------------------------------------------------------------------
