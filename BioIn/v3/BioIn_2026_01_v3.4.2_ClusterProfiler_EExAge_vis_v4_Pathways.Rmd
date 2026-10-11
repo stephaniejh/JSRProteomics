@@ -1178,8 +1178,8 @@ REACT_TOP_LVL <- c(
   "REACTOME_EXTRACELLULAR_MATRIX_ORGANIZATION",
   "REACTOME_TRANSPORT_OF_SMALL_MOLECULES",
   "REACTOME_PROTEIN_LOCALIZATION",
-  # "REACTOME_HEMOSTASIS",
-  # "REACTOME_CIRCADIAN_CLOCK",
+  "REACTOME_HEMOSTASIS",
+  "REACTOME_CIRCADIAN_CLOCK",
   'REACTOME_NEURONAL_SYSTEM', # L1 (TOP LEVEL)
   "REACTOME_NEURONAL_SYSTEM",
   "REACTOME_VESICLE_MEDIATED_TRANSPORT"
@@ -1329,10 +1329,20 @@ REACT_POI  <- c(
 ##_L1_CELL-CELL_COMMUNICATION_(づ ◕‿◕ )づ_____
 ##_L2_Cell_junction_organization__
 ##_L3_Cell-cell_junction_org__
-"REACTOME_ADHERENS_JUNCTIONS_INTERACTIONS" #L4
-  
+"REACTOME_ADHERENS_JUNCTIONS_INTERACTIONS", #L4
+
+
+##_L1_Signalling_L2_RHO_MIRO_RHOBTB3_(づ ◕‿◕ )づ_____
+"REACTOME_SIGNALING_BY_RHO_GTPASES_MIRO_GTPASES_AND_RHOBTB3", # top/2nd-level
+##_L3_RHO__________
+"REACTOME_RHO_GTPASE_CYCLE", # L4
+"REACTOME_RHO_GTPASE_EFFECTORS", #L4
 
   
+##_L1_ENERGY_(づ ◕‿◕ )づ_____
+"REACTOME_AEROBIC_RESPIRATION_AND_RESPIRATORY_ELECTRON_TRANSPORT",
+"REACTOME_RESPIRATORY_ELECTRON_TRANSPORT",
+
   
   
   # "REACTOME_CELL_CYCLE",
@@ -1356,22 +1366,22 @@ REACT_POI  <- c(
   # "REACTOME_SELECTIVE_AUTOPHAGY",
   # 
   # "REACTOME_MRNA_SPLICING",
-  # "REACTOME_CHOLESTEROL_BIOSYNTHESIS",
+  "REACTOME_CHOLESTEROL_BIOSYNTHESIS",
   # 
   # # ##_IMMUNE_SYSTEM____________________________
-  # "REACTOME_CYTOKINE_SIGNALING_IN_IMMUNE_SYSTEM", # CYTOKINE IMMUNE
-  # "REACTOME_INTERLEUKIN_1_FAMILY_SIGNALING",
-  # "REACTOME_INTERLEUKIN_12_FAMILY_SIGNALING",
-  # "REACTOME_TNFR2_NON_CANONICAL_NF_KB_PATHWAY",
-  # #
-  # "REACTOME_ADAPTIVE_IMMUNE_SYSTEM", # ADATIVE IMMUNE
-  # "REACTOME_TCR_SIGNALING",
-  # "REACTOME_SIGNALING_BY_THE_B_CELL_RECEPTOR_BCR",
-  # #
-  # "REACTOME_COMPLEMENT_CASCADE", # INNATE IMMUNE
-  # "REACTOME_FC_EPSILON_RECEPTOR_FCERI_SIGNALING",
-  # "REACTOME_C_TYPE_LECTIN_RECEPTORS_CLRS",
-  # "REACTOME_FCGAMMA_RECEPTOR_FCGR_DEPENDENT_PHAGOCYTOSIS"
+  "REACTOME_CYTOKINE_SIGNALING_IN_IMMUNE_SYSTEM", # CYTOKINE IMMUNE
+  "REACTOME_INTERLEUKIN_1_FAMILY_SIGNALING",
+  "REACTOME_INTERLEUKIN_12_FAMILY_SIGNALING",
+  "REACTOME_TNFR2_NON_CANONICAL_NF_KB_PATHWAY",
+  #
+  "REACTOME_ADAPTIVE_IMMUNE_SYSTEM", # ADATIVE IMMUNE
+  "REACTOME_TCR_SIGNALING",
+  "REACTOME_SIGNALING_BY_THE_B_CELL_RECEPTOR_BCR",
+  #
+  "REACTOME_COMPLEMENT_CASCADE", # INNATE IMMUNE
+  "REACTOME_FC_EPSILON_RECEPTOR_FCERI_SIGNALING",
+  "REACTOME_C_TYPE_LECTIN_RECEPTORS_CLRS",
+  "REACTOME_FCGAMMA_RECEPTOR_FCGR_DEPENDENT_PHAGOCYTOSIS"
   )
 
 
@@ -1393,10 +1403,10 @@ if (!dir.exists(react_out_dir)) dir.create(react_out_dir, recursive = TRUE)
 
 ```{r}
 
-for (rct in REACT_TOP_LVL) {
+# for (rct in REACT_TOP_LVL) {
 # for(rct in p1_reactome_list) { # P1 - NT BDNF, dna rep, death, CA2+
   
-# for (rct in REACT_POI) {
+for (rct in REACT_POI) {
   
 
 # 1 - PREPARE THE DATA
@@ -1581,8 +1591,8 @@ for (rct in REACT_TOP_LVL) {
 
   # _____________________________________
   # 3 - SAVE THE PLOTS - selected in re-run
-  # reactome_volcano_list[[rct]] <- vol_plot
-  reactome_TOP_volcano_list[[rct]] <- vol_plot
+  reactome_volcano_list[[rct]] <- vol_plot
+  # reactome_TOP_volcano_list[[rct]] <- vol_plot
   # p1_reactome_volcano_list[[rct]] <- vol_plot
   
   # _____________________________________
@@ -1711,7 +1721,7 @@ plot_grid(kegg_volcano_list$rno03083, kegg_volcano_list$rno03015,
           label_colour = "grey10", label_size = 11) 
 ```
 
-Synaptic/Neurotransmission
+#### KEGG Synaptic/Neurotransmission
 
 ```{r}
 # neurotransmitter release & synaptic vesicle cycle
@@ -1727,6 +1737,7 @@ plot_grid(kegg_volcano_list$rno04360,
 ```
 
 ```{r}
+# 
 plot_grid(kegg_volcano_list$rno04721, kegg_volcano_list$rno04360,
           ncol = 1, labels = c("a","b"), label_colour = "grey10", label_size = 11)
 ```
@@ -1734,12 +1745,13 @@ plot_grid(kegg_volcano_list$rno04721, kegg_volcano_list$rno04360,
 ```{r}
 # GABA, ret_endoca, neuroa_lig x 2,  nicotine
 plot_grid(
-  kegg_volcano_list$rno04723, kegg_volcano_list$rno04727,
-          # kegg_volcano_list$rno04082, kegg_volcano_list$rno04080,
-          kegg_volcano_list$rno05033,
-          # labels = c("a","b", "c", "d", "e"),
-          labels = c("a","b", "c"),
-          ncol = 1, label_colour = "grey10", label_size = 11)
+  kegg_volcano_list$rno04723, kegg_volcano_list$rno04727, # synap vesicle, GABA
+  kegg_volcano_list$rno04082, kegg_volcano_list$rno04080, # 
+  kegg_volcano_list$rno05033,
+  kegg_volcano_list$rno04360, # axon guidance
+  labels = c("a","b", "c", "d", "e", "e"),
+  # labels = c("a","b", "c"),
+  ncol = 1, label_colour = "grey10", label_size = 11)
 ```
 
 ```{r}
@@ -2016,6 +2028,96 @@ plot_grid(
 # smaller subsets prot deg & then protprocessing
 #2026_10_01_p2_PD_KEGG_proteo_UPS_mitophag_map_vol # 3
 #2026_10_01_p2_PP_KEGG_proER_REACT_T_protloc_map_vol # 2
+```
+
+#### P4 - Neuronal & Synapse
+
+##### General
+
+```{r}
+plot_grid(
+  reactome_volcano_list$REACTOME_NEURONAL_SYSTEM,
+  reactome_volcano_list$REACTOME_NERVOUS_SYSTEM_DEVELOPMENT,
+  ncol = 1, labels = c("a","b"),
+  label_colour = "grey10", label_size = 11)
+
+#2026_10_10_p4_Gen_REACT_2_NeuroSys_&_dev_map_vol - use v2 
+```
+
+##### Synaptic Transmission
+
+```{r}
+# neurotransmitter release & synaptic vesicle cycle 
+plot_grid(kegg_volcano_list$rno04721, reactome_volcano_list$REACTOME_NEUROTRANSMITTER_RELEASE_CYCLE,
+reactome_volcano_list$REACTOME_POTASSIUM_CHANNELS,
+reactome_volcano_list$REACTOME_VOLTAGE_GATED_POTASSIUM_CHANNELS,
+ncol = 1, labels = c("a","b","c","d"), label_colour = "grey10", label_size = 11)
+
+#2026_10_10_p4_KEGG_SVcycle_&_REACT_NTRcycle_map_vol
+#2026_10_10_p4_4_KEGG_SVcycle_&_REACT_NTRcycle_Potassium_map_vol
+```
+
+```{r}
+plot_grid(
+  reactome_volcano_list$REACTOME_TRANSMISSION_ACROSS_CHEMICAL_SYNAPSES,
+   reactome_volcano_list$REACTOME_GLUTAMATE_NEUROTRANSMITTER_RELEASE_CYCLE,
+   reactome_volcano_list$REACTOME_GABA_SYNTHESIS_RELEASE_REUPTAKE_AND_DEGRADATION,
+  ncol = 1, labels = c("a","b", "c"),
+  label_colour = "grey10", label_size = 11)
+
+#2026_10_10_p4_Gen_REACT_2_NeuroSys_&_dev_map_vol - use v2 
+```
+
+##### Neurotransmitter & Neuropeptide Systems
+
+```{r}
+# 5 KEGG -  GABA, ret_endoca, neuroa_lig x 2,  nicotine
+plot_grid(
+  kegg_volcano_list$rno04723, kegg_volcano_list$rno04727, # synap vesicle, GABA
+  kegg_volcano_list$rno04082, kegg_volcano_list$rno04080, # 
+  kegg_volcano_list$rno05033,
+  labels = c("a","b", "c", "d", "e"),
+  # labels = c("a","b", "c"),
+  ncol = 1, label_colour = "grey10", label_size = 11)
+#2026_10_10_p4_KEGG_5_NT_&_neuropep_map_vol
+```
+
+```{r}
+plot_grid(
+  reactome_volcano_list$REACTOME_NEUROTRANSMITTER_RECEPTORS_AND_POSTSYNAPTIC_SIGNAL_TRANSMISSION,
+  reactome_volcano_list$REACTOME_TRAFFICKING_OF_AMPA_RECEPTORS,
+  reactome_volcano_list$REACTOME_UNBLOCKING_OF_NMDA_RECEPTORS_GLUTAMATE_BINDING_AND_ACTIVATION,
+  reactome_volcano_list$REACTOME_ASSEMBLY_AND_CELL_SURFACE_PRESENTATION_OF_NMDA_RECEPTORS,
+  
+  reactome_volcano_list$REACTOME_TRANSMISSION_ACROSS_CHEMICAL_SYNAPSES,
+  ncol = 1, labels = c("a","b"),
+  label_colour = "grey10", label_size = 11)
+
+#2026_10_10_p4_Gen_REACT_2_NeuroSys_&_dev_map_vol - use v2 
+```
+
+```{r}
+# TRANSYNPTIC CONNECTIONS/Adhesion - NEUREXIN & NEUROLIGIN + LGI ADAM INTERACTION
+plot_grid(
+  reactome_volcano_list$REACTOME_NEUREXINS_AND_NEUROLIGINS,
+  reactome_volcano_list$REACTOME_LGI_ADAM_INTERACTIONS,
+  reactome_volcano_list$REACTOME_L1CAM_INTERACTIONS,
+  ncol = 1, labels = c("a","b","c"),
+  label_colour = "grey10", label_size = 11)
+
+#2026_10_10_p4_REACT_2_NeurexinN_LGI_ADAM_map_vol 
+#2026_10_10_p4_REACT_3_neuro_adhesion_map_vol
+```
+
+```{r}
+# AXON GUIDANCE Synaptogenesis
+plot_grid(
+  reactome_volcano_list$REACTOME_EPH_EPHRIN_SIGNALING,
+ reactome_volcano_list$REACTOME_SEMAPHORIN_INTERACTIONS,
+  reactome_volcano_list$REACTOME_SIGNALING_BY_ROBO_RECEPTORS,
+  ncol = 1, labels = c("a","b", "c"),
+  label_colour = "grey10", label_size = 11)
+#2026_10_10_p4_REACT_3_axon_guidance_map_vol
 ```
 
 ------------------------------------------------------------------------
