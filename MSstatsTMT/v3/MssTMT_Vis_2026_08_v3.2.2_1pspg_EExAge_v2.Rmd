@@ -959,6 +959,9 @@ Ras_prots <- mapped_comp %>%
 
 
 
+# Neurex_Neurolig <- mapped_comp %>%
+#   filter(str_detect(description, regex("Neurexin|Neuroligin",
+#                                             ignore_case = TRUE))) 
 ```
 
 ```{r}
@@ -1016,6 +1019,11 @@ vanOostrum_syn_pairs <- c('Syt12', 'Syt2',  'Sv2b', 'Sv2c',
 # filter( #gene %in% c("Camk2a") | #glutamate
 #        grepl("^Gria|^Grin|^Grm|Grik|Slc17a6|Slc17a7|Slc17a8|Cacng", gene))
 
+
+# Neurexins & Neuroligins
+
+
+
 # Glial - Myelin, Astrocytes, Microglia
 glial <- c('Mbp', 'Mag','Mog', 'Omg', 'Olig1', 'Olig2', 'Sox10', 'Plp1', # myelin/olig
            'Nfasc','Gpm6a', 'Prnp','Cadm2','Osbpl11', 'Cadm2', # myelin/olig
@@ -1036,6 +1044,9 @@ allen_general_markers <- c('Gad1','Gad2','Slc32a1','Slc17a7','Lamp5',
                            'Pvalb','Cux2','Rorb','Fezf2','Sulf1',
                            'Fam84b','Sla2','Foxp2','Nxph4','Aqp4',
                            'Mbp','Plot','Cldn5','Ctss','C1qa')
+
+
+
   
 ```
 
@@ -1052,7 +1063,7 @@ EE_syn_check <- mapped_psum %>%
   # filter(grepl("^Grin1|Grin2|Camk2|Camk4|Calm|Ryr2|Cacng|Prkar2b|Prkaca|Prkac|Gnb14|Slc8", gene)) %>%
   # 
   # # filter(gene %in% vanOostrum_syn_pairs) %>%
-  filter(gene %in% neuropep_inhib) %>%
+  # filter(gene %in% neuropep_inhib) %>%
   
     # filter(gene %in% allen_general_markers) %>%
   
@@ -1061,7 +1072,7 @@ EE_syn_check <- mapped_psum %>%
   
   # filter(gene %in% c("Gad2", "Slc32a1", "Gphn") | #GABA
   #          grepl("^Gabb|^Gabr|^Slc6a", gene)) %>%
-  
+  # 
   # filter( #gene %in% c("Camk2a") | #glutamate
   #        grepl("^Gria|^Grin|^Grm|Grik|Slc17a6|Slc17a7|Slc17a8|Cacng|Reln|^Htr", gene)) %>%
 
@@ -1070,6 +1081,30 @@ EE_syn_check <- mapped_psum %>%
   # filter(gene %in% PNN) %>%
   
   # filter(gene %in% vanOostrum_basic_markers) %>%
+  
+  
+  
+  # filter(grepl("^Grin1|Grin2|Dlg|Gripap1|Arc", gene)) %>%
+  # filter(gene %in% c('Gripap1', 'Arc', 'Dlg1', 'Dlg3','Dlg4', 'Slc17a7') | 
+  #        grepl("^Gria|^Grin1|^Grin2", gene)) %>% # Pintori 2024
+  
+  
+  # filter(grepl("^Cacng2|Cacng3|Grin1|Grin2a|Grin2b", gene)) %>%
+  
+  
+  ##_(づ ◕‿◕ )づ  ____Synaptic Adhesion
+  # filter(grepl("^Nrxn|Nlgn|Cntnap", gene)) %>% # Neurexins (+Cntnap) & Neuroligins
+  # filter(grepl("Lgi1|Lgi2|Lrrc7|Adam11|Adam22", gene)) %>% # LGI-ADAM
+  # filter(grepl("Netrin", description)) %>% # Netrins (Unc5a-5d | Dcc| Ntng)
+  # filter(grepl("^Plxn", gene)) %>% 
+  # filter(grepl("^Pcdhb1|Pcdh9|Pcdh17|Cdh11|Cdh13|Ctnnd1|Ctnna2|Ctnnb1", gene)) %>% 
+  # filter(grepl("^Pcdhb1|Pcdh17|Cdh11|Cdh13|Ctnnd1|Ctnna2", gene)) %>%
+  filter(grepl("^Epha4|Ephb2|Efnb3|Ncam1|Ncam2|Chl1|Nfasc", gene)) %>%
+  ## (／ロ°)／
+  
+  
+  
+
   
   
   ggplot(aes(x = interaction(Age, Housing, 
@@ -1094,7 +1129,7 @@ EE_syn_check <- mapped_psum %>%
                      name = "Sex (Year)") +
   # guides(y.sec = 'axis') + # adds 2nd y axis (right side)
   scale_y_continuous(labels = label_number(accuracy = 0.1)) + # 1dp
-  facet_wrap(~gene, ncol =  7, scale = "free_y") +
+  facet_wrap(~gene, ncol =  9, scale = "free_y") +
     theme_bw() +
   my_psum_facet_theme
 
