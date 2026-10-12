@@ -94,10 +94,10 @@ Pull in MSigDB Reactome Annotations
 <https://igordot.github.io/msigdbr/articles/msigdbr-intro.html>
 
 ```{r}
-# msigdbr_collections() #available collections
-REACTOME_genesets <- msigdbr(species = "rat", collection = "C2", subcollection = "CP:REACTOME") %>%
-  select(gs_name:gs_url) %>%
-  distinct(gs_name, .keep_all = TRUE)
+# # msigdbr_collections() #available collections
+# REACTOME_genesets <- msigdbr(species = "rat", collection = "C2", subcollection = "CP:REACTOME") %>%
+#   select(gs_name:gs_url) %>%
+#   distinct(gs_name, .keep_all = TRUE)
 ```
 
 ```{r}
@@ -113,37 +113,37 @@ REACTOME_genesets <- msigdbr(species = "rat", collection = "C2", subcollection =
 ### Read in Reactome Pathways (downloaded)
 
 ```{r}
-REACT_relations_raw <- read_tsv("input/db/2026_08_ReactomePathwaysRelation.txt",
-                                col_names = c("parent",
-                                              "child")) 
-
-REACT_paths_raw <- read_tsv("input/db/2026_08_ReactomePathways.txt",
-                                col_names = c("gs_id",
-                                              "description",
-                                              "species")) 
+# REACT_relations_raw <- read_tsv("input/db/2026_08_ReactomePathwaysRelation.txt",
+#                                 col_names = c("parent",
+#                                               "child")) 
+# 
+# REACT_paths_raw <- read_tsv("input/db/2026_08_ReactomePathways.txt",
+#                                 col_names = c("gs_id",
+#                                               "description",
+#                                               "species")) 
 ```
 
 ```{r}
-REACT_join <- left_join(REACT_relations_raw, REACT_paths_raw,
-                            by = join_by(parent == gs_id)) %>%
-  relocate(description, .after = parent) %>%
-  rename(parent_description = description) %>%
-  left_join(select(REACT_paths_raw,
-                   gs_id, description),
-                            by = join_by(child == gs_id)) %>%
-  relocate(description, .after = child) %>%
-  rename(child_description = description)
-
-unique(REACT_join$species)
-
-REACT_join_peeps <- REACT_join %>%
-  filter(species == "Homo sapiens")
+# REACT_join <- left_join(REACT_relations_raw, REACT_paths_raw,
+#                             by = join_by(parent == gs_id)) %>%
+#   relocate(description, .after = parent) %>%
+#   rename(parent_description = description) %>%
+#   left_join(select(REACT_paths_raw,
+#                    gs_id, description),
+#                             by = join_by(child == gs_id)) %>%
+#   relocate(description, .after = child) %>%
+#   rename(child_description = description)
+# 
+# unique(REACT_join$species)
+# 
+# REACT_join_peeps <- REACT_join %>%
+#   filter(species == "Homo sapiens")
 ```
 
 <https://rbioapi.moosa-r.com/reference/rba_reactome_pathways_top.html>
 
 ```{r}
-top_level_REACT <- rba_reactome_pathways_top(species =  "Homo sapiens")
+# top_level_REACT <- rba_reactome_pathways_top(species =  "Homo sapiens")
 ```
 
 ------------------------------------------------------------------------
@@ -923,7 +923,7 @@ kegg_volcano_list <-  vector(mode = "list")
 
 ```{r}
 # output directory | if na will create
-kegg_out_dir <- "output/plots/2026_09/kegg_map_vol"
+kegg_out_dir <- "output/plots/2026_10/kegg_map_vol"
 if (!dir.exists(kegg_out_dir)) dir.create(kegg_out_dir, recursive = TRUE)
 ```
 
@@ -1001,7 +1001,7 @@ for(kp in kegg_POI) {
     # limits - rm 17 (but none are leading edge - shrunken for comparisons)
     scale_x_continuous(limits = c(-2,2),
                        expand = c(0, 0)) +
-    scale_y_continuous(limits = c(0,6),
+    scale_y_continuous(limits = c(0,7.75),
                        expand = c(0.04, 0)) +
     
 
@@ -1076,15 +1076,15 @@ for(kp in kegg_POI) {
     # NUM SIG UP & DOWN! | use sep df, overwise overplots
     geom_text(data = prot_sums, # up 
               aes(label = paste0(up, " \U2191")), 
-              x = 1.35, y = 5.6, size = 3.2, color = "firebrick") + 
+              x = 1.35, y = 7.3, size = 3.2, color = "firebrick") + 
     geom_text(data = prot_sums, # down
               aes(label = paste0(down, " \U2193")),
-              x = -1.4, y = 5.6, size = 3.2, color = "royalblue3") + 
+              x = -1.4, y = 7.3, size = 3.2, color = "royalblue3") + 
     
     
     geom_text(data = path_sig_lab, # GSEA SIGNIFICANCE LABEL
               aes(label = paste0(sig_val),
-                  y = 4.80,
+                  y = 6.2,
                   x = ifelse(NES > 0, 1.525, -1.525), # side if neg or pos
                   color = NES > 0), # col - TRUE FALSE 
               size = 3.3) +
@@ -1121,24 +1121,24 @@ for(kp in kegg_POI) {
   
   # _____________________________________
   # 3 - SAVE THE PLOTS
-  kegg_volcano_list[[kp]] <- vol_plot
+  # kegg_volcano_list[[kp]] <- vol_plot
   
   # _____________________________________
   # 4 - PRINT OUT PLOTS - all
-  # ggsave(
-  #   filename = file.path(kegg_out_dir , paste0("2026_09_", kp, "_map_vol.pdf")),
-  #   plot = vol_plot,
-  #   width = 7.6, height = 1.9, units = "in",
-  #   device = cairo_pdf
-  # )
-  # 
-  # ggsave(
-  #   filename = file.path(kegg_out_dir , paste0("2026_09_", kp, "_map_vol.png")),
-  #   plot = vol_plot,
-  #   width = 7.6, height = 1.9, units = "in",
-  #   dpi = 330
-  # )
-  
+  ggsave(
+    filename = file.path(kegg_out_dir , paste0("2026_10_", kp, "_map_vol.pdf")),
+    plot = vol_plot,
+    width = 7.6, height = 1.9, units = "in",
+    device = cairo_pdf
+  )
+
+  ggsave(
+    filename = file.path(kegg_out_dir , paste0("2026_10_", kp, "_map_vol.png")),
+    plot = vol_plot,
+    width = 7.6, height = 1.9, units = "in",
+    dpi = 330
+  )
+
   
   print(paste0("Done for ", kp, "! :D"))
   
@@ -1338,6 +1338,10 @@ REACT_POI  <- c(
 "REACTOME_RHO_GTPASE_CYCLE", # L4
 "REACTOME_RHO_GTPASE_EFFECTORS", #L4
 
+##_L1_Signalling_L2_SIGNALLING_BY_WNT_(づ ◕‿◕ )づ_____
+"REACTOME_SIGNALING_BY_WNT",
+
+
   
 ##_L1_ENERGY_(づ ◕‿◕ )づ_____
 "REACTOME_AEROBIC_RESPIRATION_AND_RESPIRATORY_ELECTRON_TRANSPORT",
@@ -1480,7 +1484,9 @@ for (rct in REACT_POI) {
     # limits - rm 17 (but none are leading edge - shrunken for comparisons)
     scale_x_continuous(limits = c(-2,2),
                        expand = c(0, 0)) +
-    scale_y_continuous(limits = c(0,6),
+    
+    scale_y_continuous(limits = c(0,7.75),
+                       # limits = c(0,6),
                        expand = c(0.04, 0)) +
     
     geom_hline(yintercept = -log10(0.05),
@@ -1548,18 +1554,36 @@ for (rct in REACT_POI) {
                     # nudge_x = 0.155) +
 
     
+    # # NUM SIG UP & DOWN! | use sep df, overwise overplots
+    # geom_text(data = prot_sums, # up 
+    #           aes(label = paste0(up, " \U2191")), 
+    #           x = 1.35, y = 5.6, size = 3.2, color = "firebrick") + 
+    # geom_text(data = prot_sums, # down
+    #           aes(label = paste0(down, " \U2193")),
+    #           x = -1.4, y = 5.6, size = 3.2, color = "royalblue3") + 
+    # 
+    # 
+    # geom_text(data = path_sig_lab, # GSEA SIGNIFICANCE LABEL
+    #           aes(label = paste0(sig_val),
+    #               y = 4.80,
+    #               x = ifelse(NES > 0, 1.525, -1.525), # side if neg or pos
+    #               color = NES > 0), # col - TRUE FALSE 
+    #           size = 3.3) +
+    # scale_color_manual( # based on TRUE FALSE give color! 
+    #   values = c(`TRUE` = "firebrick", `FALSE` = "royalblue3")) +
+    
     # NUM SIG UP & DOWN! | use sep df, overwise overplots
     geom_text(data = prot_sums, # up 
               aes(label = paste0(up, " \U2191")), 
-              x = 1.35, y = 5.6, size = 3.2, color = "firebrick") + 
+              x = 1.35, y = 7.3, size = 3.2, color = "firebrick") + 
     geom_text(data = prot_sums, # down
               aes(label = paste0(down, " \U2193")),
-              x = -1.4, y = 5.6, size = 3.2, color = "royalblue3") + 
+              x = -1.4, y = 7.3, size = 3.2, color = "royalblue3") + 
     
     
     geom_text(data = path_sig_lab, # GSEA SIGNIFICANCE LABEL
               aes(label = paste0(sig_val),
-                  y = 4.80,
+                  y = 6.20,
                   x = ifelse(NES > 0, 1.525, -1.525), # side if neg or pos
                   color = NES > 0), # col - TRUE FALSE 
               size = 3.3) +
@@ -1677,6 +1701,7 @@ plot_grid(kegg_volcano_list$rno04137, kegg_volcano_list$rno00230,
           ncol = 1,
           labels = c("a","b", "c"),
           label_colour = "grey10", label_size = 11)
+
 ```
 
 ```{r}
@@ -1760,111 +1785,6 @@ plot_grid(reactome_volcano_list$REACTOME_NEURONAL_SYSTEM,
           reactome_volcano_list$REACTOME_NERVOUS_SYSTEM_DEVELOPMENT,
           ncol = 1, labels = c("a","b"),
           label_colour = "grey10", label_size = 11)
-```
-
-```{r}
-# REACTOME BRAAIN 
-plot_grid(
-
-  ##_Nervous_System_Development_____        
-  # reactome_volcano_list$REACTOME_NERVOUS_SYSTEM_DEVELOPMENT,
-  # reactome_volcano_list$REACTOME_SEMAPHORIN_INTERACTIONS,
-  # reactome_volcano_list$REACTOME_SIGNALING_BY_ROBO_RECEPTORS,
-  # reactome_volcano_list$REACTOME_CRMPS_IN_SEMA3A_SIGNALING,
-  # reactome_volcano_list$REACTOME_SEMA3A_PAK_DEPENDENT_AXON_REPULSION,
-  # reactome_volcano_list$REACTOME_EPH_EPHRIN_SIGNALING,
-  # reactome_volcano_list$REACTOME_LGI_ADAM_INTERACTIONS,
-  # reactome_volcano_list$REACTOME_L1CAM_INTERACTIONS,
-  # 
-  
-##______ECM_____________________________ 
-# reactome_volcano_list$REACTOME_EXTRACELLULAR_MATRIX_ORGANIZATION, # L1 (TOP) ECM
-# reactome_volcano_list$REACTOME_ECM_PROTEOGLYCANS, #L2 ECM
-# reactome_volcano_list$REACTOME_FORMATION_OF_THE_DYSTROPHIN_GLYCOPROTEIN_COMPLEX_DGC, #L3
-# reactome_volcano_list$REACTOME_LAMININ_INTERACTIONS, #L3
-
-##_Cell2Cell_____Adherins_&_Gap_Junctions_______
-# reactome_volcano_list$REACTOME_ADHERENS_JUNCTIONS_INTERACTIONS, #L4 Cell2Cell Coms
-# reactome_volcano_list$REACTOME_GAP_JUNCTION_ASSEMBLY,
-# reactome_volcano_list$REACTOME_GAP_JUNCTION_TRAFFICKING_AND_REGULATION,
-
-
-  
-  # ##_Neuronal_sytem____(づ ◕‿◕ )づ___________________ 
-  # reactome_volcano_list$REACTOME_NEURONAL_SYSTEM, # top level
-  # 
-  # reactome_volcano_list$REACTOME_TRANSMISSION_ACROSS_CHEMICAL_SYNAPSES, #L2
-  # 
-  # ##_L3_Neurotransmitter_release_cycle_
-  # reactome_volcano_list$REACTOME_NEUROTRANSMITTER_RELEASE_CYCLE, #L3
-  # reactome_volcano_list$REACTOME_GLUTAMATE_NEUROTRANSMITTER_RELEASE_CYCLE, #L4
-  # reactome_volcano_list$REACTOME_GABA_SYNTHESIS_RELEASE_REUPTAKE_AND_DEGRADATION, #L4
-  
-  
-  # ##_L3_Neurotransmitter_receptors_&_postsynaptic_signal_transduciton_
-  # reactome_volcano_list$REACTOME_NEUROTRANSMITTER_RECEPTORS_AND_POSTSYNAPTIC_SIGNAL_TRANSMISSION, #L3
-  # 
-  # ##_L4_Glutamate_binding_activation_of_AMPA_&_synaptic_plasticity
-  # reactome_volcano_list$REACTOME_TRAFFICKING_OF_AMPA_RECEPTORS, # L5 (L4 AMPA)
-  # 
-  # ##_L4_Activation_of_NMDA_receptors_PSD_events (L5 & L5)
-  # reactome_volcano_list$REACTOME_UNBLOCKING_OF_NMDA_RECEPTORS_GLUTAMATE_BINDING_AND_ACTIVATION,
-  # reactome_volcano_list$REACTOME_ASSEMBLY_AND_CELL_SURFACE_PRESENTATION_OF_NMDA_RECEPTORS,
-  # ##_L5_Post_NMDA_receptor_activation_events_(L6)
-  # reactome_volcano_list$REACTOME_CREB1_PHOSPHORYLATION_THROUGH_THE_ACTIVATION_OF_ADENYLATE_CYCLASE, #L6
-
-  # #_L2_Protein-protein_interactions_at_the_synapse_L3
-  # reactome_volcano_list$REACTOME_NEUREXINS_AND_NEUROLIGINS, #L3
-
-
-  # ##_L2_Potassium_Channels_L2&L3
-  # reactome_volcano_list$REACTOME_POTASSIUM_CHANNELS,  #L2
-  # reactome_volcano_list$REACTOME_VOLTAGE_GATED_POTASSIUM_CHANNELS, #L3
-
- # ##_IMMUNE_SYSTEM____________________________
-# reactome_volcano_list$REACTOME_CYTOKINE_SIGNALING_IN_IMMUNE_SYSTEM, # CYTOKINE IMMUNE
-#   reactome_volcano_list$REACTOME_INTERLEUKIN_1_FAMILY_SIGNALING,  #3
-#  reactome_volcano_list$REACTOME_INTERLEUKIN_12_FAMILY_SIGNALING,  #3
-#  reactome_volcano_list$REACTOME_TNFR2_NON_CANONICAL_NF_KB_PATHWAY,  #2
-
-# reactome_volcano_list$REACTOME_ADAPTIVE_IMMUNE_SYSTEM,  #adaptive immune T1
-#  reactome_volcano_list$REACTOME_TCR_SIGNALING,  # TCR #2
-#  reactome_volcano_list$REACTOME_SIGNALING_BY_THE_B_CELL_RECEPTOR_BCR, #2
-
- # reactome_volcano_list$REACTOME_COMPLEMENT_CASCADE, # complement | innate immune?
- # reactome_volcano_list$REACTOME_FC_EPSILON_RECEPTOR_FCERI_SIGNALING,
- # reactome_volcano_list$REACTOME_C_TYPE_LECTIN_RECEPTORS_CLRS,
- # reactome_volcano_list$REACTOME_FCGAMMA_RECEPTOR_FCGR_DEPENDENT_PHAGOCYTOSIS,
-  
-  
-  # #high_level_terms
-  # reactome_volcano_list$REACTOME_NEURONAL_SYSTEM, #L1
-  # # reactome_volcano_list$REACTOME_NERVOUS_SYSTEM_DEVELOPMENT, #L2
-  # reactome_volcano_list$REACTOME_EXTRACELLULAR_MATRIX_ORGANIZATION, #L1
-  # reactome_volcano_list$REACTOME_TRANSPORT_OF_SMALL_MOLECULES, #L1
-  # reactome_volcano_list$REACTOME_VESICLE_MEDIATED_TRANSPORT, #L1
-  # 
-  # reactome_volcano_list$REACTOME_HEMOSTASIS, #L1
-  # reactome_volcano_list$REACTOME_CIRCADIAN_CLOCK, #L1
-
-  
-  reactome_volcano_list$REACTOME_DNA_REPLICATION,
-  reactome_volcano_list$REACTOME_METABOLISM_OF_RNA,
-  reactome_volcano_list$REACTOME_DNA_REPAIR,
-  reactome_volcano_list$REACTOME_CELL_CYCLE,
-  reactome_volcano_list$REACTOME_PROGRAMMED_CELL_DEATH,
-  reactome_volcano_list$REACTOME_PROTEIN_LOCALIZATION, #L1
-
-
-
-  # labels = c("a","b", "c", "d", "e"),    
-  # labels = c("a","b", "c", "d"),
-  ncol = 1, label_colour = "grey10", label_size = 11
-
-      )
-
-# ggsave("2026_03_31_axonguidance_brain_dev_mapped_volcano_330dpi.png", dpi = 330)
-
 ```
 
 ```{r}
@@ -2042,6 +1962,7 @@ plot_grid(
   label_colour = "grey10", label_size = 11)
 
 #2026_10_10_p4_Gen_REACT_2_NeuroSys_&_dev_map_vol - use v2 
+#2026_10_12_p4_Gen_REACT_2_NeuroSys_&_dev_map_vol
 ```
 
 ##### Synaptic Transmission
@@ -2096,229 +2017,61 @@ plot_grid(
 #2026_10_10_p4_Gen_REACT_2_NeuroSys_&_dev_map_vol - use v2 
 ```
 
+##### Axon Guidance
+
 ```{r}
-# TRANSYNPTIC CONNECTIONS/Adhesion - NEUREXIN & NEUROLIGIN + LGI ADAM INTERACTION
+# Signalling
 plot_grid(
-  reactome_volcano_list$REACTOME_NEUREXINS_AND_NEUROLIGINS,
-  reactome_volcano_list$REACTOME_LGI_ADAM_INTERACTIONS,
-  reactome_volcano_list$REACTOME_L1CAM_INTERACTIONS,
+  reactome_volcano_list$REACTOME_SIGNALING_BY_WNT,
+  # reactome_volcano_list$REACTOME_SIGNALING_BY_RHO_GTPASES_MIRO_GTPASES_AND_RHOBTB3,
+  reactome_volcano_list$REACTOME_RHO_GTPASE_CYCLE,
+  reactome_volcano_list$REACTOME_RHO_GTPASE_EFFECTORS,
   ncol = 1, labels = c("a","b","c"),
   label_colour = "grey10", label_size = 11)
 
-#2026_10_10_p4_REACT_2_NeurexinN_LGI_ADAM_map_vol 
-#2026_10_10_p4_REACT_3_neuro_adhesion_map_vol
+#2026_10_12_p4_REACT_3_axonG_Rho_GTPse_WNT_map_vol
 ```
 
 ```{r}
 # AXON GUIDANCE Synaptogenesis
 plot_grid(
+  reactome_volcano_list$REACTOME_ADHERENS_JUNCTIONS_INTERACTIONS,
   reactome_volcano_list$REACTOME_EPH_EPHRIN_SIGNALING,
- reactome_volcano_list$REACTOME_SEMAPHORIN_INTERACTIONS,
-  reactome_volcano_list$REACTOME_SIGNALING_BY_ROBO_RECEPTORS,
-  ncol = 1, labels = c("a","b", "c"),
+  reactome_volcano_list$REACTOME_L1CAM_INTERACTIONS,
+  reactome_volcano_list$REACTOME_SEMAPHORIN_INTERACTIONS,
+  # reactome_volcano_list$REACTOME_SIGNALING_BY_ROBO_RECEPTORS,
+  
+  ncol = 1, labels = c("a","b", "c", "d"),
   label_colour = "grey10", label_size = 11)
 #2026_10_10_p4_REACT_3_axon_guidance_map_vol
+#2026_10_12_p4_REACT_5_axon_guidance_map_vol
+#2026_10_12_p4_REACT_4_axon_guidance_map_vol # minus ROBO
+```
+
+```{r}
+# TRANSYNPTIC CONNECTIONS/Adhesion - NEUREXIN & NEUROLIGIN + LGI ADAM INTERACTION
+plot_grid(
+  reactome_volcano_list$REACTOME_NEUREXINS_AND_NEUROLIGINS,
+  reactome_volcano_list$REACTOME_LGI_ADAM_INTERACTIONS,
+  ncol = 1, labels = c("a","b"),
+  label_colour = "grey10", label_size = 11)
+
+#2026_10_12_p4_REACT_2_NeurexinN_LGI_ADAM_map_vol 
+```
+
+```{r}
+# REACTOME EXTRACELLULAR MATRIX ORGANISATION 
+plot_grid(
+  reactome_volcano_list$REACTOME_EXTRACELLULAR_MATRIX_ORGANIZATION,
+  reactome_volcano_list$REACTOME_ECM_PROTEOGLYCANS,
+  reactome_volcano_list$REACTOME_FORMATION_OF_THE_DYSTROPHIN_GLYCOPROTEIN_COMPLEX_DGC,
+  reactome_volcano_list$REACTOME_LAMININ_INTERACTIONS,
+  ncol = 1, labels = c("a","b","c", "d"),
+  label_colour = "grey10", label_size = 11)
+
+#2026_10_12_p4_REACT_4_ECM_map_vol
 ```
 
 ------------------------------------------------------------------------
 
-## Typed out MISC
-
-### Reactome
-
-```{r}
-# GET REACTOME PATHVWAYS OF INTEREST 
-REACT_POI  <- c(
-  #TOP-LEVEL REACTOME
-  # "REACTOME_DNA_REPLICATION",
-  # "REACTOME_METABOLISM_OF_RNA", 
-  # "REACTOME_DNA_REPAIR",
-  # "REACTOME_CELL_CYCLE",
-  # "REACTOME_PROGRAMMED_CELL_DEATH",
-  # "REACTOME_EXTRACELLULAR_MATRIX_ORGANIZATION",
-  # "REACTOME_TRANSPORT_OF_SMALL_MOLECULES",
-  # "REACTOME_PROTEIN_LOCALIZATION",
-  # # "REACTOME_HEMOSTASIS",
-  # # "REACTOME_CIRCADIAN_CLOCK",
-  # "REACTOME_NEURONAL_SYSTEM",
-  # "REACTOME_VESICLE_MEDIATED_TRANSPORT",
-  # 
-  # 
-  # # SIGNALLING PATHWAYS
-  # "REACTOME_PROLONGED_ERK_ACTIVATION_EVENTS",
-  # "REACTOME_DISEASES_OF_SIGNAL_TRANSDUCTION_BY_GROWTH_FACTOR_RECEPTORS_AND_SECOND_MESSENGERS",
-  # "REACTOME_INTRACELLULAR_SIGNALING_BY_SECOND_MESSENGERS",
-  # "REACTOME_REGULATION_OF_RAS_BY_GAPS",
-  # "REACTOME_PTEN_REGULATION",
-  # "REACTOME_MAPK_FAMILY_SIGNALING_CASCADES",
-  # "REACTOME_FCERI_MEDIATED_NF_KB_ACTIVATION",
-  # "REACTOME_",
-  # "REACTOME_",
-  # "REACTOME_",
-  # "REACTOME_",
-  # "REACTOME_",
-
-  
-##_L1_NEURONAL_SYSTEM__(づ ◕‿◕ )づ____
-'REACTOME_NEURONAL_SYSTEM', # L1 (TOP LEVEL)
-
-##_L2_Transmission_across_the_chemical_synapse_
-'REACTOME_TRANSMISSION_ACROSS_CHEMICAL_SYNAPSES', #L2
-
-##_L3_Neurotransmitter_release_cycle_
-'REACTOME_NEUROTRANSMITTER_RELEASE_CYCLE', #L3
-'REACTOME_GLUTAMATE_NEUROTRANSMITTER_RELEASE_CYCLE', #L4
-'REACTOME_GABA_SYNTHESIS_RELEASE_REUPTAKE_AND_DEGRADATION', #L4
-
-##_L3_Neurotransmitter_receptors_&_postsynaptic_signal_transduciton_
-'REACTOME_NEUROTRANSMITTER_RECEPTORS_AND_POSTSYNAPTIC_SIGNAL_TRANSMISSION', #L3
-##_L4_Glutamate_binding_activation_of_AMPA_&_synaptic_plasticity
-'REACTOME_TRAFFICKING_OF_AMPA_RECEPTORS', #L5
-
-##_L4_Activation_of_NMDA_receptors_PSD_events
-'REACTOME_UNBLOCKING_OF_NMDA_RECEPTORS_GLUTAMATE_BINDING_AND_ACTIVATION', #L5
-'REACTOME_ASSEMBLY_AND_CELL_SURFACE_PRESENTATION_OF_NMDA_RECEPTORS', #L5
-##_L5_Post_NMDA_receptor_activation_events_
-'REACTOME_CREB1_PHOSPHORYLATION_THROUGH_THE_ACTIVATION_OF_ADENYLATE_CYCLASE', #L6
-
-
-##_L2_Protein-protein_interactions_at_the_synapse_
-'REACTOME_NEUREXINS_AND_NEUROLIGINS', #L3
-
-##_L2_Potassium_Channels_
-'REACTOME_POTASSIUM_CHANNELS', #L2
-'REACTOME_VOLTAGE_GATED_POTASSIUM_CHANNELS', #L3
-  
-
-###_1_DEVELOPMENTAL_BIOLOGY!__(づ ◕‿◕ )づ____
-##_L2_NERVOUS_SYSTEM_DEVELOPMENT______
-'REACTOME_NERVOUS_SYSTEM_DEVELOPMENT',
-##_L3_Axon_Guidance_______
-##_L4_L1CAM_interactions___
-'REACTOME_L1CAM_INTERACTIONS', #L4 
-'REACTOME_INTERACTION_BETWEEN_L1_AND_ANKYRINS', #L5
-'REACTOME_RECYCLING_PATHWAY_OF_L1', #L5
-
-##_L4_EPH-Ephrin_signalling___
-'REACTOME_EPH_EPHRIN_SIGNALING', #L4
-'REACTOME_EPHB_MEDIATED_FORWARD_SIGNALING', #L5
-
-##_L4_Signalling_by_ROBO_receptors___
-'REACTOME_SIGNALING_BY_ROBO_RECEPTORS', #L4
-'REACTOME_REGULATION_OF_EXPRESSION_OF_SLITS_AND_ROBOS', #L5
-
-##_L4_Semaphorin_interactions___
-'REACTOME_SEMAPHORIN_INTERACTIONS', #L4
-'REACTOME_CRMPS_IN_SEMA3A_SIGNALING', #L5
-'REACTOME_SEMA3A_PAK_DEPENDENT_AXON_REPULSION', #L5
-'REACTOME_OTHER_SEMAPHORIN_INTERACTIONS', #L5
-
-##_L2_LGI-ADAM_interactions___
-'REACTOME_LGI_ADAM_INTERACTIONS',
-
-
-
-
-
-
-##_L1_EXTRACELLUAR_MATRIX_ORGANIZATION_(づ ◕‿◕ )づ_____
-'REACTOME_EXTRACELLULAR_MATRIX_ORGANIZATION', # L1 (TOP LEVEL)
-
-##_L2_ECM_Proteoglycans__
-"REACTOME_ECM_PROTEOGLYCANS", #L2
-
-##_L2_Non-integrin_membrane-ECM_interactions__
-'REACTOME_FORMATION_OF_THE_DYSTROPHIN_GLYCOPROTEIN_COMPLEX_DGC', #L3 
-
-##_L2_Laminin_Interactions__
-'REACTOME_LAMININ_INTERACTIONS', #L2
-
-
-
-##_L1_CELL-CELL_COMMUNICATION_(づ ◕‿◕ )づ_____
-##_L2_Cell_junction_organization__
-##_L3_Cell-cell_junction_org__
-"REACTOME_ADHERENS_JUNCTIONS_INTERACTIONS" #L4
-  
-
-  
-  
-  
-  # "REACTOME_CELL_CYCLE",
-  # "REACTOME_SYNTHESIS_OF_DNA",
-  # "REACTOME_DNA_REPLICATION",
-  # "REACTOME_SWITCHING_OF_ORIGINS_TO_A_POST_REPLICATIVE_STATE",
-  # "REACTOME_MITOTIC_G1_PHASE_AND_G1_S_TRANSITION",
-  # "REACTOME_S_PHASE",
-  # "REACTOME_M_PHASE",
-  # "REACTOME_APC_C_MEDIATED_DEGRADATION_OF_CELL_CYCLE_PROTEINS",
-  # "REACTOME_CYCLIN_A_CDK2_ASSOCIATED_EVENTS_AT_S_PHASE_ENTRY",
-  # "REACTOME_STABILIZATION_OF_P53",
-  # 
-  # 
-  # 
-  # 
-  # "REACTOME_APOPTOSIS",
-  # "REACTOME_REGULATION_OF_APOPTOSIS",
-  # "REACTOME_PROGRAMMED_CELL_DEATH",
-  # "REACTOME_AGGREPHAGY",
-  # "REACTOME_SELECTIVE_AUTOPHAGY",
-  # 
-  # "REACTOME_MRNA_SPLICING",
-  # "REACTOME_CHOLESTEROL_BIOSYNTHESIS",
-  
-  # ##_IMMUNE_SYSTEM____________________________
-  # "REACTOME_CYTOKINE_SIGNALING_IN_IMMUNE_SYSTEM", # CYTOKINE IMMUNE
-  # "REACTOME_INTERLEUKIN_1_FAMILY_SIGNALING", 
-  # "REACTOME_INTERLEUKIN_12_FAMILY_SIGNALING", 
-  # "REACTOME_TNFR2_NON_CANONICAL_NF_KB_PATHWAY", 
-  # 
-  # "REACTOME_ADAPTIVE_IMMUNE_SYSTEM", # ADATIVE IMMUNE
-  # "REACTOME_TCR_SIGNALING",
-  # "REACTOME_SIGNALING_BY_THE_B_CELL_RECEPTOR_BCR",
-  # 
-  # "REACTOME_COMPLEMENT_CASCADE", # INNATE IMMUNE
-  # "REACTOME_FC_EPSILON_RECEPTOR_FCERI_SIGNALING",
-  # "REACTOME_C_TYPE_LECTIN_RECEPTORS_CLRS",
-  # "REACTOME_FCGAMMA_RECEPTOR_FCGR_DEPENDENT_PHAGOCYTOSIS"
-  )
-
-# reactome_volcano_top_lvl_list <- reactome_volcano_toplevel_list 
-```
-
-```{r}
-check <- gsea_msig_C8_ct_EExAge_mss3.2.2_t1_cp3.4.2_t2$gsea_results_tib$H_EE_vs_SH
-
-check <- gsea_msig_C8_ct_EExAge_mss3.2.2_t1_cp3.4.2_t2$gsea_results_tib$H_EE_vs_SH
-```
-
-```{r}
-C8_tibs_df <- map_dfr(gsea_msig_C8_ct_EExAge_mss3.2.2_t1_cp3.4.2_t2$gsea_results_tib,
-                        as.data.frame,
-                        .id = "Label")  %>%
-  mutate(Label_trm = paste0(gsub("^[^_]*_", "", Label)), .after = Label) %>%
-  mutate(obs_genes = str_count(core_enrichment, "/") + 1) %>%
-  filter(!Label %in% c("HxA_EE_YNG_vs_SH_OLD", "HxA_EE_OLD_vs_SH_YNG"))
-
-
-
-C8_tibs_df_entrez_split <- C8_tibs_df %>%  # 104 x 12s
-  mutate(core_enrich_split = str_split(core_enrichment, "/")) %>% # split by /
-  tidyr::unnest(core_enrich_split) %>% # unnest | to  3816 x 13
-  left_join(bitr_gn_2_entrez, by = join_by(core_enrich_split == ENTREZID)) #%>%
-
-C8_tibs_df_entrez_split_display <- C8_tibs_df_entrez_split %>%
-  group_by(Label, Description) %>%
-  slice_head(n=3) 
-```
-
-```{r}
-C8_tibs_df_6_trim_PhD <- C8_tibs_df %>%
-  filter(str_detect(ID, regex("MICRO|BRAIN|NEURO|ASTRO|RGC|CTX|OLIG|SCHWANN",
-                              ignore_case = TRUE))) %>%
-  lolliplot(
-    # facet_formula = category+subcategory_2~Label,
-    subtitle = "C8 GSEA cell types - Housing & Age - (trimmed)", legend_pos = "bottom")
-
-C8_tibs_df_6_trim_PhD
-```
+## 
