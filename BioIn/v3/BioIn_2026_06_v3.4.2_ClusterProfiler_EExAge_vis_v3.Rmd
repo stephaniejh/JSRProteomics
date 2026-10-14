@@ -339,6 +339,12 @@ Msig_HM_POI <- unique(HM_tibs_df_6$ID) # 9
 Msig_HM_volcano_list <-  vector(mode = "list")
 ```
 
+```{r}
+# output directory | if na will create
+MSig_HM_out_dir <- "output/plots/2026_10/MSig_HM_map_vol"
+if (!dir.exists(MSig_HM_out_dir)) dir.create(MSig_HM_out_dir, recursive = TRUE)
+```
+
 ### Run for loop for plots
 
 ```{r}
@@ -365,6 +371,16 @@ for(hm in Msig_HM_POI) {
   prot_sums <- my_prots %>% # this is needed to avoid overplotting
     dplyr::select(Label, up, down) %>%
     unique()
+  
+  mapped_totals <- my_prots %>%  # for mapped total
+    ungroup() %>%
+    summarise(n_distinct(gene)) %>%
+    tibble::deframe()
+  
+  gs_size <- HM_tibs_df_6_entrez_split %>% # for geneset size
+    filter(ID == hm) %>%
+    dplyr::distinct(setSize) %>%
+    tibble::deframe()
   
   
   path_sig <- HM_tibs_df_6 %>% # GET DETAILS FOR ANNOTATING SIG 
@@ -405,16 +421,16 @@ for(hm in Msig_HM_POI) {
     # limits - rm 17 (but none are leading edge - shrunken for comparisons)
     scale_x_continuous(limits = c(-2,2),
                        expand = c(0, 0)) +
-    scale_y_continuous(limits = c(0,6),
+    scale_y_continuous(limits = c(0,7.75),
                        expand = c(0.04, 0)) +
     
     geom_hline(yintercept = -log10(0.05),
-               linetype = "dashed", linewidth = 0.1,
-               color = "grey50", alpha = 0.5) +
+               linetype = "dashed", linewidth = 0.15,
+               color = "grey50", alpha = 0.55) +
     geom_hline(yintercept = -log10(0.1),linetype = "dotted",
-               linewidth = 0.1, color = "grey60", alpha = 0.5) +
+               linewidth = 0.15, color = "grey60", alpha = 0.55) +
     geom_vline(xintercept = c(0),linetype = "solid",
-               linewidth = 0.1, color = "grey35", alpha = 0.5) +
+               linewidth = 0.15, color = "grey40", alpha = 0.55) +
     
 
     ggrastr::geom_point_rast(aes(fill = case_when( # conditional ass for color mapping
@@ -477,15 +493,15 @@ for(hm in Msig_HM_POI) {
     # NUM SIG UP & DOWN! | use sep df, overwise overplots
     geom_text(data = prot_sums, # up 
               aes(label = paste0(up, " \U2191")), 
-              x = 1.35, y = 5.6, size = 3.2, color = "firebrick") + 
+              x = 1.35, y = 7.3, size = 3.2, color = "firebrick") + 
     geom_text(data = prot_sums, # down
               aes(label = paste0(down, " \U2193")),
-              x = -1.4, y = 5.6, size = 3.2, color = "royalblue3") + 
+              x = -1.4, y = 7.3, size = 3.2, color = "royalblue3") + 
     
     
     geom_text(data = path_sig_lab, # GSEA SIGNIFICANCE LABEL
               aes(label = paste0(sig_val),
-                  y = 4.80,
+                  y = 6.2,
                   x = ifelse(NES > 0, 1.525, -1.525), # side if neg or pos
                   color = NES > 0), # col - TRUE FALSE 
               size = 3.3) +
@@ -495,7 +511,9 @@ for(hm in Msig_HM_POI) {
     
     
     
-    labs(subtitle = paste0("MSigDB - ", my_title)) +
+    labs(subtitle = paste0("MSigDB - ", my_title, 
+                           " (", mapped_totals, "/", gs_size, ")")) +
+
     
     
     # facet_wrap(~Label, nrow = 1) + 
@@ -523,6 +541,25 @@ for(hm in Msig_HM_POI) {
   # _____________________________________
   # 3 - SAVE THE PLOTS
   Msig_HM_volcano_list[[hm]] <- vol_plot
+  
+  
+  
+    # _____________________________________
+  # 4 - PRINT OUT PLOTS - all
+  ggsave(
+    filename = file.path(MSig_HM_out_dir, paste0("2026_10_", hm, "_map_vol.pdf")),
+    plot = vol_plot,
+    width = 7.6, height = 1.9, units = "in",
+    device = cairo_pdf
+  )
+
+  ggsave(
+    filename = file.path(MSig_HM_out_dir , paste0("2026_10_", hm, "_map_vol.png")),
+    plot = vol_plot,
+    width = 7.6, height = 1.9, units = "in",
+    dpi = 330
+  )
+  
   
   print(paste0("Done for ", hm, "! :D"))
   
