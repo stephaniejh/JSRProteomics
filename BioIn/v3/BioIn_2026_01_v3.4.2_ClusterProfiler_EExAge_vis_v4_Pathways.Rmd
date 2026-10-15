@@ -1191,56 +1191,294 @@ REACT_TOP_LVL <- c(
 reactome_TOP_volcano_list <-  vector(mode = "list")
 ```
 
+#### P3 list - NT Signaling, CellCycle, DNA Rep&Repair, Cell Death, Response2Stim
+
+\# ##\_Autophagy\_\_\_\_\_\_\_\_
+
+\# "REACTOME_AGGREPHAGY",
+
+\# "REACTOME_SELECTIVE_AUTOPHAGY",
+
 ```{r}
 # Reactome list - nt
 p1_reactome_list <- c(
-  "REACTOME_DISEASES_OF_SIGNAL_TRANSDUCTION_BY_GROWTH_FACTOR_RECEPTORS_AND_SECOND_MESSENGERS",
-  "REACTOME_INTRACELLULAR_SIGNALING_BY_SECOND_MESSENGERS",
-  "REACTOME_MAPK_FAMILY_SIGNALING_CASCADES",
-  "REACTOME_PROLONGED_ERK_ACTIVATION_EVENTS",
-  "REACTOME_REGULATION_OF_RAS_BY_GAPS",
+  
+  ##_(>^_^)>_L1_SIGNAL_TRANSDUCTION___________________________
+  ##_L2_Intracellular_signalling_by_2nd_messengers____________
+  "REACTOME_INTRACELLULAR_SIGNALING_BY_SECOND_MESSENGERS", #L2
+  ##_L3_PIP3_activates_AKT_signalling______
+  "REACTOME_PTEN_REGULATION", #L4 
+  "REACTOME_REGULATION_OF_PTEN_STABILITY_AND_ACTIVITY",
+  
+  ##_L2_MAPK_family_signalling_cascades______________________
+  "REACTOME_MAPK_FAMILY_SIGNALING_CASCADES", #L2
+  "REACTOME_MAPK1_MAPK3_SIGNALING", # L3
+  "REACTOME_RAF_INDEPENDENT_MAPK1_3_ACTIVATION", #L4
+  "REACTOME_MAPK6_MAPK4_SIGNALING", # L3
+  ##_L3_RAF/MAP_kinase_cascade_>_Ras_by_GAPS
+  "REACTOME_REGULATION_OF_RAS_BY_GAPS", #L4
+  
+  ##_L2_Signalling_by_RTKs_________
+  ##_L3_Signalling_by_FGRF_________________________________
+  "REACTOME_SIGNALING_BY_FGFR", #L3
+  ##_L3_Signalling_by_VEGF_>_L4_VEGFA-VEGFR2_pathway_>_L5_VEGFR2_proliferation_
+  "REACTOME_VEGFR2_MEDIATED_CELL_PROLIFERATION", #L5
+  ##_L3_Signalling_by_NTRKs_>_L4_Sig_by_NTRK1_>_L5_Signaling_to_ERKS_>_L6_Prolonged_ERK
+  "REACTOME_PROLONGED_ERK_ACTIVATION_EVENTS", #L6
+
+  ##_L2_GPCR_Signalling________________________
+  ##_L3_GPCR_downstream_signalling________________
+  "REACTOME_SIGNALING_BY_GPCR", #L3
+  ##_L4_G_alpha_(s)_signalling_events_>_L5_GPER1_signalling_______
+  "REACTOME_GPER1_SIGNALING", #L5
+  ##_L4_G_alpha_(q)_signalling_events_>_L5_Gastrin-Creb___________
+  "REACTOME_GASTRIN_CREB_SIGNALLING_PATHWAY_VIA_PKC_AND_MAPK",
+  "REACTOME_EFFECTS_OF_PIP2_HYDROLYSIS", #
+  
+  ##_L2_Signalling_by_NOTCH____________________
+  "REACTOME_SIGNALING_BY_NOTCH", #L2
+  "REACTOME_SIGNALING_BY_NOTCH4", #L3
+  "REACTOME_NEGATIVE_REGULATION_OF_NOTCH4_SIGNALING", #L4
+  
+  ##_L2_Signaling_by_WNT________________
+  "REACTOME_SIGNALING_BY_WNT", #L2
+  "REACTOME_TCF_DEPENDENT_SIGNALING_IN_RESPONSE_TO_WNT", # L3
+  "REACTOME_DEGRADATION_OF_DVL", #L4
+  "REACTOME_DEGRADATION_OF_AXIN", #L4
+  
+  "REACTOME_DEGRADATION_OF_BETA_CATENIN_BY_THE_DESTRUCTION_COMPLEX", #L3
+  "REACTOME_BETA_CATENIN_PHOSPHORYLATION_CASCADE", #L4
+  
+  "REACTOME_BETA_CATENIN_INDEPENDENT_WNT_SIGNALING", #L3
+  "REACTOME_PCP_CE_PATHWAY", # L4 
+  "REACTOME_ASYMMETRIC_LOCALIZATION_OF_PCP_PROTEINS", #L5 
+
+  ##_L2_Signaling_by_HEDGEHOG________________________
+  "REACTOME_SIGNALING_BY_HEDGEHOG", # L2
+  "REACTOME_HEDGEHOG_OFF_STATE", #L3
+  "REACTOME_DEGRADATION_OF_GLI1_BY_THE_PROTEASOME", #L4
+  "REACTOME_HEDGEHOG_LIGAND_BIOGENESIS", #L3
+  "REACTOME_HEDGEHOG_ON_STATE", #L3
+
+  
+  ##_(>^_^)>_L1_DISEASE_____________________________
+  ##_L2_Diseases_of_Signal_transduction_&_growthfactors_2nd_messengers
+  "REACTOME_DISEASES_OF_SIGNAL_TRANSDUCTION_BY_GROWTH_FACTOR_RECEPTORS_AND_SECOND_MESSENGERS",  
+  "REACTOME_SIGNALING_BY_EGFR_IN_CANCER", #L3
+  "REACTOME_SIGNALING_BY_ALK_IN_CANCER", #L3
+  
+  
+  ##_(>^_^)>_L1_NEURONAL_SYSTEM_______________________________
+  ##_>_L2_TRMSChemSyn_>_L3_NTrecp_PSD_stm_>_L5_NMDA_PSD_
   ##_L5_Post_NMDA_receptor_activation_events_
-'REACTOME_CREB1_PHOSPHORYLATION_THROUGH_THE_ACTIVATION_OF_ADENYLATE_CYCLASE', #L6
+  'REACTOME_CREB1_PHOSPHORYLATION_THROUGH_THE_ACTIVATION_OF_ADENYLATE_CYCLASE', #L6
   
-  "REACTOME_PTEN_REGULATION",
-  "REACTOME_MAPK_FAMILY_SIGNALING_CASCADES",
-  "REACTOME_FCERI_MEDIATED_NF_KB_ACTIVATION",
   
+    ##_(>^_^)>_L1_IMMUNE_SYSTEM___Partial_justfor_NFKB__________________
+  "REACTOME_FCERI_MEDIATED_NF_KB_ACTIVATION", #Innate immune > FCERI 
   "REACTOME_ACTIVATION_OF_NF_KAPPAB_IN_B_CELLS",
-  "REACTOME_DECTIN_1_MEDIATED_NONCANONICAL_NF_KB_SIGNALING",
-  "REACTOME_TNFR2_NON_CANONICAL_NF_KB_PATHWAY",
+  "REACTOME_DECTIN_1_MEDIATED_NONCANONICAL_NF_KB_SIGNALING", #CLRs > Dectin1> 
+  "REACTOME_TNFR2_NON_CANONICAL_NF_KB_PATHWAY", #Immune > cytokine >TNF2_NFKB
   
   
-  # TOP-level CELL CYCLE & DEATH 
-  "REACTOME_DNA_REPLICATION",
-  "REACTOME_DNA_REPAIR",
-  "REACTOME_CELL_CYCLE",
+  
+  ##________RESPONSE_TO_STIMULI_________________________________________________
+  ##_(>^_^)>_L1_CELLULAR_RESPONSE_TO_STIMULI_________________
+  ##_L2_Cellular_response_to_stress_______________
+  "REACTOME_CELLULAR_RESPONSE_TO_HYPOXIA", #L3
+  "REACTOME_CELLULAR_RESPONSE_TO_STARVATION", #L3
+  "REACTOME_RESPONSE_OF_EIF2AK4_GCN2_TO_AMINO_ACID_DEFICIENCY", #L4
+  
+  "REACTOME_CELLULAR_RESPONSE_TO_CHEMICAL_STRESS", #L3
+  "REACTOME_KEAP1_NFE2L2_PATHWAY", #L4
+  "REACTOME_NUCLEAR_EVENTS_MEDIATED_BY_NFE2L2", #L5
+  "REACTOME_CYTOPROTECTION_BY_HMOX1", #L4
+  
+  "REACTOME_HSP90_CHAPERONE_CYCLE_FOR_STEROID_HORMONE_RECEPTORS_SHR_IN_THE_PRESENCE_OF_LIGAND", #L3
+  
+  "REACTOME_CELLULAR_SENESCENCE", #L3
+  "REACTOME_DNA_DAMAGE_TELOMERE_STRESS_INDUCED_SENESCENCE", #L4
+  "REACTOME_ONCOGENE_INDUCED_SENESCENCE", #L4
+  "REACTOME_SENESCENCE_ASSOCIATED_SECRETORY_PHENOTYPE_SASP", #L4
+  
+  
+  ##__________________LIFE,DEATH,&_APOPTOSIS_________________________________
+  ##_(^'.'-)>__CELL_CYCLE__________________TOP-level CELL CYCLE & DEATH 
+  ##_L1_cell_cycle________________________
+  "REACTOME_CELL_CYCLE", #L1
+  ##_L2_CELL_CYCLE_CHECKPOINTS_____________________________
+  "REACTOME_CELL_CYCLE_CHECKPOINTS", #L2
+  "REACTOME_G2_M_CHECKPOINTS", #L3 
+  "REACTOME_G1_S_DNA_DAMAGE_CHECKPOINTS", #L4
+  
+  "REACTOME_G1_S_DNA_DAMAGE_CHECKPOINTS", #L3
+  ##_L4_p53_dependent_G1/S_DNA_damage_checkpoint_>L5_response_>_L6_StablisationP53
+  "REACTOME_STABILIZATION_OF_P53", #L6
+  
+  ##_L2_CELL_CYCLE_MITOTIC__________________________________________
+  "REACTOME_CELL_CYCLE_MITOTIC", #L2
+  "REACTOME_M_PHASE", #L3\
+  "REACTOME_MITOTIC_METAPHASE_AND_ANAPHASE", # L4
+  "REACTOME_SEPARATION_OF_SISTER_CHROMATIDS", #L5
+  "REACTOME_MITOTIC_PROMETAPHASE", #L4
+  
+  "REACTOME_S_PHASE", #L3
+  # "REACTOME_SYNTHESIS_OF_DNA", #L4
+  "REACTOME_SWITCHING_OF_ORIGINS_TO_A_POST_REPLICATIVE_STATE", #L5
+  "REACTOME_CYCLIN_A_CDK2_ASSOCIATED_EVENTS_AT_S_PHASE_ENTRY", #L4
+  "REACTOME_UBIQUITIN_DEPENDENT_DEGRADATION_OF_CYCLIN_D", #L4
+
+  "REACTOME_MITOTIC_G1_PHASE_AND_G1_S_TRANSITION", #L3
+  
+  "REACTOME_MITOTIC_G2_G2_M_PHASES", #L3 
+  "REACTOME_FBXL7_DOWN_REGULATES_AURKA_DURING_MITOTIC_ENTRY_AND_IN_EARLY_MITOSIS", #L5
+  
+  ##_L3_Regulation_of_mitotic_cell_cycle_>_L4_APC/C-mediated_deg_of_cell_cycle_
+  "REACTOME_APC_C_MEDIATED_DEGRADATION_OF_CELL_CYCLE_PROTEINS", #L4
+  "REACTOME_APC_C_CDH1_MEDIATED_DEGRADATION_OF_CDC20_AND_OTHER_APC_C_CDH1_TARGETED_PROTEINS_IN_LATE_MITOSIS_EARLY_G1", #L5
+  "REACTOME_ACTIVATION_OF_APC_C_AND_APC_C_CDC20_MEDIATED_DEGRADATION_OF_MITOTIC_PROTEINS", #L5
+  
+  "REACTOME_CHROMOSOME_MAINTENANCE", #L3
+  "REACTOME_TELOMERE_MAINTENANCE", #L4
+  "REACTOME_EXTENSION_OF_TELOMERES", #L5
+  
+  
+  ##_L1_DNA_REPLICATION_____________________________________
+  "REACTOME_DNA_REPLICATION", #L1
+  "REACTOME_SYNTHESIS_OF_DNA", #L2
+  "REACTOME_DNA_REPLICATION_PRE_INITIATION", #L3
+  
+  ##___DNA_REPAIR___________________________________________
+  "REACTOME_DNA_REPAIR", #L1 
+  "REACTOME_NUCLEOTIDE_EXCISION_REPAIR", #L2 + 2 others 
+  
+  ##____CELL_DEATH________________________________________
   "REACTOME_PROGRAMMED_CELL_DEATH",
   "REACTOME_APOPTOSIS",
-  "REACTOME_REGULATION_OF_APOPTOSIS",
-  "REACTOME_AGGREPHAGY",
-  "REACTOME_SELECTIVE_AUTOPHAGY",
-  
-  
-  "REACTOME_SWITCHING_OF_ORIGINS_TO_A_POST_REPLICATIVE_STATE",
-  "REACTOME_MITOTIC_G1_PHASE_AND_G1_S_TRANSITION",
-  "REACTOME_S_PHASE",
-  "REACTOME_M_PHASE",
-  "REACTOME_APC_C_MEDIATED_DEGRADATION_OF_CELL_CYCLE_PROTEINS",
-  "REACTOME_CYCLIN_A_CDK2_ASSOCIATED_EVENTS_AT_S_PHASE_ENTRY",
-  "REACTOME_STABILIZATION_OF_P53",
-  
-  "REACTOME_RHO_GTPASE_EFFECTORS"
+  "REACTOME_REGULATION_OF_APOPTOSIS"
   
 )
 
 p1_reactome_volcano_list <-  vector(mode = "list")
 ```
 
+#### P3 list - Gene Expression, mRNA metab, Protein
+
 ```{r}
-p2_reactome_list <- c()
+p2_reactome_list <- c(
+  ##_(>o_o)>___P1_GENE_EXPRESSION__(TRANSCRIPTION)________________________
+  ##_L2_RNA_POL_I_TRANSCRIPTION_______________________
+  "REACTOME_RNA_POLYMERASE_I_TRANSCRIPTION", #L2
+  
+  ##_L2_ncRNA_&_gene_silencing_______________
+  "REACTOME_GENE_SILENCING_BY_RNA", #L2
+  
+  ##_L2_Epigenetic_reg_of_gene_expression_____
+  "REACTOME_EPIGENETIC_REGULATION_OF_GENE_EXPRESSION", #L2
+  "REACTOME_POSITIVE_EPIGENETIC_REGULATION_OF_RRNA_EXPRESSION", #L3
+
+  ##_L2_RNA_POLYMERASE_I_TRANSCRIPTION_________________
+  "REACTOME_RNA_POLYMERASE_II_TRANSCRIPTION", #L2
+  "REACTOME_RNA_POLYMERASE_II_TRANSCRIPTION_TERMINATION", #L3
+  ##_L3_Generic_Transcription_Pathway
+  "REACTOME_TRANSCRIPTIONAL_REGULATION_BY_RUNX1", #L4
+  "REACTOME_RUNX1_REGULATES_TRANSCRIPTION_OF_GENES_INVOLVED_IN_DIFFERENTIATION_OF_HSCS",
+  
+  "REACTOME_TRANSCRIPTIONAL_REGULATION_BY_RUNX2", #L4
+  "REACTOME_REGULATION_OF_RUNX2_EXPRESSION_AND_ACTIVITY", #L5
+  "REACTOME_RUNX2_REGULATES_BONE_DEVELOPMENT", #L5
+  
+  "REACTOME_TRANSCRIPTIONAL_REGULATION_BY_RUNX3", #L4
+  "REACTOME_REGULATION_OF_RUNX3_EXPRESSION_AND_ACTIVITY", #L5
+  
+  ##________________________________________________________________________________
+  ##_(>o_o)>__METABOLISM_OF_RNA_____________________
+  "REACTOME_METABOLISM_OF_RNA", #L1
+  
+  ##_L2_rRNA_processing_________
+  "REACTOME_RRNA_PROCESSING", #L2 
+  
+  ##_L2_tRNA_Processing___________| note TRNA_AMINOACYLATION in translation
+  "REACTOME_TRNA_PROCESSING_IN_THE_NUCLEUS", #
+  
+  ##_L2_Metabolism_of_non-coding_RNA_____
+  "REACTOME_SNRNP_ASSEMBLY", # L3
+  
+  ##_L2_nonsense_mediated_decay______________
+  "REACTOME_NONSENSE_MEDIATED_DECAY_NMD", #L2
+  
+  ##_L2_Processing_of_capped_intro-containing_pre-mRNA
+  "REACTOME_PROCESSING_OF_CAPPED_INTRON_CONTAINING_PRE_MRNA", #L2
+  "REACTOME_MRNA_SPLICING", #L3
+  "REACTOME_MRNA_SPLICING_MINOR_PATHWAY", #L4
+  "REACTOME_TRANSPORT_OF_MATURE_TRANSCRIPT_TO_CYTOPLASM", #L3
+  "REACTOME_TRANSPORT_OF_THE_SLBP_DEPENDANT_MATURE_MRNA", #L4
+
+  ##________________________________________________________________________________
+  ##_(>o_o)>_L1_METABOLISM_OF_PROTEINS_____________________
+  ##_L2_Translation_____________________
+  "REACTOME_TRANSLATION", #L2
+  "REACTOME_EUKARYOTIC_TRANSLATION_ELONGATION", #L3
+  "REACTOME_EUKARYOTIC_TRANSLATION_INITIATION", #L3
+  "REACTOME_TRANSLATION", #L3
+  "REACTOME_TRNA_AMINOACYLATION", #L3
+  "REACTOME_CYTOSOLIC_TRNA_AMINOACYLATION", # L4
+  
+  ##_L2_Post-translational_protein_modification________
+  "REACTOME_PROTEASOME_ASSEMBLY", #L3
+  ##_L3_Protein_Ubquitination_>_L4__
+  "REACTOME_SYNTHESIS_OF_ACTIVE_UBIQUITIN_ROLES_OF_E1_AND_E2_ENZYMES", #L4
+  
+  ##_METABOLISM_OF_PROTEINS_> mitochondrial protein degredation
+  "REACTOME_MITOCHONDRIAL_PROTEIN_DEGRADATION",
+  
+  ##_L3_Deubquitination____________________
+  "REACTOME_DEUBIQUITINATION", #L3
+  "REACTOME_UB_SPECIFIC_PROCESSING_PROTEASES", #L4
+  "REACTOME_UCH_PROTEINASES", #L4
+  
+  ##_L3_Sumoylation___________
+  "REACTOME_SUMOYLATION", #L3 - driven by DNA rep proteins?
+  
+  ##_L3_Asparagine_N-linked_glycosylation______
+  ##_L4_Transport_2_Golgi_&_subsequent_modification____
+  "REACTOME_TRANSPORT_TO_THE_GOLGI_AND_SUBSEQUENT_MODIFICATION", #L4
+  "REACTOME_ER_TO_GOLGI_ANTEROGRADE_TRANSPORT", #L5
+  
+  ##____________________________________________________________________________
+  ##_(>o_o)>__L1_VESICLE_MEDIATED_TRANSPORT____________________
+  "REACTOME_VESICLE_MEDIATED_TRANSPORT", #L1
+  "REACTOME_MEMBRANE_TRAFFICKING", #L2
+  ##_L3_ER_to_Golgi_anterograde_transport_________________
+  "REACTOME_ER_TO_GOLGI_ANTEROGRADE_TRANSPORT", #L3
+  "REACTOME_COPI_MEDIATED_ANTEROGRADE_TRANSPORT", #L4
+  ##_L3_Intra-Golgi_&_retrograde_golgi_to_ER_traffic_________
+  "REACTOME_GOLGI_TO_ER_RETROGRADE_TRANSPORT", #L4
+  "REACTOME_COPI_INDEPENDENT_GOLGI_TO_ER_RETROGRADE_TRAFFIC", #L5
+  
+  ##__extra__temp___
+  "REACTOME_TRANSPORT_OF_SMALL_MOLECULES", # 
+  
+  ##____________________________________________________________________
+  ##_(>o_o)>_L1_Protein_Localisation___________
+  "REACTOME_PROTEIN_LOCALIZATION", #L1
+  "REACTOME_MITOCHONDRIAL_PROTEIN_IMPORT",
+  
+    
+  ##___________________________________________________________________
+  ##_(>o_o)>_L1_Autophagy________
+  ##_L2_Macroautophagy_____________
+  "REACTOME_SELECTIVE_AUTOPHAGY", #L3
+  "REACTOME_AGGREPHAGY" #L4
+  
+)
+
 p2_reactome_volcano_list <-  vector(mode = "list")
 ```
+
+"
+
+"
 
 #### P3 list - Metabolism
 
@@ -1533,8 +1771,8 @@ if (!dir.exists(react_out_dir)) dir.create(react_out_dir, recursive = TRUE)
 # for (rct in REACT_TOP_LVL) {
 
 # for(rct in p1_reactome_list) { # P1 - NT BDNF, dna rep, death, CA2+
-
-for(rct in p3_reactome_list) { # P3 - MITOCHONDRIA + METABOLISM-LIPIDS+AA+CARB+NUCLEOT
+for(rct in p2_reactome_list) { # P2 - Gene Expression & Protein synthesis & processing
+# for(rct in p3_reactome_list) { # P3 - MITOCHONDRIA + METABOLISM-LIPIDS+AA+CARB+NUCLEOT
 
     
 # for (rct in REACT_POI) { # General 
@@ -1745,9 +1983,10 @@ for(rct in p3_reactome_list) { # P3 - MITOCHONDRIA + METABOLISM-LIPIDS+AA+CARB+N
   # reactome_volcano_list[[rct]] <- vol_plot
   # reactome_TOP_volcano_list[[rct]] <- vol_plot
   # p1_reactome_volcano_list[[rct]] <- vol_plot
+  p2_reactome_volcano_list[[rct]] <- vol_plot
   
-  p3_reactome_volcano_list[[rct]] <- vol_plot
-  
+  # p3_reactome_volcano_list[[rct]] <- vol_plot
+  # 
   
   # _____________________________________
   # 4 - PRINT OUT PLOTS - all
@@ -2024,16 +2263,19 @@ plot_grid(
   label_colour = "grey10", label_size = 11,  ncol = 1)
 ```
 
+##### Signal Transduction
+
 ```{r}
-# REACTOME INTRACELLULAR SIGNALLING - 6 paths
+# REACTOME INTRACELLULAR SIGNALLING - 6 paths - dropped to 5 
 plot_grid(
   p1_reactome_volcano_list$REACTOME_DISEASES_OF_SIGNAL_TRANSDUCTION_BY_GROWTH_FACTOR_RECEPTORS_AND_SECOND_MESSENGERS,
-  p1_reactome_volcano_list$REACTOME_INTRACELLULAR_SIGNALING_BY_SECOND_MESSENGERS,
-  p1_reactome_volcano_list$REACTOME_PTEN_REGULATION,
-  p1_reactome_volcano_list$REACTOME_MAPK_FAMILY_SIGNALING_CASCADES,
   p1_reactome_volcano_list$REACTOME_PROLONGED_ERK_ACTIVATION_EVENTS,
+  p1_reactome_volcano_list$REACTOME_INTRACELLULAR_SIGNALING_BY_SECOND_MESSENGERS,
+  # p1_reactome_volcano_list$REACTOME_PTEN_REGULATION,
+  p1_reactome_volcano_list$REACTOME_MAPK_FAMILY_SIGNALING_CASCADES,
   p1_reactome_volcano_list$REACTOME_REGULATION_OF_RAS_BY_GAPS,
-  ncol = 1, labels = c("a","b", "c", "d", "e", "f"), label_colour = "grey10", label_size = 11)
+ncol = 1, labels = c("a","b", "c", "d", "e"), label_colour = "grey10", label_size = 11)
+#2026_10_15_p1_Reactome_5_NT_related_signal_map_vol
 ```
 
 ```{r}
