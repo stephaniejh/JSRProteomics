@@ -1,0 +1,293 @@
+---
+title: "BioIn_2026_10_v3.4.2_EExAge_vis_only_v5_map_vols"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(cowplot) # plot_grid
+```
+
+```{r}
+# Load in rdas manually
+```
+
+This doc continues on from BioIn_2026_01_v3.4.2_ClusterProfiler_EExAge_vis_v4_Pathways.Rmd but is
+
+# P1 - NT \\& Signalling
+
+## NT-related Signalling
+
+### Main
+
+```{r}
+# REACTOME INTRACELLULAR SIGNALLING - 6 paths - dropped to 5 
+plot_grid(
+  p1_reactome_volcano_list$REACTOME_DISEASES_OF_SIGNAL_TRANSDUCTION_BY_GROWTH_FACTOR_RECEPTORS_AND_SECOND_MESSENGERS,
+  p1_reactome_volcano_list$REACTOME_PROLONGED_ERK_ACTIVATION_EVENTS,
+  p1_reactome_volcano_list$REACTOME_INTRACELLULAR_SIGNALING_BY_SECOND_MESSENGERS,
+  # p1_reactome_volcano_list$REACTOME_PTEN_REGULATION,
+  p1_reactome_volcano_list$REACTOME_MAPK_FAMILY_SIGNALING_CASCADES,
+  p1_reactome_volcano_list$REACTOME_REGULATION_OF_RAS_BY_GAPS,
+  ncol = 1, labels = c("a","b", "c", "d", "e"), label_colour = "grey10", label_size = 11)
+#2026_10_15_p1_Reactome_5_NT_related_signal_map_vol
+```
+
+### Appendix
+
+```{r}
+# REACTOME EXTRA TOP-LEVEL SIGNALLING TRANSDUCTION - excludes Rho GTPases
+plot_grid(
+  p1_reactome_volcano_list$REACTOME_INTRACELLULAR_SIGNALING_BY_SECOND_MESSENGERS,
+  p1_reactome_volcano_list$REACTOME_MAPK_FAMILY_SIGNALING_CASCADES,
+  p1_reactome_volcano_list$REACTOME_SIGNALING_BY_GPCR,
+  p1_reactome_volcano_list$REACTOME_SIGNALING_BY_NOTCH,
+  p1_reactome_volcano_list$REACTOME_SIGNALING_BY_WNT,
+  p1_reactome_volcano_list$REACTOME_SIGNALING_BY_HEDGEHOG,
+  ncol = 1, labels = c("a","b", "c", "d", "e", "f"), label_colour = "grey10", label_size = 11)
+#2026_10_16_p1_REACT_Apdx_toplvl_signal_transduc_6_map_vols
+```
+
+```{r}
+# REACTOME EXTRA signalling_NFKB_MAPK_FGRF_PTEN
+plot_grid(
+  p1_reactome_volcano_list$REACTOME_PTEN_REGULATION,
+  p1_reactome_volcano_list$REACTOME_MAPK1_MAPK3_SIGNALING,
+  p1_reactome_volcano_list$REACTOME_MAPK6_MAPK4_SIGNALING,
+  p1_reactome_volcano_list$REACTOME_SIGNALING_BY_FGFR,
+  #p1_reactome_volcano_list$REACTOME_VEGFR2_MEDIATED_CELL_PROLIFERATION, # nothing
+  p1_reactome_volcano_list$REACTOME_FCERI_MEDIATED_NF_KB_ACTIVATION,
+  p1_reactome_volcano_list$REACTOME_TNFR2_NON_CANONICAL_NF_KB_PATHWAY,
+  ncol = 1, labels = c("a","b", "c", "d", "e", "f"), label_colour = "grey10", label_size = 11)
+#2026_10_16_p1_REACT_Apdx_signalling_NFKB_MAPK_FGRF_PTEN_map_vols
+```
+
+## Life, Death, & Apoptosis
+
+### Life
+
+#### MSig Hallmarks - Proliferation - MYC & E2F targets
+
+```{r}
+# MSIG HALLMARKS PROLIFERATION - MYC & E2F targets
+plot_grid(
+  Msig_HM_volcano_list$HALLMARK_MYC_TARGETS_V1,
+  Msig_HM_volcano_list$HALLMARK_E2F_TARGETS,
+  ncol = 1, labels = c("a","b"), label_colour = "grey10", label_size = 11)
+#2026_10_16_p1_MsigDBH_Prolif_MYC_E2F_map_vols
+```
+
+#### REACTOME - Superpathways - Cell Cycle, DNA repair, DNA replication
+
+```{r}
+# REACTOME Super - Cell Cycle, DNA repair, DNA replication
+plot_grid(
+  p1_reactome_volcano_list$REACTOME_CELL_CYCLE,
+  p1_reactome_volcano_list$REACTOME_DNA_REPLICATION,
+  p1_reactome_volcano_list$REACTOME_DNA_REPAIR,
+  ncol = 1, labels = c("a","b","c"), label_colour = "grey10", label_size = 11)
+#2026_10_15_p1_REACT_3_super_CellCycle_DNARepRep_3_map_vols
+```
+
+#### Appendix
+
+```{r}
+# REACTOME OTHER APPENDIX - CELL CYCLE & DNA REP & REPAIR
+plot_grid(
+  p1_reactome_volcano_list$REACTOME_CELL_CYCLE_MITOTIC,
+  p1_reactome_volcano_list$REACTOME_CELL_CYCLE_CHECKPOINTS,
+  p1_reactome_volcano_list$REACTOME_APC_C_MEDIATED_DEGRADATION_OF_CELL_CYCLE_PROTEINS,
+  p1_reactome_volcano_list$REACTOME_CHROMOSOME_MAINTENANCE,
+  p1_reactome_volcano_list$REACTOME_SYNTHESIS_OF_DNA,
+  p1_reactome_volcano_list$REACTOME_NUCLEOTIDE_EXCISION_REPAIR,
+
+  ncol = 1, labels = c("a","b","c", "d", "e", "f"), label_colour = "grey10", label_size = 11)
+#2026_10_15_p1_REACT_Apdx_CellCyc_DNARepRep_6_map_vols
+```
+
+```{r}
+# KEGG Purine \& Pentose Phosphate & base excision repair
+plot_grid(          
+  kegg_volcano_list$rno00030, #PentosePhospahte(rno00030)
+  kegg_volcano_list$rno00230, #PurineMetab(rno00230)
+  kegg_volcano_list$rno03410, #BaseExcisionRepair(rno03410)
+  labels = c("a", "b", "c"),
+  label_colour = "grey10", label_size = 11,  ncol = 1)
+#2026_10_15_p1_KEGG_Apdx_3_BaseExRep_Purine_PentosePho_map_vol
+```
+
+### Apoptosis
+
+```{r}
+# REACTOME - p1 APOPTOSIS 
+plot_grid(
+  p1_reactome_volcano_list$REACTOME_PROGRAMMED_CELL_DEATH,
+  p1_reactome_volcano_list$REACTOME_APOPTOSIS,
+  # p1_reactome_volcano_list$REACTOME_REGULATION_OF_APOPTOSIS, # redundant!
+  labels = c("a", "b"),
+  label_colour = "grey10", label_size = 11,  ncol = 1)
+#2026_10_15_p1_REACT_CellDeath_Apoptosis_2_map_vols
+```
+
+## Calcium Signalling & GPCR Signalling & Others
+
+```{r}
+# KEGG Ca2+,cAMP & cGMP-PKG signaling + REACT 
+plot_grid(          
+  kegg_volcano_list$rno04020, #calcium(rno04020)
+  kegg_volcano_list$rno04024, #cAMP(rno04024)
+  kegg_volcano_list$rno04022, #cGMP-PKG(rno04022
+  labels = c("a", "b", "c"),
+  label_colour = "grey10", label_size = 11,  ncol = 1)
+#2026_10_15_p1_KEGG_3_Calcium_cAMP_cGMPPKG_map_vols
+```
+
+```{r}
+# REACT GPCR - GPER1, CREB-PKCMAPK, PIP2 & AC-CREB -
+plot_grid(          
+  # p1_reactome_volcano_list$REACTOME_GPER1_SIGNALING,
+  p1_reactome_volcano_list$REACTOME_SIGNALING_BY_GPCR,
+  p1_reactome_volcano_list$REACTOME_GASTRIN_CREB_SIGNALLING_PATHWAY_VIA_PKC_AND_MAPK, #
+  p1_reactome_volcano_list$REACTOME_EFFECTS_OF_PIP2_HYDROLYSIS,
+  p1_reactome_volcano_list$REACTOME_CREB1_PHOSPHORYLATION_THROUGH_THE_ACTIVATION_OF_ADENYLATE_CYCLASE, #
+  labels = c("a", "b", "c", "d"),
+  label_colour = "grey10", label_size = 11,  ncol = 1)
+
+#2026_10_15_p1_REACT_4_GPCR_CREB_PIP2_PKC_AC_map_vols
+```
+
+# P2 - Gene Expression & Protein Synthesis
+
+## Chromosome
+
+```{r}
+# MAIN - CHROMOSOME & EPIGENETIC 
+plot_grid(          
+  kegg_volcano_list$rno03082, #ATPChroma(rno03082)
+  p2_reactome_volcano_list$REACTOME_EPIGENETIC_REGULATION_OF_GENE_EXPRESSION, #
+  kegg_volcano_list$rno03083,
+  labels = c("a", "b", "c"),
+  label_colour = "grey10", label_size = 11,  ncol = 1)
+#2026_10_17_p2_2_ChromoEpigenetic_map_vols # 2 plots
+#2026_10_17_p2_3_ChromoEpigenetic_map_vols # 3 plots
+```
+
+```{r}
+# REACT RNA Polymerase I & RNA Polymerase II
+plot_grid(          
+  # p2_reactome_volcano_list$REACTOME_RNA_POLYMERASE_I_TRANSCRIPTION,
+  p2_reactome_volcano_list$REACTOME_RNA_POLYMERASE_II_TRANSCRIPTION,
+  # p2_reactome_volcano_list$REACTOME_TRANSCRIPTIONAL_REGULATION_BY_RUNX1,
+  # labels = c("a", "b"),
+  label_colour = "grey10", label_size = 11,  ncol = 1)
+
+#2026_10_17_p2_Transcription_RNA_polyI&II_map_vol
+#2026_10_17_p2_Transcription_RNA_polyII_map_vol
+```
+
+### Splicing/ncRNA
+
+```{r}
+# MAIN - KEGG Splicing & gene silencing
+plot_grid(          
+  kegg_volcano_list$rno03040, #splicing(rno03040)
+  p2_reactome_volcano_list$REACTOME_GENE_SILENCING_BY_RNA,
+  labels = c("a", "b"),
+  label_colour = "grey10", label_size = 11,  ncol = 1)
+#2026_10_17_p2_mod_mRNA_Splicing_GeneSilencebyRNA_2_map_vols
+```
+
+```{r}
+plot_grid(          
+  p2_reactome_volcano_list$REACTOME_METABOLISM_OF_RNA,
+  p2_reactome_volcano_list$REACTOME_TRNA_PROCESSING_IN_THE_NUCLEUS,
+  p2_reactome_volcano_list$REACTOME_RRNA_PROCESSING,
+  p2_reactome_volcano_list$REACTOME_NONSENSE_MEDIATED_DECAY_NMD,
+  p2_reactome_volcano_list$REACTOME_PROCESSING_OF_CAPPED_INTRON_CONTAINING_PRE_MRNA,
+  p2_reactome_volcano_list$REACTOME_SNRNP_ASSEMBLY,
+  labels = c("a", "b", "c", "d", "e", "f"),
+  label_colour = "grey10", label_size = 11,  ncol = 1)
+#2026_10_17_p2_REACT_mRNA_metabolism_6_map_vols
+```
+
+#### Appendix
+
+```{r}
+# REACT GPCR - GPER1, CREB-PKCMAPK, PIP2 & AC-CREB -
+plot_grid(          
+  p2_reactome_volcano_list$REACTOME_RNA_POLYMERASE_I_TRANSCRIPTION,
+  p2_reactome_volcano_list$REACTOME_GENE_SILENCING_BY_RNA,
+  p2_reactome_volcano_list$REACTOME_EPIGENETIC_REGULATION_OF_GENE_EXPRESSION, #
+  p2_reactome_volcano_list$REACTOME_RNA_POLYMERASE_II_TRANSCRIPTION,
+  # p2_reactome_volcano_list$REACTOME_TRANSCRIPTIONAL_REGULATION_BY_RUNX1,
+  labels = c("a", "b", "c", "d"),
+  label_colour = "grey10", label_size = 11,  ncol = 1)
+
+#2026_10_15_p1_REACT_4_GPCR_CREB_PIP2_PKC_AC_map_vols
+```
+
+## Protein Synthesis, Degredation, & Processing
+
+#### Translation & Ribosome Main
+
+```{r}
+plot_grid(     
+  kegg_volcano_list$rno03010, #ribosome(rno03010)
+  p2_reactome_volcano_list$REACTOME_TRANSLATION,
+  labels = c("a", "b"),
+  label_colour = "grey10", label_size = 11,  ncol = 1)
+
+#2026_10_17_p2_2_Translation_Ribosome_map_vols
+```
+
+```{r}
+# 
+plot_grid(          
+  p2_reactome_volcano_list$REACTOME_TRANSLATION,
+  p2_reactome_volcano_list$REACTOME_EUKARYOTIC_TRANSLATION_ELONGATION,
+  p2_reactome_volcano_list$REACTOME_EUKARYOTIC_TRANSLATION_INITIATION, #
+  p2_reactome_volcano_list$REACTOME_TRNA_AMINOACYLATION,
+  # p2_reactome_volcano_list$REACTOME_PROTEASOME_ASSEMBLY,
+    # p2_reactome_volcano_list$REACTOME_PROTEASOME_ASSEMBLY,
+  labels = c("a", "b", "c", "d"),
+  label_colour = "grey10", label_size = 11,  ncol = 1)
+
+#2026_10_15_p1_
+```
+
+### Proteasome
+
+```{r}
+
+```
+
+```{r}
+plot_grid(          
+  p2_reactome_volcano_list$REACTOME_PROTEASOME_ASSEMBLY,
+  p2_reactome_volcano_list$REACTOME_SYNTHESIS_OF_ACTIVE_UBIQUITIN_ROLES_OF_E1_AND_E2_ENZYMES,
+  # p2_reactome_volcano_list$REACTOME_MITOCHONDRIAL_PROTEIN_DEGRADATION,
+  p2_reactome_volcano_list$REACTOME_DEUBIQUITINATION,
+  p2_reactome_volcano_list$REACTOME_UCH_PROTEINASES,
+  p2_reactome_volcano_list$REACTOME_SUMOYLATION,
+  labels = c("a", "b", "c", "d"),
+  label_colour = "grey10", label_size = 11,  ncol = 1)
+```
+
+```{r}
+plot_grid(          
+  # p2_reactome_volcano_list$REACTOME_DEUBIQUITINATION,
+  # p2_reactome_volcano_list$REACTOME_SYNTHESIS_OF_ACTIVE_UBIQUITIN_ROLES_OF_E1_AND_E2_ENZYMES,
+  # p2_reactome_volcano_list$REACTOME_MITOCHONDRIAL_PROTEIN_DEGRADATION,
+  labels = c("a", "b", "c", "d"),
+  label_colour = "grey10", label_size = 11,  ncol = 1)
+```
+
+### Protein Localisation & Processing
+
+```{r}
+
+```
+
+```{r}
+  #kegg_volcano_list$rno04910, #insulin(rno04910)
+```
