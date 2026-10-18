@@ -1191,7 +1191,7 @@ REACT_TOP_LVL <- c(
 reactome_TOP_volcano_list <-  vector(mode = "list")
 ```
 
-#### P3 list - NT Signaling, CellCycle, DNA Rep&Repair, Cell Death, Response2Stim
+#### P1 list - NT Signaling, CellCycle, DNA Rep&Repair, Cell Death, Response2Stim
 
 \# ##\_Autophagy\_\_\_\_\_\_\_\_
 
@@ -1362,7 +1362,7 @@ p1_reactome_list <- c(
 p1_reactome_volcano_list <-  vector(mode = "list")
 ```
 
-#### P3 list - Gene Expression, mRNA metab, Protein
+#### P2 list - Gene Expression, mRNA metab, Protein
 
 ```{r}
 p2_reactome_list <- c(
@@ -1377,7 +1377,7 @@ p2_reactome_list <- c(
   "REACTOME_EPIGENETIC_REGULATION_OF_GENE_EXPRESSION", #L2
   "REACTOME_POSITIVE_EPIGENETIC_REGULATION_OF_RRNA_EXPRESSION", #L3
 
-  ##_L2_RNA_POLYMERASE_I_TRANSCRIPTION_________________
+  ##_L2_RNA_POLYMERASE_II_TRANSCRIPTION_________________
   "REACTOME_RNA_POLYMERASE_II_TRANSCRIPTION", #L2
   "REACTOME_RNA_POLYMERASE_II_TRANSCRIPTION_TERMINATION", #L3
   ##_L3_Generic_Transcription_Pathway
@@ -1391,7 +1391,7 @@ p2_reactome_list <- c(
   "REACTOME_TRANSCRIPTIONAL_REGULATION_BY_RUNX3", #L4
   "REACTOME_REGULATION_OF_RUNX3_EXPRESSION_AND_ACTIVITY", #L5
   
-  ##________________________________________________________________________________
+  ##_______________________________________________________________________________
   ##_(>o_o)>__METABOLISM_OF_RNA_____________________
   "REACTOME_METABOLISM_OF_RNA", #L1
   
@@ -1420,7 +1420,6 @@ p2_reactome_list <- c(
   "REACTOME_TRANSLATION", #L2
   "REACTOME_EUKARYOTIC_TRANSLATION_ELONGATION", #L3
   "REACTOME_EUKARYOTIC_TRANSLATION_INITIATION", #L3
-  "REACTOME_TRANSLATION", #L3
   "REACTOME_TRNA_AMINOACYLATION", #L3
   "REACTOME_CYTOSOLIC_TRNA_AMINOACYLATION", # L4
   
@@ -2263,7 +2262,7 @@ plot_grid(
   label_colour = "grey10", label_size = 11,  ncol = 1)
 ```
 
-##### Signal Transduction
+#### Signal Transduction
 
 ```{r}
 # REACTOME INTRACELLULAR SIGNALLING - 6 paths - dropped to 5 
