@@ -185,17 +185,21 @@ plot_grid(
 #2026_10_17_p2_Transcription_RNA_polyII_map_vol
 ```
 
-### Splicing/ncRNA
+### RNA Processing - Splicing/ncRNA
 
 ```{r}
-# MAIN - KEGG Splicing & gene silencing
+# MAIN - KEGG Splicing & gene silencing & KEGG NPC
 plot_grid(          
   kegg_volcano_list$rno03040, #splicing(rno03040)
   p2_reactome_volcano_list$REACTOME_GENE_SILENCING_BY_RNA,
-  labels = c("a", "b"),
+  kegg_volcano_list$rno03013, #NPC(rno03013)
+  labels = c("a", "b", "c"),
   label_colour = "grey10", label_size = 11,  ncol = 1)
 #2026_10_17_p2_mod_mRNA_Splicing_GeneSilencebyRNA_2_map_vols
+#2026_10_19_p2_mod_mRNA_Splicing_GeneSilencebyRNA_NPC_3_map_vols
 ```
+
+#### Appendix
 
 ```{r}
 plot_grid(          
@@ -241,7 +245,7 @@ plot_grid(
 ```
 
 ```{r}
-# 
+# Appendix plots 
 plot_grid(          
   p2_reactome_volcano_list$REACTOME_TRANSLATION,
   p2_reactome_volcano_list$REACTOME_EUKARYOTIC_TRANSLATION_ELONGATION,
@@ -258,7 +262,13 @@ plot_grid(
 ### Proteasome
 
 ```{r}
-
+plot_grid(          
+  kegg_volcano_list$rno03050, #proteasome(rno03050)
+  kegg_volcano_list$rno04120, #UPS(rno04120)
+  p2_reactome_volcano_list$REACTOME_DEUBIQUITINATION,
+  labels = c("a", "b", "c", "d"),
+  label_colour = "grey10", label_size = 11,  ncol = 1)
+#2026_10_19_p2_Protein_Degr_3_map_vols
 ```
 
 ```{r}
@@ -269,15 +279,19 @@ plot_grid(
   p2_reactome_volcano_list$REACTOME_DEUBIQUITINATION,
   p2_reactome_volcano_list$REACTOME_UCH_PROTEINASES,
   p2_reactome_volcano_list$REACTOME_SUMOYLATION,
-  labels = c("a", "b", "c", "d"),
+  p2_reactome_volcano_list$REACTOME_SELECTIVE_AUTOPHAGY,
+  labels = c("a", "b", "c", "d", "e"),
   label_colour = "grey10", label_size = 11,  ncol = 1)
 ```
 
 ```{r}
 plot_grid(          
-  # p2_reactome_volcano_list$REACTOME_DEUBIQUITINATION,
-  # p2_reactome_volcano_list$REACTOME_SYNTHESIS_OF_ACTIVE_UBIQUITIN_ROLES_OF_E1_AND_E2_ENZYMES,
-  # p2_reactome_volcano_list$REACTOME_MITOCHONDRIAL_PROTEIN_DEGRADATION,
+  p2_reactome_volcano_list$REACTOME_TRANSPORT_TO_THE_GOLGI_AND_SUBSEQUENT_MODIFICATION,
+  #p2_reactome_volcano_list$REACTOME_ER_TO_GOLGI_ANTEROGRADE_TRANSPORT, #L5
+  p2_reactome_volcano_list$REACTOME_VESICLE_MEDIATED_TRANSPORT,
+  p2_reactome_volcano_list$REACTOME_MEMBRANE_TRAFFICKING,
+    p2_reactome_volcano_list$REACTOME_ER_TO_GOLGI_ANTEROGRADE_TRANSPORT,
+    p2_reactome_volcano_list$REACTOME_GOLGI_TO_ER_RETROGRADE_TRANSPORT,
   labels = c("a", "b", "c", "d"),
   label_colour = "grey10", label_size = 11,  ncol = 1)
 ```
@@ -285,9 +299,18 @@ plot_grid(
 ### Protein Localisation & Processing
 
 ```{r}
-
+plot_grid( 
+  kegg_volcano_list$rno04141, #PPinER(rno04141)
+  p2_reactome_volcano_list$REACTOME_TRANSPORT_TO_THE_GOLGI_AND_SUBSEQUENT_MODIFICATION,
+  #p2_reactome_volcano_list$REACTOME_ER_TO_GOLGI_ANTEROGRADE_TRANSPORT, #L5
+  p2_reactome_volcano_list$REACTOME_VESICLE_MEDIATED_TRANSPORT,
+  p2_reactome_volcano_list$REACTOME_MEMBRANE_TRAFFICKING,
+  p2_reactome_volcano_list$REACTOME_ER_TO_GOLGI_ANTEROGRADE_TRANSPORT,
+  p2_reactome_volcano_list$REACTOME_GOLGI_TO_ER_RETROGRADE_TRANSPORT,
+  labels = c("a", "b", "c", "d", "e", "f"),
+  label_colour = "grey10", label_size = 11,  ncol = 1)
 ```
 
 ```{r}
-  #kegg_volcano_list$rno04910, #insulin(rno04910)
+#kegg_volcano_list$rno04910, #insulin(rno04910)
 ```
