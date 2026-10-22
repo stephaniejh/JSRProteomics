@@ -656,8 +656,8 @@ my_psum_facet_theme <-
     legend.key.size = unit(0.5, "cm"), # size of legend key icon,
     axis.ticks = element_line(linewidth = .1, colour = "grey15"),
     panel.border = element_rect(fill = NA,color = "grey10",linewidth = 0.3), #plot bord
-    strip.background = element_rect(color = 'grey10', fill = 'grey90',linewidth = .3),
-    strip.text = element_text(face = "italic", size = 10.5),
+    strip.background = element_rect(color = 'grey10', fill = 'grey90',linewidth = .2),
+    strip.text = element_text(face = "italic", size = 10),
     plot.title = element_text(size = 11.5,  color = "grey10",face = "italic"),
     plot.subtitle = element_text(size = 9,  color = "grey10",face = "italic"),
     panel.grid.major = element_line(color = "grey90", linewidth = 0.15),
@@ -992,6 +992,28 @@ neurotrophins_list <- c("Ntrk2", "Ntrk3", "Ntf3", "Bdnf", 'Sort1',
 # #Calcium list
 # filter(grepl("^Gria|^Grin|^Grm|Calm|Ryr||Cacn", gene))
 
+presynaptic <- c('Syt12', 'Rph3a', 'Atp1a3', 'Rab3a', 'Stxbp5l', 'Atp2b2',
+                 'Atp1b1', 'Syt7', 'Penk', 'Sst', 'Npy', 'Pmch')
+
+downEE_downYNG <- c('Rbm3', 'Pfas', 'Pacsin3', 'Ep400', 'Fam81a', 'Rasgrf2', 'Gatm',
+                    'Grm1', 'Dcps', 'Paics', 'Cavin1', 'Cert1', 'Decr1', 'Metap2')
+
+downEE_upYNG <- c('Dpysl5', 'Dnpep', 'Fus', 'Chl1', 'Snrpd2', 
+                  'Arhgap39', 'Lingo', 'Pcdh17', 'Cdh13', 'Crym')
+
+upEE_upYNG <- c('Fscn1', 'Rph3a', 'Umodl1', 'Cd200', 'Dpp6', 'Bsg')
+
+upEE_downYNG <- c('Penk', 'Ppif', 'Lgi1', 'Sst', 'Hcn2', 'Uqcrb')
+
+# ,
+#                  'Ndufs4', 'Fscn1', 'Setd7', 'Mapk3', 'Rasal1', 'Hmgcs1', 'Fdps',
+#                  'Tsn', 'Tsnax', 'Dpysl5', 'Dnpep', 'Fus', 'Rbm3', 'Chl1', '')
+
+
+
+
+
+
 
 # 7 cort interneurons (Makaram 2004) + Tac1 & Penk/Pdyn + Pcsk1n (protSAAS), Folh1, pmch
 neuropep_inhib <- c( "Calb1", "Calb2", 'Cck',  "Npy", "Sst", 'Pvalb', "Vip",
@@ -1025,10 +1047,17 @@ vanOostrum_syn_pairs <- c('Syt12', 'Syt2',  'Sv2b', 'Sv2c',
 
 
 # Glial - Myelin, Astrocytes, Microglia
+oligo <- c('Mbp', 'Mag','Mog', 'Omg', 'Olig1', 'Olig2', 'Sox10', 'Plp1', # myelin/olig
+           'Nfasc','Gpm6a', 'Prnp','Cadm2','Osbpl11', 'Cadm2')  # myelin/olig)
+
+astro <- c('Gfap', 'Aldh1l1', 'S100b','Aqp4', 'Vim', 'Palld',
+           'S100a1', 'Ndrg2')  # astro
+
 glial <- c('Mbp', 'Mag','Mog', 'Omg', 'Olig1', 'Olig2', 'Sox10', 'Plp1', # myelin/olig
            'Nfasc','Gpm6a', 'Prnp','Cadm2','Osbpl11', 'Cadm2', # myelin/olig
-           'Gfap', 'Aldh1l1', 'S100b','Aqp4', 'Vim', 'Palld', # astro
-           'Cx3cr1', 'Cd68', 'Aif1', 'Cd200' # Aif1 is Iba1
+           'Gfap', 'Aldh1l1', 'S100b','Aqp4', 'Vim', 'Palld', 'S100a1', 'Ndrg2',  # astro
+           'Cx3cr1', 'Cd68', 'Aif1', 'Cd200',
+           'Bsg', 'Albg' # Aif1 is Iba1
            # 'Cd31', 'Cldn5', 'Fgf2', 'Alcam', 'Hspg2'
            # 'Pcna', 'Nifk', 'Top2a', 'Map2'
            ) # prolif
@@ -1046,6 +1075,16 @@ allen_general_markers <- c('Gad1','Gad2','Slc32a1','Slc17a7','Lamp5',
                            'Mbp','Plot','Cldn5','Ctss','C1qa')
 
 
+# Yap & Greenberg - TF - IEFS + LRGs? - Activity-reg genes synapse matur & func in CP
+TFs_arg_scp_iegs <- c('Bdnf', 'Arc', 'Homer1', 'Nptx2', 'Nrn1', # arg_scp
+                      'Pchd8', 'Syne1', # Leslie & Nedivi, 2011
+                      # 'Sp1', 'Gtf2i', 'Sox6', # general
+             'Fos', 'Jun', 'Npas4', 'Mef2c', 'Mef2d', 'Srf', 'Creb1') #IEG_TF
+
+# Fels 2021
+lgi_adam <- c('Kcna1', 'Adam22', 'Lgi1', 'Cacng2', 'Dlg4', 'Mpp3', 'Shank1', 'Fscn1',
+              'Gria1', 'Gria2', 'Gria3', 'Gria4')
+
 
   
 ```
@@ -1055,6 +1094,7 @@ allen_general_markers <- c('Gad1','Gad2','Slc32a1','Slc17a7','Lamp5',
 EE_syn_check <- mapped_psum %>%
   
   mutate(Condition = forcats::fct_reorder(Condition, PND)) %>% # reoder by PND (no)
+  # mutate(Cohort = forcats::fct_relevel(Cohort, "4", "3b", "3a")) %>%
 
   # filter(gene %in% neurotrophins_list) %>%
   # filter(str_detect(Keywords, regex("Growth factor", ignore_case = TRUE))) %>%
@@ -1062,12 +1102,21 @@ EE_syn_check <- mapped_psum %>%
   # 
   # filter(grepl("^Grin1|Grin2|Camk2|Camk4|Calm|Ryr2|Cacng|Prkar2b|Prkaca|Prkac|Gnb14|Slc8", gene)) %>%
   # 
-  # # filter(gene %in% vanOostrum_syn_pairs) %>%
+  # filter(gene %in% vanOostrum_syn_pairs) %>%
   # filter(gene %in% neuropep_inhib) %>%
-  
+  # 
     # filter(gene %in% allen_general_markers) %>%
   
-  
+  # filter(gene %in% TFs_arg_scp_iegs) %>%
+  # filter(gene %in% presynaptic) %>%
+
+  # filter(gene %in%   downEE_downYNG) %>%
+  # filter(gene %in%   downEE_upYNG) %>%
+  # filter(gene %in%   upEE_upYNG ) %>%
+  # filter(gene %in%   upEE_downYNG) %>%
+
+  # filter(gene %in% lgi_adam) %>%
+  # 
   # filter(str_detect(Keywords, regex("Growth factor", ignore_case = TRUE))) %>%
   
   # filter(gene %in% c("Gad2", "Slc32a1", "Gphn") | #GABA
@@ -1077,45 +1126,64 @@ EE_syn_check <- mapped_psum %>%
   #        grepl("^Gria|^Grin|^Grm|Grik|Slc17a6|Slc17a7|Slc17a8|Cacng|Reln|^Htr", gene)) %>%
 
   # filter(gene %in% glial) %>%
+  # filter(gene %in% oligo) %>%
   
   # filter(gene %in% PNN) %>%
   
   # filter(gene %in% vanOostrum_basic_markers) %>%
   
   
-  
   # filter(grepl("^Grin1|Grin2|Dlg|Gripap1|Arc", gene)) %>%
-  # filter(gene %in% c('Gripap1', 'Arc', 'Dlg1', 'Dlg3','Dlg4', 'Slc17a7') | 
-  #        grepl("^Gria|^Grin1|^Grin2", gene)) %>% # Pintori 2024
+  # filter(gene %in% c('Gripap1', 'Arc', 'Dlg1', 'Dlg3','Dlg4', 'Slc17a7', 'Syp') |
+  #        grepl("^Gria|^Grin1|^Grin2", gene)) %>% # Pintori 2024, Naka, Nithi
   
+  filter(gene %in% c('Pacsin3', 'Mapk3', 'Mapk1', 'Rasal1', 'Prkcz', 'Camk2a', 'Camk2b', 'Pacsin2',
+                     'Rras2', 'Gnb4', 'Prkcb', 'Pacsin1', 'Cacna2d3', 'Itpk1', 'Ptk2b')) %>% # 
   
   # filter(grepl("^Cacng2|Cacng3|Grin1|Grin2a|Grin2b", gene)) %>%
   
   
   ##_(づ ◕‿◕ )づ  ____Synaptic Adhesion
-  # filter(grepl("^Nrxn|Nlgn|Cntnap", gene)) %>% # Neurexins (+Cntnap) & Neuroligins
+  # filter(grepl("^Nrxn|Nlgn", gene)) %>% # Neurexins (+Cntnap) & Neuroligins
   # filter(grepl("Lgi1|Lgi2|Lrrc7|Adam11|Adam22", gene)) %>% # LGI-ADAM
   # filter(grepl("Netrin", description)) %>% # Netrins (Unc5a-5d | Dcc| Ntng)
-  # filter(grepl("^Plxn", gene)) %>% 
-  # filter(grepl("^Pcdhb1|Pcdh9|Pcdh17|Cdh11|Cdh13|Ctnnd1|Ctnna2|Ctnnb1", gene)) %>% 
+  # filter(grepl("^Plxn", gene)) %>%
+  # filter(grepl("^Pcdhb1|Pcdh9|Pcdh17|Cdh11|Cdh13|Ctnnd1|Ctnna2|Ctnnb1", gene)) %>%
   # filter(grepl("^Pcdhb1|Pcdh17|Cdh11|Cdh13|Ctnnd1|Ctnna2", gene)) %>%
-  filter(grepl("^Epha4|Ephb2|Efnb3|Ncam1|Ncam2|Chl1|Nfasc", gene)) %>%
+  # filter(grepl("^Epha4|Ephb2|Efnb3|Ncam1|Ncam2|Chl1|Nfasc", gene)) %>%
   ## (／ロ°)／
   
-  
+  ## (／ロ°)／
   
 
   
+  ggplot(aes( # ggplot aes
+    # x = interaction(Age, Housing, 
+    x = interaction(Age, Cohort, Housing,                 
+                    sep = "\n", # space
+                    lex.order = TRUE),
+    y = Abundance,
+    fill = Housing, color = Sex)) +
   
-  ggplot(aes(x = interaction(Age, Housing, 
-                             sep = "\n", # space
-                             lex.order = TRUE),
-             y = Abundance,
-             fill = Housing, color = Sex)) +
+
+  
+  geom_rect(data = data.frame(xmin = -Inf, xmax = 3.5, linewidth = 0.05),
+            aes(xmin = xmin, xmax = xmax, ymin = -Inf, ymax = Inf),
+            fill = "#BFBBD5", color = "grey60", alpha = 0.25, inherit.aes = FALSE) +
+  geom_rect(data = data.frame(xmin = 3.5, xmax = Inf),  linewidth = 0.05,
+            aes(xmin = xmin, xmax = xmax, ymin = -Inf, ymax = Inf),
+            fill = "burlywood", color = "grey70", alpha = 0.25, inherit.aes = FALSE) +
+  
+  annotate("text", x = 1.1,   y = -Inf, label = "YNG", vjust = -0.65, size = 2,
+           fontface = "italic", color = "#BFBBD5", alpha =0.9) +
+  annotate("text", x = 4.25, y = -Inf, label = "OLD",   vjust = -0.65, size = 2,
+           fontface = "italic", color = "burlywood", alpha =0.9) +
+  
+  
   geom_boxplot(width = 0.55, size = 0.7, median.linewidth = .45, linewidth = 0.2,
                position = position_dodge(width = 0.7),
                outlier.shape = NA,
-               color = "grey10", alpha = 0.75) +
+               color = "grey10", alpha = 0.9) +
   stat_summary(fun=mean, geom="point", position = position_dodge(width = 0.7),
                shape=4, size = 1.1, stroke = 0.3, color ="grey10") +
   
@@ -1129,15 +1197,21 @@ EE_syn_check <- mapped_psum %>%
                      name = "Sex (Year)") +
   # guides(y.sec = 'axis') + # adds 2nd y axis (right side)
   scale_y_continuous(labels = label_number(accuracy = 0.1)) + # 1dp
-  facet_wrap(~gene, ncol =  9, scale = "free_y") +
+  scale_x_discrete(labels = function(x) sub("^[^\n]+\n", "", x)) + # removes extra YNG OLD bit
+  facet_wrap(~gene, ncol =5, scale = "free_y") +
     theme_bw() +
-  my_psum_facet_theme
+  my_psum_facet_theme 
 
 EE_syn_check
 ```
 
 ```{r}
+plot_grid(EEdown_AGEup, EEup_AGEup, ncol = 1)
+plot_grid(EEdown_AGEdown, EEup_AGEdown, ncol = 1, rel_heights = c(1.5,1))
 
+```
+
+```{r}
     # # #Functional Synapse
     # 'Syp', 'Dlg2', 'Dlg3', "Dlg4",
     # "Camk2a", "Camk2b", "Camk2d", "Camk2g", "Prkcz", 'Calm1',
