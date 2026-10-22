@@ -238,10 +238,12 @@ plot_grid(
 plot_grid(     
   kegg_volcano_list$rno03010, #ribosome(rno03010)
   p2_reactome_volcano_list$REACTOME_TRANSLATION,
-  labels = c("a", "b"),
+  p3_reactome_volcano_list$REACTOME_MITOCHONDRIAL_TRANSLATION,
+  labels = c("a", "b", "c"),
   label_colour = "grey10", label_size = 11,  ncol = 1)
 
 #2026_10_17_p2_2_Translation_Ribosome_map_vols
+#2026_10_2-_p2_3_Translation_Ribosome_Mitochrondria_map_vols
 ```
 
 ```{r}
@@ -273,6 +275,17 @@ plot_grid(
 
 ```{r}
 plot_grid(          
+  kegg_volcano_list$rno04137, #mitophagy(rno04137)
+  p2_reactome_volcano_list$REACTOME_MITOCHONDRIAL_PROTEIN_DEGRADATION,
+  p2_reactome_volcano_list$REACTOME_SELECTIVE_AUTOPHAGY,
+  labels = c("a", "b", "c", "d", "e"),
+  label_colour = "grey10", label_size = 11,  ncol = 1)
+
+#2026_10_19_p2_Prot_Deg_Auto_Mitophagy_3_map_vols
+```
+
+```{r}
+plot_grid(          
   p2_reactome_volcano_list$REACTOME_PROTEASOME_ASSEMBLY,
   p2_reactome_volcano_list$REACTOME_SYNTHESIS_OF_ACTIVE_UBIQUITIN_ROLES_OF_E1_AND_E2_ENZYMES,
   # p2_reactome_volcano_list$REACTOME_MITOCHONDRIAL_PROTEIN_DEGRADATION,
@@ -290,8 +303,10 @@ plot_grid(
   #p2_reactome_volcano_list$REACTOME_ER_TO_GOLGI_ANTEROGRADE_TRANSPORT, #L5
   p2_reactome_volcano_list$REACTOME_VESICLE_MEDIATED_TRANSPORT,
   p2_reactome_volcano_list$REACTOME_MEMBRANE_TRAFFICKING,
-    p2_reactome_volcano_list$REACTOME_ER_TO_GOLGI_ANTEROGRADE_TRANSPORT,
-    p2_reactome_volcano_list$REACTOME_GOLGI_TO_ER_RETROGRADE_TRANSPORT,
+  p2_reactome_volcano_list$REACTOME_ER_TO_GOLGI_ANTEROGRADE_TRANSPORT,
+  p2_reactome_volcano_list$REACTOME_GOLGI_TO_ER_RETROGRADE_TRANSPORT,
+  p2_reactome_volcano_list$REACTOME_PROTEIN_LOCALIZATION,
+  p2_reactome_volcano_list$REACTOME_MITOCHONDRIAL_PROTEIN_IMPORT,
   labels = c("a", "b", "c", "d"),
   label_colour = "grey10", label_size = 11,  ncol = 1)
 ```
@@ -301,16 +316,89 @@ plot_grid(
 ```{r}
 plot_grid( 
   kegg_volcano_list$rno04141, #PPinER(rno04141)
+  p2_reactome_volcano_list$REACTOME_PROTEIN_LOCALIZATION,
   p2_reactome_volcano_list$REACTOME_TRANSPORT_TO_THE_GOLGI_AND_SUBSEQUENT_MODIFICATION,
   #p2_reactome_volcano_list$REACTOME_ER_TO_GOLGI_ANTEROGRADE_TRANSPORT, #L5
-  p2_reactome_volcano_list$REACTOME_VESICLE_MEDIATED_TRANSPORT,
+  # p2_reactome_volcano_list$REACTOME_VESICLE_MEDIATED_TRANSPORT,
   p2_reactome_volcano_list$REACTOME_MEMBRANE_TRAFFICKING,
   p2_reactome_volcano_list$REACTOME_ER_TO_GOLGI_ANTEROGRADE_TRANSPORT,
   p2_reactome_volcano_list$REACTOME_GOLGI_TO_ER_RETROGRADE_TRANSPORT,
   labels = c("a", "b", "c", "d", "e", "f"),
   label_colour = "grey10", label_size = 11,  ncol = 1)
+#2026_10_20_p2_temp_Prot_local_6_map_vol
+```
+
+# P3 - Energy Metabolism & Mitochondria
+
+Oxidative Phosphorylation
+
+```{r}
+# oxidative phosphorylation
+plot_grid(
+  Msig_HM_volcano_list$HALLMARK_OXIDATIVE_PHOSPHORYLATION,
+  kegg_volcano_list$rno00190, # KEGG_oxphos(rno00190)
+  # p3_reactome_volcano_list$REACTOME_AEROBIC_RESPIRATION_AND_RESPIRATORY_ELECTRON_TRANSPORT,
+  p3_reactome_volcano_list$REACTOME_RESPIRATORY_ELECTRON_TRANSPORT,
+  
+  ncol = 1, labels = c("a","b","c"),
+  label_colour = "grey10", label_size = 11)
+
+#2026_10_20_p3_3_EM_oxidative_phosphorylation_map_vol
+```
+
+```{r}
+# TCA & 
+plot_grid(
+  Msig_HM_volcano_list$HALLMARK_OXIDATIVE_PHOSPHORYLATION,
+  kegg_volcano_list$rno00190, # KEGG_oxphos(rno00190)
+  # p3_reactome_volcano_list$REACTOME_AEROBIC_RESPIRATION_AND_RESPIRATORY_ELECTRON_TRANSPORT,
+  p3_reactome_volcano_list$REACTOME_RESPIRATORY_ELECTRON_TRANSPORT,
+  
+  ncol = 1, labels = c("a","b","c"),
+  label_colour = "grey10", label_size = 11)
+
+#2026_10_20_p3_3_EM_oxidative_phosphorylation_map_vol
+```
+
+```{r}
+# TCA & 
+plot_grid(
+  Msig_HM_volcano_list$HALLMARK_FATTY_ACID_METABOLISM,
+  kegg_volcano_list$rno00190, # KEGG_oxphos(rno00190)
+  # p3_reactome_volcano_list$REACTOME_AEROBIC_RESPIRATION_AND_RESPIRATORY_ELECTRON_TRANSPORT,
+  p3_reactome_volcano_list$REACTOME_RESPIRATORY_ELECTRON_TRANSPORT,
+  
+  ncol = 1, labels = c("a","b","c"),
+  label_colour = "grey10", label_size = 11)
+
+#2026_10_20_p3_3_EM_oxidative_phosphorylation_map_vol
+```
+
+```{r}
+plot_grid(plotlist = Msig_HM_volcano_list,
+          ncol = 2)
+#2026_10_20_MSigHM_all_9_map_vols
 ```
 
 ```{r}
 #kegg_volcano_list$rno04910, #insulin(rno04910)
+```
+
+```{r}
+plot_grid(
+  #Msig_HM_volcano_list$HALLMARK_FATTY_ACID_METABOLISM,
+  p3_reactome_volcano_list$REACTOME_METABOLISM_OF_LIPIDS,
+  p3_reactome_volcano_list$REACTOME_FATTY_ACID_METABOLISM,
+  p3_reactome_volcano_list$REACTOME_SYNTHESIS_OF_VERY_LONG_CHAIN_FATTY_ACYL_COAS,
+  p3_reactome_volcano_list$REACTOME_METABOLISM_OF_STEROIDS,
+  p3_reactome_volcano_list$REACTOME_CHOLESTEROL_BIOSYNTHESIS,
+  p3_reactome_volcano_list$REACTOME_REGULATION_OF_CHOLESTEROL_BIOSYNTHESIS_BY_SREBP_SREBF,
+  p3_reactome_volcano_list$REACTOME_ACTIVATION_OF_GENE_EXPRESSION_BY_SREBF_SREBP,
+  p3_reactome_volcano_list$REACTOME_SPHINGOLIPID_METABOLISM,
+  p3_reactome_volcano_list$REACTOME_GLYCOSPHINGOLIPID_METABOLISM,
+  p3_reactome_volcano_list$REACTOME_GLYCOSPHINGOLIPID_CATABOLISM,
+  # kegg_volcano_list$rno00900, # KEGG_Terpenoid(rno00900)
+  ncol = 2)
+
+#2026_10_20_temp_Reactome_Lipids_10_map_vols
 ```
