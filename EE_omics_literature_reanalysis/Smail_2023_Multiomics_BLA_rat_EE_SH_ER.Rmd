@@ -1,0 +1,193 @@
+---
+title: "Smail_2023_Multiomics_BLA_rat_EE_SH_ER"
+output: html_document
+---
+
+# Smail et al., 2023 - Neurobiology of Loss: BLA, ECM & Microglia
+
+Multiomics (RNAseq, Proteomics, Kinomics)
+
+Note did pooling so no p-values, also only go one usable replicate for their one-shot proteomics, so data quality is not the best.
+
+```{r}
+library(tidyverse)
+library(readxl)
+library(ggrepel) #  for geom_text_repel() for volcano plot annotations
+library(gt) # for heat maps to got with DESeq2 
+library(colorspace)
+```
+
+```{r}
+Proteomics_DE_raw <- read_excel("input/Smail_2023_SuppData3_Proteomics_Kinomics.xlsx",
+                                sheet = "Proteomics DE") %>%
+  mutate(ID = str_to_title(Protein), .after = Protein)
+
+# Proteomics_DE_raw  <- rename(Proteomics_DE_raw, ID = Protein) # rename Protein to ID - to merge with RNA data
+```
+
+```{r}
+RNAseq_exp2_raw <- read_excel("input/Smail_2023_SuppData2_Transcriptomics_Exp2&3.xlsx",
+                             sheet = 'Experiment 2 DE', skip = 1)
+
+RNAseq_exp3_raw <- read_excel("input/Smail_2023_SuppData2_Transcriptomics_Exp2&3.xlsx",
+                             sheet = 'Experiment 3 DE', skip = 1)
+```
+
+```{r}
+RNA_Prot_raw_df <- bind_rows(list('2_mRNA' = RNAseq_exp2_raw, '3_mRNA' = RNAseq_exp3_raw,
+                                  '3_Protein' = Proteomics_DE_raw |> select(!Peptide)),
+                             .id = 'Exp') %>%
+  separate_wider_delim(Exp, delim = "_", names = c('ExpNo', 'Method'))
+```
+
+```{r}
+head(Proteomics_DE_raw)
+dim(Proteomics_DE_raw) # 400 x 5
+length(unique(Proteomics_DE_raw$Protein)) # 205 unique 
+```
+
+```{r}
+Proteomics_DE_2 <- Proteomics_DE_raw %>%
+  group_by(Protein) %>% 
+  mutate(pepcount = n()) %>% # no. of peptides (for that protein)
+  mutate(across(c("EEvSH", "ERvSH", "ERvEE"),
+                list(
+                  mean = ~ mean(.x, na.rm =TRUE),
+                  med = ~ median(.x, na.rm = TRUE),
+                  se = ~ sd(.x, na.rm = TRUE)/ sqrt(sum(!is.na(.x)))
+                ),.names = "{.col}.{.fn}")) %>%
+  select(!Peptide:ERvEE) %>%
+  unique()
+
+```
+
+------------------------------------------------------------------------
+
+```{r}
+proteomics_tile <- Proteomics_DE %>%
+  pivot_longer(cols = EEvSH:ERvEE,
+               names_to = 'comp',
+               values_to = "value") %>%
+  mutate(comp = fct_relevel(comp, c('EEvSH', 'ERvSH','ERvEE'))) %>%
+  ggplot(aes(x = comp, y = reorder(Gene, value), fill = value)) +
+  geom_tile(color = "grey10") +
+  colorspace::scale_fill_continuous_diverging("Blue-Red 2") +
+  scale_x_discrete(expand = c(0,0)) +
+  labs(subtitle = "Smail 2023 - EE vs SH vs ER - Rats BLA - Proteomics DE (means) - supp data file 3") +
+  theme_minimal() + 
+  theme(axis.title = element_blank(),
+        axis.text = element_text(face = "italic"),
+        legend.position = "none"
+        )
+
+proteomics_tile
+```
+
+------------------------------------------------------------------------
+
+RNA
+
+```{r}
+head(RNA_Prot_raw_df)
+
+# mean for multiobs
+RNA_Prot_df <- RNA_Prot_raw_df %>% #38568
+  #filter(!str_detect(ID, fixed("."))) 
+  group_by(ExpNo, Method, ID) %>%
+  summarise(across(c("EEvSH", "ERvSH", "ERvEE"), ~ mean(.x, na.rm =TRUE))) %>% # 37543
+  ungroup()
+
+
+RNA_Prot_df_3obs <- RNA_Prot_df %>%
+  count(ID) %>%
+  filter(n >= 3) %>% # 66
+  pull(ID)
+```
+
+<https://stackoverflow.com/questions/62011413/ggplot2-bar-chart-order-by-values-of-one-group>
+
+```{r}
+RNA_Prot_long <- RNA_Prot_df %>%
+  filter(ID %in%  RNA_Prot_df_3obs) %>%
+  pivot_longer(cols = EEvSH:ERvEE,
+               names_to = 'comp',
+               values_to = "meanFC") %>%
+  mutate(comp = fct_relevel(comp, c('EEvSH', 'ERvSH','ERvEE'))) %>%
+  mutate(Direction = if_else(meanFC > 0, 'Up', 'Down'))
+
+
+EEvsSH_3obs_order <- RNA_Prot_long %>%
+  filter(comp == "EEvSH" & Method == "Protein") %>%
+  arrange(desc(meanFC)) %>%
+  mutate(ID = factor(ID))
+```
+
+### 3 x 3 tile
+
+```{r}
+tile_x_3 <- RNA_Prot_long  %>%
+  mutate(ID = factor(ID, levels = EEvsSH_3obs_order$ID, ordered = TRUE)) %>%
+  # mutate(CompMethodExp = paste0(comp, " - ", Method, ' - Exp ', ExpNo)) %>%
+    mutate(MethodExp = paste0(Method, ' - Exp ', ExpNo)) %>%
+  
+  ggplot(aes(x = ID, y = meanFC, color = Direction, alpha = abs(meanFC))) +
+  
+  geom_hline(yintercept = 0, color = 'grey20', linewidth = 0.1) +
+  geom_segment(aes(x = ID,
+                   yend = meanFC, y = 0)) +
+  geom_point(shape = 19, size = 3.5) +
+  scale_alpha(range = c(.5, 0.95), guide = 'none') + # rev alpha so darker = more significant
+  # geom_text(aes(label = gene_name), color = "grey10", size = 2.5,
+  #           position = position_stack()) +
+
+  # scale_fill_manual(breaks = c("Up", "Down"),
+  #                    values = c("#dc322f", "#268bd2"),
+  #                    guide = 'none') +
+  # colorspace::scale_color_continuous_diverging("Blue-Red 2") +
+  scale_color_manual(breaks = c("Up", "Down"),
+                     values = c("#dc322f", "#268bd2"),
+                     guide = 'none') +
+  
+  coord_flip() +
+  facet_grid(comp~MethodExp, scales = "free") +
+  
+    theme_bw() +
+  theme(
+    #axis.title = element_blank(),
+    panel.grid = element_blank(),
+    axis.title = element_blank(),
+    axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5, # 90, hj1 t/R, vj.5 cent
+                               size = 8),
+    axis.text.y = element_text(hjust = 1, color = "grey10",
+                               size = 7, face = 'italic'), # rota 90 & hjust=1 (top/right)
+    axis.ticks.y = element_blank()
+        ) 
+
+# 
+tile_x_3
+```
+
+### Export ranked gene lists for StringDB
+
+```{r}
+# gene list for 9 comparisons/labels 
+RNA_Prot_long_ranked_gL <- RNA_Prot_df %>%
+  pivot_longer(cols = EEvSH:ERvEE,
+               names_to = 'comp',
+               values_to = "meanFC") %>%
+  mutate(Label = paste0('Ex', ExpNo, '_', Method, '_', comp)) %>% # exp com label
+  select(Label, ID, meanFC) %>%
+  group_by(Label) %>% # group (9 labels)
+  arrange(Label, -meanFC)  # ranks by pos-to-neg FC 
+
+
+#split2list  
+RNA_Prot_long_ranked_gL_split <- split(RNA_Prot_long_ranked_gL, # split to 9 list
+                                       RNA_Prot_long_ranked_gL$Label)
+
+
+# # then write out as excel (new tab for each list)
+# writexl::write_xlsx(RNA_Prot_long_ranked_gL_split,
+#                     'output/2026_10_23_Smail_2023_ranked_gL_Exp2&3_mRNA&prot_9comps.xlsx')
+#   
+```
