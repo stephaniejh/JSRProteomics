@@ -132,6 +132,20 @@ plot_grid(
 ## Calcium Signalling & GPCR Signalling & Others
 
 ```{r}
+# KEGG Ca2+,cAMP & cGMP-PKG signaling + REACT GPCR & CREB1 phos
+plot_grid(          
+  kegg_volcano_list$rno04020, #calcium(rno04020)
+  kegg_volcano_list$rno04024, #cAMP(rno04024)
+  kegg_volcano_list$rno04022, #cGMP-PKG(rno04022
+  p1_reactome_volcano_list$REACTOME_CREB1_PHOSPHORYLATION_THROUGH_THE_ACTIVATION_OF_ADENYLATE_CYCLASE, #
+    p1_reactome_volcano_list$REACTOME_SIGNALING_BY_GPCR,
+  labels = c("a", "b", "c", "d", "e"),
+  label_colour = "grey10", label_size = 11,  ncol = 1)
+#2026_10_24_p1_5_KEGG_Ca_cAMP_cGMPPKG_REACT_GPCR_CREB_map_vols
+#2026_10_25_p1_5_KEGG_Ca_cAMP_cGMPPKG_REACT_GPCR_CREB_map_vols
+```
+
+```{r}
 # KEGG Ca2+,cAMP & cGMP-PKG signaling + REACT 
 plot_grid(          
   kegg_volcano_list$rno04020, #calcium(rno04020)
@@ -267,10 +281,13 @@ plot_grid(
 plot_grid(          
   kegg_volcano_list$rno03050, #proteasome(rno03050)
   kegg_volcano_list$rno04120, #UPS(rno04120)
-  p2_reactome_volcano_list$REACTOME_DEUBIQUITINATION,
+  # kegg_volcano_list$rno04137, #mitophagy(rno04137)
+  # p2_reactome_volcano_list$REACTOME_DEUBIQUITINATION, # RM
   labels = c("a", "b", "c", "d"),
   label_colour = "grey10", label_size = 11,  ncol = 1)
 #2026_10_19_p2_Protein_Degr_3_map_vols
+#2026_10_24_p2_3_KEGG_Protein_Degr_mitophagy_map_vols
+#2026_10_24_p2_2_KEGG_Protein_Degr_map_vols
 ```
 
 ```{r}
@@ -295,6 +312,7 @@ plot_grid(
   p2_reactome_volcano_list$REACTOME_SELECTIVE_AUTOPHAGY,
   labels = c("a", "b", "c", "d", "e"),
   label_colour = "grey10", label_size = 11,  ncol = 1)
+
 ```
 
 ```{r}
@@ -326,6 +344,10 @@ plot_grid(
   labels = c("a", "b", "c", "d", "e", "f"),
   label_colour = "grey10", label_size = 11,  ncol = 1)
 #2026_10_20_p2_temp_Prot_local_6_map_vol
+```
+
+```{r}
+
 ```
 
 # P3 - Energy Metabolism & Mitochondria
