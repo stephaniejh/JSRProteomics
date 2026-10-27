@@ -359,33 +359,21 @@ Oxidative Phosphorylation
 plot_grid(
   Msig_HM_volcano_list$HALLMARK_OXIDATIVE_PHOSPHORYLATION,
   kegg_volcano_list$rno00190, # KEGG_oxphos(rno00190)
+  kegg_volcano_list$rno00020, # TCA(rno00020)
   # p3_reactome_volcano_list$REACTOME_AEROBIC_RESPIRATION_AND_RESPIRATORY_ELECTRON_TRANSPORT,
-  p3_reactome_volcano_list$REACTOME_RESPIRATORY_ELECTRON_TRANSPORT,
-  
-  ncol = 1, labels = c("a","b","c"),
+  # p3_reactome_volcano_list$REACTOME_RESPIRATORY_ELECTRON_TRANSPORT,
+  ncol = 1, labels = c("a","b","c", "d"),
   label_colour = "grey10", label_size = 11)
 
 #2026_10_20_p3_3_EM_oxidative_phosphorylation_map_vol
+#2026_10_27_p3_4_EM_oxidative_phos_TCA_map_vol
+#2026_10_27_p3_3_EM_oxidative_phos_TCA_map_vol
 ```
 
 ```{r}
-# TCA & 
+# ENERGY METABOLISM & TCA 
 plot_grid(
   Msig_HM_volcano_list$HALLMARK_OXIDATIVE_PHOSPHORYLATION,
-  kegg_volcano_list$rno00190, # KEGG_oxphos(rno00190)
-  # p3_reactome_volcano_list$REACTOME_AEROBIC_RESPIRATION_AND_RESPIRATORY_ELECTRON_TRANSPORT,
-  p3_reactome_volcano_list$REACTOME_RESPIRATORY_ELECTRON_TRANSPORT,
-  
-  ncol = 1, labels = c("a","b","c"),
-  label_colour = "grey10", label_size = 11)
-
-#2026_10_20_p3_3_EM_oxidative_phosphorylation_map_vol
-```
-
-```{r}
-# TCA & 
-plot_grid(
-  Msig_HM_volcano_list$HALLMARK_FATTY_ACID_METABOLISM,
   kegg_volcano_list$rno00190, # KEGG_oxphos(rno00190)
   # p3_reactome_volcano_list$REACTOME_AEROBIC_RESPIRATION_AND_RESPIRATORY_ELECTRON_TRANSPORT,
   p3_reactome_volcano_list$REACTOME_RESPIRATORY_ELECTRON_TRANSPORT,
@@ -404,6 +392,52 @@ plot_grid(plotlist = Msig_HM_volcano_list,
 
 ```{r}
 #kegg_volcano_list$rno04910, #insulin(rno04910)
+
+#kegg_volcano_list$rno05010, #Alzheimer(rno05010)
+```
+
+```{r}
+plot_grid(kegg_volcano_list$rno05010, #Alzheimer(rno05010)
+          kegg_volcano_list$rno05012, #Parkinson(rno05012)
+          kegg_volcano_list$rno05020, #Prion(rno05020)
+          Msig_HM_volcano_list$HALLMARK_ADIPOGENESIS, #HM Adpogeneisis 
+          ncol = 1, labels = c("a","b","c", "d"),
+          label_colour = "grey10", label_size = 11)
+#2026_10_27_p3_EM_neurodegen_Adipogeneis_4_map_vol
+```
+
+```{r}
+# 
+plot_grid(
+  p3_reactome_volcano_list$REACTOME_METABOLISM_OF_LIPIDS,
+  Msig_HM_volcano_list$HALLMARK_FATTY_ACID_METABOLISM,
+  # p3_reactome_volcano_list$REACTOME_METABOLISM_OF_LIPIDS,
+  # Msig_HM_volcano_list$HALLMARK_ANDROGEN_RESPONSE,
+  # Msig_HM_volcano_list$HALLMARK_CHOLESTEROL_HOMEOSTASIS,
+  # kegg_volcano_list$rno00900, #terpenoid(rno00900),
+  # p3_reactome_volcano_list$REACTOME_FATTY_ACID_METABOLISM,
+  
+  ncol = 1, labels = c("a","b","c"),
+  label_colour = "grey10", label_size = 11)
+
+#2026_10_27_p3_2_EM_Lipid_Fatty_Acid_map_vol
+```
+
+```{r}
+# 
+plot_grid(
+  Msig_HM_volcano_list$HALLMARK_CHOLESTEROL_HOMEOSTASIS,
+  kegg_volcano_list$rno00900, #terpenoid(rno00900),
+  Msig_HM_volcano_list$HALLMARK_ANDROGEN_RESPONSE,
+  p3_reactome_volcano_list$REACTOME_METABOLISM_OF_STEROIDS,
+  p3_reactome_volcano_list$REACTOME_SPHINGOLIPID_METABOLISM,
+  
+  
+  ncol = 1, labels = c("a","b","c", "d", "e"),
+  label_colour = "grey10", label_size = 11)
+
+#2026_10_27_p3_2_EM_Cholesterol_Terpenoid_map_vol
+#2026_10_27_p3_2_EM_Cholesterol_Terpenoid_map_vol
 ```
 
 ```{r}
@@ -423,4 +457,21 @@ plot_grid(
   ncol = 2)
 
 #2026_10_20_temp_Reactome_Lipids_10_map_vols
+```
+
+```{r}
+plot_grid(
+  #Msig_HM_volcano_list$HALLMARK_FATTY_ACID_METABOLISM,
+  p3_reactome_volcano_list$REACTOME_METABOLISM_OF_LIPIDS,
+  p3_reactome_volcano_list$REACTOME_FATTY_ACID_METABOLISM,
+  p3_reactome_volcano_list$REACTOME_SYNTHESIS_OF_VERY_LONG_CHAIN_FATTY_ACYL_COAS,
+  p3_reactome_volcano_list$REACTOME_METABOLISM_OF_STEROIDS,
+  p3_reactome_volcano_list$REACTOME_CHOLESTEROL_BIOSYNTHESIS,
+  p3_reactome_volcano_list$REACTOME_REGULATION_OF_CHOLESTEROL_BIOSYNTHESIS_BY_SREBP_SREBF,
+  p3_reactome_volcano_list$REACTOME_ACTIVATION_OF_GENE_EXPRESSION_BY_SREBF_SREBP,
+  p3_reactome_volcano_list$REACTOME_SPHINGOLIPID_METABOLISM,
+  p3_reactome_volcano_list$REACTOME_GLYCOSPHINGOLIPID_METABOLISM,
+  p3_reactome_volcano_list$REACTOME_GLYCOSPHINGOLIPID_CATABOLISM,
+  # kegg_volcano_list$rno00900, # KEGG_Terpenoid(rno00900)
+  ncol = 2)
 ```
