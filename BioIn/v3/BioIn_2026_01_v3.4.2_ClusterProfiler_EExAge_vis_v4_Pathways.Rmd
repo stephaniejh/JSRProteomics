@@ -1169,21 +1169,21 @@ REACT_tibs_df_6_entrez_split <- REACT_tibs_df_6 %>%
 
 ```{r}
 REACT_TOP_LVL <- c(
-    # TOP-LEVEL REACTOME
+  # TOP-LEVEL REACTOME
   "REACTOME_DNA_REPLICATION",
   "REACTOME_METABOLISM_OF_RNA",
   "REACTOME_DNA_REPAIR",
   "REACTOME_CELL_CYCLE",
   "REACTOME_PROGRAMMED_CELL_DEATH",
-  "REACTOME_EXTRACELLULAR_MATRIX_ORGANIZATION",
-  "REACTOME_TRANSPORT_OF_SMALL_MOLECULES",
   "REACTOME_PROTEIN_LOCALIZATION",
-  "REACTOME_HEMOSTASIS",
-  "REACTOME_CIRCADIAN_CLOCK",
+  "REACTOME_VESICLE_MEDIATED_TRANSPORT"
   'REACTOME_NEURONAL_SYSTEM', # L1 (TOP LEVEL)
   "REACTOME_NEURONAL_SYSTEM",
-  "REACTOME_VESICLE_MEDIATED_TRANSPORT"
-
+  "REACTOME_EXTRACELLULAR_MATRIX_ORGANIZATION",
+  
+  "REACTOME_HEMOSTASIS",
+  "REACTOME_CIRCADIAN_CLOCK",
+  "REACTOME_TRANSPORT_OF_SMALL_MOLECULES",
 )
 
 
@@ -1581,12 +1581,132 @@ p3_reactome_volcano_list <-  vector(mode = "list")
 ```
 
 ```{r}
-p4_reactome_list <- c()
+p4_reactome_list <- c(
+  
+  ##_L1_NEURONAL_SYSTEM__(づ ◕‿◕ )づ____
+  'REACTOME_NEURONAL_SYSTEM', # L1 (TOP LEVEL)
+  
+  ##_L2_Transmission_across_the_chemical_synapse_
+  'REACTOME_TRANSMISSION_ACROSS_CHEMICAL_SYNAPSES', #L2
+  
+  ##_L3_Neurotransmitter_release_cycle_
+  'REACTOME_NEUROTRANSMITTER_RELEASE_CYCLE', #L3
+  'REACTOME_GLUTAMATE_NEUROTRANSMITTER_RELEASE_CYCLE', #L4
+  'REACTOME_GABA_SYNTHESIS_RELEASE_REUPTAKE_AND_DEGRADATION', #L4
+  
+  ##_L3_Neurotransmitter_receptors_&_postsynaptic_signal_transduciton_
+  'REACTOME_NEUROTRANSMITTER_RECEPTORS_AND_POSTSYNAPTIC_SIGNAL_TRANSMISSION', #L3
+  ##_L4_Glutamate_binding_activation_of_AMPA_&_synaptic_plasticity
+  'REACTOME_TRAFFICKING_OF_AMPA_RECEPTORS', #L5
+  
+  ##_L4_Activation_of_NMDA_receptors_PSD_events
+  'REACTOME_UNBLOCKING_OF_NMDA_RECEPTORS_GLUTAMATE_BINDING_AND_ACTIVATION', #L5
+  'REACTOME_ASSEMBLY_AND_CELL_SURFACE_PRESENTATION_OF_NMDA_RECEPTORS', #L5
+  ##_L5_Post_NMDA_receptor_activation_events_
+  'REACTOME_CREB1_PHOSPHORYLATION_THROUGH_THE_ACTIVATION_OF_ADENYLATE_CYCLASE', #L6
+  
+  
+  ##_L2_Protein-protein_interactions_at_the_synapse_
+  'REACTOME_NEUREXINS_AND_NEUROLIGINS', #L3
+  
+  ##_L2_Potassium_Channels_
+  'REACTOME_POTASSIUM_CHANNELS', #L2
+  'REACTOME_VOLTAGE_GATED_POTASSIUM_CHANNELS', #L3
+  
+  
+  ###_1_DEVELOPMENTAL_BIOLOGY!__(づ ◕‿◕ )づ____
+  ##_L2_NERVOUS_SYSTEM_DEVELOPMENT______
+  'REACTOME_NERVOUS_SYSTEM_DEVELOPMENT',
+  ##_L3_Axon_Guidance_______
+  ##_L4_L1CAM_interactions___
+  'REACTOME_L1CAM_INTERACTIONS', #L4 
+  'REACTOME_INTERACTION_BETWEEN_L1_AND_ANKYRINS', #L5
+  'REACTOME_RECYCLING_PATHWAY_OF_L1', #L5
+  
+  ##_L4_EPH-Ephrin_signalling___
+  'REACTOME_EPH_EPHRIN_SIGNALING', #L4
+  'REACTOME_EPHB_MEDIATED_FORWARD_SIGNALING', #L5
+  
+  ##_L4_Signalling_by_ROBO_receptors___
+  'REACTOME_SIGNALING_BY_ROBO_RECEPTORS', #L4
+  'REACTOME_REGULATION_OF_EXPRESSION_OF_SLITS_AND_ROBOS', #L5
+  
+  ##_L4_Semaphorin_interactions___
+  'REACTOME_SEMAPHORIN_INTERACTIONS', #L4
+  'REACTOME_CRMPS_IN_SEMA3A_SIGNALING', #L5
+  'REACTOME_SEMA3A_PAK_DEPENDENT_AXON_REPULSION', #L5
+  'REACTOME_OTHER_SEMAPHORIN_INTERACTIONS', #L5
+  
+  ##_L2_LGI-ADAM_interactions___
+  'REACTOME_LGI_ADAM_INTERACTIONS',
+  
+  
+  
+  ##_L1_EXTRACELLUAR_MATRIX_ORGANIZATION_(づ ◕‿◕ )づ_____
+  'REACTOME_EXTRACELLULAR_MATRIX_ORGANIZATION', # L1 (TOP LEVEL)
+  
+  ##_L2_ECM_Proteoglycans__
+  "REACTOME_ECM_PROTEOGLYCANS", #L2
+  
+  ##_L2_Non-integrin_membrane-ECM_interactions__
+  'REACTOME_FORMATION_OF_THE_DYSTROPHIN_GLYCOPROTEIN_COMPLEX_DGC', #L3 
+  
+  ##_L2_Laminin_Interactions__
+  'REACTOME_LAMININ_INTERACTIONS', #L2
+  
+  
+  ##_L1_CELL-CELL_COMMUNICATION_(づ ◕‿◕ )づ_____
+  ##_L2_Cell_junction_organization__
+  ##_L3_Cell-cell_junction_org__
+  "REACTOME_ADHERENS_JUNCTIONS_INTERACTIONS", #L4
+  
+  
+  ##_L1_Signalling_L2_RHO_MIRO_RHOBTB3_(づ ◕‿◕ )づ_____
+  "REACTOME_SIGNALING_BY_RHO_GTPASES_MIRO_GTPASES_AND_RHOBTB3", # top/2nd-level
+  ##_L3_RHO__________
+  "REACTOME_RHO_GTPASE_CYCLE", # L4
+  "REACTOME_RHO_GTPASE_EFFECTORS", #L4
+  
+  ##_L1_Signalling_L2_SIGNALLING_BY_WNT_(づ ◕‿◕ )づ_____
+  "REACTOME_SIGNALING_BY_WNT"
+  
+  
+)
 p4_reactome_volcano_list <-  vector(mode = "list")
 ```
 
 ```{r}
-p5_reactome_list <- c()
+p5_reactome_list <- c(
+  # 
+  # # ##_IMMUNE_SYSTEM____________________________
+  "REACTOME_CYTOKINE_SIGNALING_IN_IMMUNE_SYSTEM", # CYTOKINE IMMUNE
+  "REACTOME_INTERLEUKIN_1_FAMILY_SIGNALING",
+  "REACTOME_INTERLEUKIN_12_FAMILY_SIGNALING",
+  "REACTOME_TNFR2_NON_CANONICAL_NF_KB_PATHWAY",
+  "REACTOME_INTERFERON",
+  #
+  "REACTOME_ADAPTIVE_IMMUNE_SYSTEM", # ADATIVE IMMUNE
+  "REACTOME_TCR_SIGNALING",
+  "REACTOME_SIGNALING_BY_THE_B_CELL_RECEPTOR_BCR",
+  #
+  "REACTOME_COMPLEMENT_CASCADE", # INNATE IMMUNE
+  "REACTOME_FC_EPSILON_RECEPTOR_FCERI_SIGNALING",
+  "REACTOME_C_TYPE_LECTIN_RECEPTORS_CLRS",
+  "REACTOME_FCGAMMA_RECEPTOR_FCGR_DEPENDENT_PHAGOCYTOSIS",
+  "REACTOME_FCERI_MEDIATED_NF_KB_ACTIVATION",
+  
+  "REACTOME_MHC_CLASS_II_ANTIGEN_PRESENTATION",
+  "REACTOME_CLASS_I_MHC_MEDIATED_ANTIGEN_PROCESSING_PRESENTATION",
+  "REACTOME_CROSS_PRESENTATION_OF_SOLUBLE_EXOGENOUS_ANTIGENS_ENDOSOMES",
+  "REACTOME_ANTIGEN_PROCESSING_CROSS_PRESENTATION",
+  
+  # OTHERS 
+  "REACTOME_HEMOSTASIS",
+  "REACTOME_CIRCADIAN_CLOCK",
+  "REACTOME_TRANSPORT_OF_SMALL_MOLECULES",
+
+)
+
 p5_reactome_volcano_list <-  vector(mode = "list")
 ```
 
@@ -1603,96 +1723,6 @@ REACT_POI  <- c(
   "REACTOME_MAPK_FAMILY_SIGNALING_CASCADES",
   "REACTOME_FCERI_MEDIATED_NF_KB_ACTIVATION",
 
-##_L1_NEURONAL_SYSTEM__(づ ◕‿◕ )づ____
-'REACTOME_NEURONAL_SYSTEM', # L1 (TOP LEVEL)
-
-##_L2_Transmission_across_the_chemical_synapse_
-'REACTOME_TRANSMISSION_ACROSS_CHEMICAL_SYNAPSES', #L2
-
-##_L3_Neurotransmitter_release_cycle_
-'REACTOME_NEUROTRANSMITTER_RELEASE_CYCLE', #L3
-'REACTOME_GLUTAMATE_NEUROTRANSMITTER_RELEASE_CYCLE', #L4
-'REACTOME_GABA_SYNTHESIS_RELEASE_REUPTAKE_AND_DEGRADATION', #L4
-
-##_L3_Neurotransmitter_receptors_&_postsynaptic_signal_transduciton_
-'REACTOME_NEUROTRANSMITTER_RECEPTORS_AND_POSTSYNAPTIC_SIGNAL_TRANSMISSION', #L3
-##_L4_Glutamate_binding_activation_of_AMPA_&_synaptic_plasticity
-'REACTOME_TRAFFICKING_OF_AMPA_RECEPTORS', #L5
-
-##_L4_Activation_of_NMDA_receptors_PSD_events
-'REACTOME_UNBLOCKING_OF_NMDA_RECEPTORS_GLUTAMATE_BINDING_AND_ACTIVATION', #L5
-'REACTOME_ASSEMBLY_AND_CELL_SURFACE_PRESENTATION_OF_NMDA_RECEPTORS', #L5
-##_L5_Post_NMDA_receptor_activation_events_
-'REACTOME_CREB1_PHOSPHORYLATION_THROUGH_THE_ACTIVATION_OF_ADENYLATE_CYCLASE', #L6
-
-
-##_L2_Protein-protein_interactions_at_the_synapse_
-'REACTOME_NEUREXINS_AND_NEUROLIGINS', #L3
-
-##_L2_Potassium_Channels_
-'REACTOME_POTASSIUM_CHANNELS', #L2
-'REACTOME_VOLTAGE_GATED_POTASSIUM_CHANNELS', #L3
-  
-
-###_1_DEVELOPMENTAL_BIOLOGY!__(づ ◕‿◕ )づ____
-##_L2_NERVOUS_SYSTEM_DEVELOPMENT______
-'REACTOME_NERVOUS_SYSTEM_DEVELOPMENT',
-##_L3_Axon_Guidance_______
-##_L4_L1CAM_interactions___
-'REACTOME_L1CAM_INTERACTIONS', #L4 
-'REACTOME_INTERACTION_BETWEEN_L1_AND_ANKYRINS', #L5
-'REACTOME_RECYCLING_PATHWAY_OF_L1', #L5
-
-##_L4_EPH-Ephrin_signalling___
-'REACTOME_EPH_EPHRIN_SIGNALING', #L4
-'REACTOME_EPHB_MEDIATED_FORWARD_SIGNALING', #L5
-
-##_L4_Signalling_by_ROBO_receptors___
-'REACTOME_SIGNALING_BY_ROBO_RECEPTORS', #L4
-'REACTOME_REGULATION_OF_EXPRESSION_OF_SLITS_AND_ROBOS', #L5
-
-##_L4_Semaphorin_interactions___
-'REACTOME_SEMAPHORIN_INTERACTIONS', #L4
-'REACTOME_CRMPS_IN_SEMA3A_SIGNALING', #L5
-'REACTOME_SEMA3A_PAK_DEPENDENT_AXON_REPULSION', #L5
-'REACTOME_OTHER_SEMAPHORIN_INTERACTIONS', #L5
-
-##_L2_LGI-ADAM_interactions___
-'REACTOME_LGI_ADAM_INTERACTIONS',
-
-
-
-
-
-
-##_L1_EXTRACELLUAR_MATRIX_ORGANIZATION_(づ ◕‿◕ )づ_____
-'REACTOME_EXTRACELLULAR_MATRIX_ORGANIZATION', # L1 (TOP LEVEL)
-
-##_L2_ECM_Proteoglycans__
-"REACTOME_ECM_PROTEOGLYCANS", #L2
-
-##_L2_Non-integrin_membrane-ECM_interactions__
-'REACTOME_FORMATION_OF_THE_DYSTROPHIN_GLYCOPROTEIN_COMPLEX_DGC', #L3 
-
-##_L2_Laminin_Interactions__
-'REACTOME_LAMININ_INTERACTIONS', #L2
-
-
-
-##_L1_CELL-CELL_COMMUNICATION_(づ ◕‿◕ )づ_____
-##_L2_Cell_junction_organization__
-##_L3_Cell-cell_junction_org__
-"REACTOME_ADHERENS_JUNCTIONS_INTERACTIONS", #L4
-
-
-##_L1_Signalling_L2_RHO_MIRO_RHOBTB3_(づ ◕‿◕ )づ_____
-"REACTOME_SIGNALING_BY_RHO_GTPASES_MIRO_GTPASES_AND_RHOBTB3", # top/2nd-level
-##_L3_RHO__________
-"REACTOME_RHO_GTPASE_CYCLE", # L4
-"REACTOME_RHO_GTPASE_EFFECTORS", #L4
-
-##_L1_Signalling_L2_SIGNALLING_BY_WNT_(づ ◕‿◕ )づ_____
-"REACTOME_SIGNALING_BY_WNT",
 
 
   
@@ -1708,27 +1738,6 @@ REACT_POI  <- c(
 ##_L1_ENERGY_(づ ◕‿◕ )づ_____
 "REACTOME_CHOLESTEROL_BIOSYNTHESIS",  
   
-  # "REACTOME_CELL_CYCLE",
-  # "REACTOME_SYNTHESIS_OF_DNA",
-  # "REACTOME_DNA_REPLICATION",
-  # "REACTOME_SWITCHING_OF_ORIGINS_TO_A_POST_REPLICATIVE_STATE",
-  # "REACTOME_MITOTIC_G1_PHASE_AND_G1_S_TRANSITION",
-  # "REACTOME_S_PHASE",
-  # "REACTOME_M_PHASE",
-  # "REACTOME_APC_C_MEDIATED_DEGRADATION_OF_CELL_CYCLE_PROTEINS",
-  # "REACTOME_CYCLIN_A_CDK2_ASSOCIATED_EVENTS_AT_S_PHASE_ENTRY",
-  # "REACTOME_STABILIZATION_OF_P53",
-  # # 
-  # # 
-  # # 
-  # # 
-  # "REACTOME_APOPTOSIS",
-  # "REACTOME_REGULATION_OF_APOPTOSIS",
-  # "REACTOME_PROGRAMMED_CELL_DEATH",
-  # "REACTOME_AGGREPHAGY",
-  # "REACTOME_SELECTIVE_AUTOPHAGY",
-  # 
-  # "REACTOME_MRNA_SPLICING",
   # 
   # # ##_IMMUNE_SYSTEM____________________________
   "REACTOME_CYTOKINE_SIGNALING_IN_IMMUNE_SYSTEM", # CYTOKINE IMMUNE
@@ -1770,9 +1779,9 @@ if (!dir.exists(react_out_dir)) dir.create(react_out_dir, recursive = TRUE)
 # for (rct in REACT_TOP_LVL) {
 
 # for(rct in p1_reactome_list) { # P1 - NT BDNF, dna rep, death, CA2+
-for(rct in p2_reactome_list) { # P2 - Gene Expression & Protein synthesis & processing
+# for(rct in p2_reactome_list) { # P2 - Gene Expression & Protein synthesis & processing
 # for(rct in p3_reactome_list) { # P3 - MITOCHONDRIA + METABOLISM-LIPIDS+AA+CARB+NUCLEOT
-
+for(rct in p4_reactome_list) { # P4 - Neuron & Synapse + CC-ECM Rho 
     
 # for (rct in REACT_POI) { # General 
   
@@ -1918,31 +1927,14 @@ for(rct in p2_reactome_list) { # P2 - Gene Expression & Protein synthesis & proc
                     # nudge_x = 0.155) +
 
     
-    # # NUM SIG UP & DOWN! | use sep df, overwise overplots
-    # geom_text(data = prot_sums, # up 
-    #           aes(label = paste0(up, " \U2191")), 
-    #           x = 1.35, y = 5.6, size = 3.2, color = "firebrick") + 
-    # geom_text(data = prot_sums, # down
-    #           aes(label = paste0(down, " \U2193")),
-    #           x = -1.4, y = 5.6, size = 3.2, color = "royalblue3") + 
-    # 
-    # 
-    # geom_text(data = path_sig_lab, # GSEA SIGNIFICANCE LABEL
-    #           aes(label = paste0(sig_val),
-    #               y = 4.80,
-    #               x = ifelse(NES > 0, 1.525, -1.525), # side if neg or pos
-    #               color = NES > 0), # col - TRUE FALSE 
-    #           size = 3.3) +
-    # scale_color_manual( # based on TRUE FALSE give color! 
-    #   values = c(`TRUE` = "firebrick", `FALSE` = "royalblue3")) +
     
     # NUM SIG UP & DOWN! | use sep df, overwise overplots
     geom_text(data = prot_sums, # up 
               aes(label = paste0(up, " \U2191")), 
-              x = 1.35, y = 7.3, size = 3.2, color = "firebrick") + 
+              x = 1.35, y = 7.27, size = 3.2, color = "firebrick") + 
     geom_text(data = prot_sums, # down
               aes(label = paste0(down, " \U2193")),
-              x = -1.4, y = 7.3, size = 3.2, color = "royalblue3") + 
+              x = -1.4, y = 7.27, size = 3.2, color = "royalblue3") + 
     
     
     geom_text(data = path_sig_lab, # GSEA SIGNIFICANCE LABEL
@@ -1982,10 +1974,9 @@ for(rct in p2_reactome_list) { # P2 - Gene Expression & Protein synthesis & proc
   # reactome_volcano_list[[rct]] <- vol_plot
   # reactome_TOP_volcano_list[[rct]] <- vol_plot
   # p1_reactome_volcano_list[[rct]] <- vol_plot
-  p2_reactome_volcano_list[[rct]] <- vol_plot
-  
+  # p2_reactome_volcano_list[[rct]] <- vol_plot
   # p3_reactome_volcano_list[[rct]] <- vol_plot
-  # 
+   p4_reactome_volcano_list[[rct]] <- vol_plot
   
   # _____________________________________
   # 4 - PRINT OUT PLOTS - all
