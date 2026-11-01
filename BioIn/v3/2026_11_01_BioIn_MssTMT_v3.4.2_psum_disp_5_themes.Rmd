@@ -1,0 +1,346 @@
+---
+title: "2026_11_01_BioIn_MssTMT_v3.4.2_psum_disp_5_themes"
+author: "Stephanie Huang"
+date: "2026-11-01"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 
+
+```{r}
+#load packages
+library(tidyverse)
+library(readxl)
+library(pheatmap)
+library(cowplot)
+library(ggh4x) # scalenested
+library(gt)
+library(ggrepel) #  for geom_text_repel()
+library(ggrastr) # https://tomsing1.github.io/blog/posts/volcano/
+library(colorspace)
+library(ggnewscale) # additional color/fill scale new_scale_fill()
+library(scales)
+```
+
+### Load in data
+
+```{r}
+#psum
+load("input/MssTMT_temp/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_psum.rda") # 
+
+#comp
+load("input/MssTMT_temp/2025_12_31_1pspg_v3.2.2_t1_EExAge_mapped_comp.rda") # 
+
+#anno
+anno <- read_csv("input/MssTMT_temp/EEv&SH_F&M_TMT_anno_v3_df_b_check_sorted_2025_12_31.csv") 
+# double check later!
+
+load("input/MssTMT_temp/rat_ref_proteome_2025_12_13_51872x295.rda")
+```
+
+```{r}
+colnames(rat_ref_proteome_2025_12_13)
+
+ref_rat_trm <- rat_ref_proteome_2025_12_13 %>%
+  select(Entry, Gene.Names, Protein.families, Keywords)
+```
+
+```{r}
+EE_main_ranks <- mapped_comp %>%
+  filter(Label == "H_EE_vs_SH") %>%
+  select(Protein, gene, log2FC, adj.pvalue) %>%
+  mutate(arrow = if_else(log2FC > 0, "\u2191", "\u2193")) %>%
+  arrange(adj.pvalue) %>%
+  mutate(rank = row_number()) %>%
+  mutate(sig = if_else(adj.pvalue <=0.05, "*", "")) %>%
+  mutate(crank = paste0(arrow, " ", rank,sig))
+
+EE_main_ranks_4_psum <- EE_main_ranks %>%
+  select(Protein, gene, arrow:crank)
+```
+
+## Map/Fix names - aka + bunch of extra annotation info! + join EE
+
+### For Protein Summarisation Data
+
+```{r}
+# Map details & shorten name
+mapped_psum <- left_join(mapped_psum_v3.2.2_EExAge,
+                                       anno,
+                                       by = join_by(
+                                         BioReplicate == BioReplicate,
+                                         Mixture == Mixture,
+                                         Channel == Channel)) %>%
+  dplyr::rename(Condition = Condition.x , Housing_c_anno = Condition.y) %>%
+  mutate(Age = ifelse(PND > 100, "OLD", "YNG")) %>%
+  mutate(Age = factor(Age, levels = c("YNG", "OLD"))) %>% # so YNG is 1st
+  mutate(across(c(Housing, Sex, Year, Cohort, Litter, exp_helper),
+         as.factor)) %>% # auto alphabetical order (not really needed?)
+  
+  left_join(ref_rat_trm, by = join_by("Protein" == "Entry")) %>%
+  left_join(EE_main_ranks_4_psum,
+            by = join_by("Protein" == "Protein", "gene" == "gene"))
+  
+
+# mapped_psum$Age <- factor(mapped_psum$Age, # WAIT NOT NEEDED?
+#                           levels = c(YNG))
+# sig_genes_count$pairwise.comp <- factor(sig_genes_count$pairwise.comp,
+#                                    levels = c("Housing", "ExpH", "Cohort",
+#                                               "Litter", "Sex"))
+  
+#Check 
+colnames(mapped_psum)
+```
+
+##### lil checks
+
+```{r}
+# # lil checks
+# head(mapped_comp_v3.2.2_EExAge_t1) # peak
+# str(mapped_comp_v3.2.2_EExAge_t1) # structure 
+# colnames(mapped_comp_v3.2.2_EExAge_t1) # column names
+# dim(mapped_comp_v3.2.2_EExAge_t1) # 64392 x 8
+# 
+# # lil checks (bit messy)
+# unique(mapped_comp_v3.2.2_EExAge_t1$issue) # na in issue col = good. if not excl
+# check_1 <- mapped_comp_v3.2.2_EExAge_t1 %>%
+#   filter(str_detect(log2FC, "Inf")) # 5 inf 
+# check_2 <- mapped_comp_v3.2.2_EExAge_t1 %>%
+#   filter(str_detect(Protein, "Cont")) # 0 (since already removed)
+# unique(mapped_comp_v3.2.2_EExAge_t1$Label) 
+# length(unique(mapped_comp_v3.2.2_EExAge_t1$Label)) #8
+```
+
+### For Group Comparison Data
+
+```{r}
+# shorten name & clean up! 
+mapped_comp <- mapped_comp_v3.2.2_EExAge_t1 %>%
+  
+  filter(is.na(issue)) %>% # keeps rows with issue == na (so comps that are ok)
+  filter(!str_detect(log2FC, "Inf")) %>% # remove infinity/missing FC values
+  
+  # make gene label for significant! 
+  mutate(sig_g_label = if_else(adj.pvalue <= .05, gene, NA)) %>%
+  
+  # make one for no. of sig up & down for each comaprison group/label
+  group_by(Label) %>%
+  mutate(sig_no_up_lab = sum(adj.pvalue < 0.05 & log2FC > 0), # up
+         sig_no_down_lab = sum(adj.pvalue < 0.05 & log2FC < 0)) %>%  #  down
+  
+  mutate(Direction = ifelse(log2FC > 0, "Up", "Down")) %>%
+  
+  left_join(ref_rat_trm, by = join_by("Protein" == "Entry")) %>%
+  filter(!(Label %in% c("HxA_EE_YNG_vs_SH_OLD", "HxA_EE_OLD_vs_SH_YNG"))) # 6 plots
+
+# check 
+head(mapped_comp) 
+colnames(mapped_comp)
+dim(mapped_comp) # 64384 x 22
+
+unique_check_mapcomp <- mapped_comp %>% 
+  dplyr::select(Label, sig_no_down_lab, sig_no_up_lab) %>%
+  unique() # yep matches up! 
+```
+
+#### df - significant comparisons
+
+```{r}
+mapped_comp_sig <- mapped_comp %>%
+  filter(adj.pvalue < 0.05)
+
+dim(mapped_comp_sig) # 458 x 21
+```
+
+------------------------------------------------------------------------
+
+# Themed PhD PSUM plots
+
+Just doing nooby manual way for now
+
+- <https://forum.posit.co/t/reordering-plot-based-on-another-dataframe/26467/3>
+
+#### psum theme
+
+```{r}
+my_psum_facet_theme <- 
+  theme(
+    axis.text.y = element_text(size = 7, color ="grey10"),
+    axis.text.x = element_text(size = 7, color ="grey10"),
+    axis.title.y= element_text(size = 8, color ="grey10"),
+    axis.title.x = element_blank(),
+    
+    panel.spacing = unit(0.2, "cm"),  # Removes space between panel 
+    legend.title = element_text(color = "grey10", face = "italic",  size = 9),
+    legend.margin = margin(-5,0,0,0), # space between plot & legend
+    legend.key.size = unit(0.5, "cm"), # size of legend key icon,
+    axis.ticks = element_line(linewidth = .1, colour = "grey15"),
+    panel.border = element_rect(fill = NA,color = "grey10",linewidth = 0.3), #plot bord
+    strip.background = element_rect(color = 'grey10',
+                                    fill = 'grey90',linewidth = .25),
+    strip.text = element_text(face = "italic", size = 9.5, color = "grey10"),
+    plot.title = element_text(size = 11.5,  color = "grey10",face = "italic"),
+    plot.subtitle = element_text(size = 9,  color = "grey10",face = "italic"),
+    panel.grid.major = element_line(color = "grey90", linewidth = 0.15),
+    panel.grid.minor = element_line(color = "grey95", linewidth = 0.15),
+    legend.position = "bottom"
+  )
+```
+
+---
+
+#### P1 
+
+```{r}
+
+p1_NTS_neurotrophins_grwf <- c('','','','')
+
+
+p1_NTS_CA_GPCR <- c()
+```
+
+### P2
+
+### P3
+
+```{r}
+p3_EM_oxphos <- c('Ndufs4', 'Atp6v0a1', 'Cox5b', 'Lancl1', 'Pgam1')
+
+p3_EM_lipid_FA <- c('Decr1', 'Gla', 'Cbr3', '')
+
+p3_EM_sterol <- c('Hmgcs1', 'Fdps', 'Gc', 'Aacs',  'Acat1', 'Lss', 'Mvd',
+                   'Fdft1', 'Abca5','Ggps1', 'Idi1', 'Pcyox1', 'Erg28', 'Srebf2',
+                  'Icmt')
+
+
+  
+  # filter(gene %in% c('Itpk1', 'Lss', 'Fdft1', 'Abca5', 'Ugt8', 'Acaca', 'Cert1', 'Decr1',
+  #                    'Apoc1', 'Acsbg1', 'Gla', 'Pitpna', 'Hmgcs1', 'Fdps' ,'Mvd', 'Acat1',
+  #                    'Asah1', 'Acot13', 'Cbr3', 'Aacs', 'Gc')) %>% #
+    # 
+    # filter(gene %in% c('Lss', 'Fdft1', 'Abca5',  'Hmgcs1', 'Fdps' ,'Mvd', 'Acat1',
+    #                   'Gc', 'Ggps1', 'Idi1')) %>% #
+```
+
+### P4
+
+### P4 
+
+```{r}
+# Fels 2021
+p4_SYN_presynaptic <- c('Rph3a', 'Stxbp5l', 'Atp6v0a1', 'Slc17a7', 
+                        'Syt12', 'Rab3a', 'Syt7') 
+                        # 'Penk', 'Sst', 'Pvalb' , 'Npy', 'Pmch', 'Atp1a3',
+                        
+p4_SYN_electro <- c('Atp1a3', 'Atp1b1', 'Fxyd6', 'Hcn2', 'Kcna1', 'Kcna2', 'Dpp6'
+                     ) 
+                        # 'Penk', 'Sst', 'Pvalb' , 'Npy', 'Pmch', 'Atp1a3',
+
+p4_SYN_neuropep <- c('Penk', 'Sst', 'Pvalb' , 'Npy', 'Pmch', 'Tac1'
+                     #'Scamp2', 'Ehd2'
+                     ) 
+
+p4_SYN_PSD <- c('')
+
+
+lgi_adam <- c('Kcna1', 'Adam22', 'Lgi1', 'Cacng2', 'Dlg4', 'Mpp3', 'Shank1', 'Fscn1',
+              'Gria1', 'Gria2', 'Gria3', 'Gria4')
+
+```
+
+```{r}
+EE_syn_check <- mapped_psum %>%
+  
+  mutate(Condition = forcats::fct_reorder(Condition, PND)) %>% # reoder by PND (no)
+  # mutate(Cohort = forcats::fct_relevel(Cohort, "4", "3b", "3a")) %>%
+
+  # filter(str_detect(Keywords, regex("Growth factor", ignore_case = TRUE))) %>%
+    # filter(gene %in%  calcium_prots) %>%
+  # 
+  # filter(grepl("^Grin1|Grin2|Camk2|Camk4|Calm|Ryr2|Cacng|Prkar2b|Prkaca|Prkac|Gnb14|Slc8", gene)) %>%
+
+  # filter(str_detect(Keywords, regex("Growth factor", ignore_case = TRUE))) %>%
+  
+
+  # filter( #gene %in% c("Camk2a") | #glutamate
+  #        grepl("^Gria|^Grin|^Grm|Grik|Slc17a6|Slc17a7|Slc17a8|Cacng|Reln|^Htr", gene)) %>%
+    # 
+    # filter(gene %in%  p3_EM_oxphos) %>%
+    # filter(gene %in%  p3_EM_sterol) %>%
+
+  # filter(gene %in%  p4_SYN_presynaptic) %>%
+  # filter(gene %in%  p4_SYN_electro) %>%
+  filter(gene %in%  p4_SYN_neuropep) %>%
+  
+  ##_(づ ◕‿◕ )づ  ____Synaptic Adhesion
+  # filter(grepl("^Nrxn|Nlgn", gene)) %>% # Neurexins (+Cntnap) & Neuroligins
+  # filter(grepl("Lgi1|Lgi2|Lrrc7|Adam11|Adam22", gene)) %>% # LGI-ADAM
+  # filter(grepl("Netrin", description)) %>% # Netrins (Unc5a-5d | Dcc| Ntng)
+  # filter(grepl("^Plxn", gene)) %>%
+  # filter(grepl("^Pcdhb1|Pcdh9|Pcdh17|Cdh11|Cdh13|Ctnnd1|Ctnna2|Ctnnb1", gene)) %>%
+  # filter(grepl("^Pcdhb1|Pcdh17|Cdh11|Cdh13|Ctnnd1|Ctnna2", gene)) %>%
+  # filter(grepl("^Epha4|Ephb2|Efnb3|Ncam1|Ncam2|Chl1|Nfasc", gene)) %>%
+  ## (／ロ°)／
+  
+  ## (／ロ°)／
+  
+
+  
+  ggplot(aes( # ggplot aes
+    x = interaction(Age, Housing,
+    # x = interaction(Age, Cohort, Housing,                 
+                    sep = "\n", # space
+                    lex.order = TRUE),
+    y = Abundance,
+    fill = Housing, color = Sex)) +
+  
+
+  geom_text(aes(x = 3.9, y = Inf, label = crank), color ="grey30",
+            vjust = 2, size = 2.1, alpha = 0.75) +
+  
+  geom_rect(data = data.frame(xmin = -Inf, xmax = 2.5, linewidth = 0.05),
+            aes(xmin = xmin, xmax = xmax, ymin = -Inf, ymax = Inf),
+          fill = "#BFBBD5", color = "grey60", alpha = 0.25, inherit.aes = FALSE) +
+  geom_rect(data = data.frame(xmin = 2.5, xmax = Inf),  linewidth = 0.05,
+            aes(xmin = xmin, xmax = xmax, ymin = -Inf, ymax = Inf),
+        fill = "burlywood", color = "grey70", alpha = 0.25, inherit.aes = FALSE) +
+  
+
+  
+  annotate("text", x = 1,   y = -Inf, label = "YNG", vjust = -0.65, size = 2,
+           fontface = "italic", color = "#BFBBD5", alpha =0.9) +
+  annotate("text", x = 3, y = -Inf, label = "OLD",   vjust = -0.65, size = 2,
+           fontface = "italic", color = "burlywood", alpha =0.9) +
+  
+  
+  
+  
+  geom_boxplot(width = 0.55, size = 0.7, median.linewidth = .45, linewidth = 0.2,
+               position = position_dodge(width = 0.7),
+               outlier.shape = NA,
+               color = "grey10", alpha = 0.9) +
+  stat_summary(fun=mean, geom="point", position = position_dodge(width = 0.7),
+               shape=4, size = 1.1, stroke = 0.3, color ="grey10") +
+  
+  ggrastr::geom_point_rast(size = .3, shape = 1, stroke = .3, alpha = 0.5,
+                position = position_jitterdodge(dodge.width = 0.4, jitter.width = 0.2),
+                            raster.dpi = getOption("ggrastr.default.dpi", 330)) +
+  
+  scale_fill_manual(values = c("#66A61EFF", "#E6AB02FF")) + # housing colors
+  # scale_alpha_manual(values = c(.7,.75)) +
+  scale_color_manual(values = c("#d33682", "#268bd2"),
+                     name = "Sex (Year)") +
+  # guides(y.sec = 'axis') + # adds 2nd y axis (right side)
+  scale_y_continuous(labels = label_number(accuracy = 0.1), # 1dp
+                     expand = expansion(mult = c(0.1, 0.15))) +
+  scale_x_discrete(labels = function(x) sub("^[^\n]+\n", "", x)) + # removes extra YNG OLD bit
+  facet_wrap(~reorder(gene, rank), ncol =7, scale = "free_y") +
+    theme_bw() +
+  my_psum_facet_theme 
+
+EE_syn_check
+```
