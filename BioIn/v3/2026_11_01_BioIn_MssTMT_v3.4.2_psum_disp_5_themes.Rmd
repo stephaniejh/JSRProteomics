@@ -115,46 +115,7 @@ colnames(mapped_psum)
 # length(unique(mapped_comp_v3.2.2_EExAge_t1$Label)) #8
 ```
 
-### For Group Comparison Data
-
-```{r}
-# shorten name & clean up! 
-mapped_comp <- mapped_comp_v3.2.2_EExAge_t1 %>%
-  
-  filter(is.na(issue)) %>% # keeps rows with issue == na (so comps that are ok)
-  filter(!str_detect(log2FC, "Inf")) %>% # remove infinity/missing FC values
-  
-  # make gene label for significant! 
-  mutate(sig_g_label = if_else(adj.pvalue <= .05, gene, NA)) %>%
-  
-  # make one for no. of sig up & down for each comaprison group/label
-  group_by(Label) %>%
-  mutate(sig_no_up_lab = sum(adj.pvalue < 0.05 & log2FC > 0), # up
-         sig_no_down_lab = sum(adj.pvalue < 0.05 & log2FC < 0)) %>%  #  down
-  
-  mutate(Direction = ifelse(log2FC > 0, "Up", "Down")) %>%
-  
-  left_join(ref_rat_trm, by = join_by("Protein" == "Entry")) %>%
-  filter(!(Label %in% c("HxA_EE_YNG_vs_SH_OLD", "HxA_EE_OLD_vs_SH_YNG"))) # 6 plots
-
-# check 
-head(mapped_comp) 
-colnames(mapped_comp)
-dim(mapped_comp) # 64384 x 22
-
-unique_check_mapcomp <- mapped_comp %>% 
-  dplyr::select(Label, sig_no_down_lab, sig_no_up_lab) %>%
-  unique() # yep matches up! 
-```
-
-#### df - significant comparisons
-
-```{r}
-mapped_comp_sig <- mapped_comp %>%
-  filter(adj.pvalue < 0.05)
-
-dim(mapped_comp_sig) # 458 x 21
-```
+### 
 
 ------------------------------------------------------------------------
 
@@ -169,19 +130,20 @@ Just doing nooby manual way for now
 ```{r}
 my_psum_facet_theme <- 
   theme(
-    axis.text.y = element_text(size = 7, color ="grey10"),
-    axis.text.x = element_text(size = 7, color ="grey10"),
-    axis.title.y= element_text(size = 8, color ="grey10"),
+    axis.text.y = element_text(size = 6.5, color ="grey10"),
+    axis.text.x = element_text(size = 6, color ="grey10"),
+    axis.title.y= element_text(size = 7.5, color ="grey10"),
     axis.title.x = element_blank(),
     
     panel.spacing = unit(0.2, "cm"),  # Removes space between panel 
-    legend.title = element_text(color = "grey10", face = "italic",  size = 9),
+    legend.title = element_text(color = "grey10", face = "italic",  size = 8),
+    legend.text = element_text(color = "grey10", size = 6.5),
     legend.margin = margin(-5,0,0,0), # space between plot & legend
-    legend.key.size = unit(0.5, "cm"), # size of legend key icon,
+    legend.key.size = unit(0.4, "cm"), # size of legend key icon,
     axis.ticks = element_line(linewidth = .1, colour = "grey15"),
     panel.border = element_rect(fill = NA,color = "grey10",linewidth = 0.3), #plot bord
     strip.background = element_rect(color = 'grey10',
-                                    fill = 'grey90',linewidth = .25),
+                                    fill = 'grey93',linewidth = .2),
     strip.text = element_text(face = "italic", size = 9.5, color = "grey10"),
     plot.title = element_text(size = 11.5,  color = "grey10",face = "italic"),
     plot.subtitle = element_text(size = 9,  color = "grey10",face = "italic"),
@@ -191,14 +153,16 @@ my_psum_facet_theme <-
   )
 ```
 
----
+------------------------------------------------------------------------
 
-#### P1 
+#### P1
 
 ```{r}
 
-p1_NTS_neurotrophins_grwf <- c('','','','')
-
+p1_NTS_ntroph_grwf <- c("Ntrk2", "Ntrk3", "Ntf3", "Bdnf", 'Sort1',
+                        'Mmp3', 'Mmp7', 'Ngfr', 'Plat', 'Furin', 
+                        'Hdgf', 'Igf2r')
+# 'Plg',
 
 p1_NTS_CA_GPCR <- c()
 ```
@@ -228,7 +192,7 @@ p3_EM_sterol <- c('Hmgcs1', 'Fdps', 'Gc', 'Aacs',  'Acat1', 'Lss', 'Mvd',
 
 ### P4
 
-### P4 
+### P4
 
 ```{r}
 # Fels 2021
@@ -236,24 +200,36 @@ p4_SYN_presynaptic <- c('Rph3a', 'Stxbp5l', 'Atp6v0a1', 'Slc17a7',
                         'Syt12', 'Rab3a', 'Syt7') 
                         # 'Penk', 'Sst', 'Pvalb' , 'Npy', 'Pmch', 'Atp1a3',
                         
-p4_SYN_electro <- c('Atp1a3', 'Atp1b1', 'Fxyd6', 'Hcn2', 'Kcna1', 'Kcna2', 'Dpp6'
-                     ) 
+p4_SYN_electro <- c('Atp1a3', 'Atp1b1', 'Fxyd6', 'Hcn2', 'Kcna1', 'Kcna2', 'Dpp6') 
                         # 'Penk', 'Sst', 'Pvalb' , 'Npy', 'Pmch', 'Atp1a3',
 
-p4_SYN_neuropep <- c('Penk', 'Sst', 'Pvalb' , 'Npy', 'Pmch', 'Tac1'
+p4_SYN_neuropep <- c('Penk', 'Sst', 'Pvalb' , 'Npy', 'Pmch', 'Tac1', 'Cck'
                      #'Scamp2', 'Ehd2'
                      ) 
 
-p4_SYN_PSD <- c('')
+# 7 cort interneurons (Makaram 2004) + Tac1 & Penk/Pdyn + Pcsk1n (protSAAS), Folh1, pmch
+p4_SYN_neuropep_large <- c( "Calb1", "Calb2", 'Cck',  "Npy", "Sst", 'Pvalb', "Vip",
+                            "Tac1", 'Penk',  "Pmch", "Slc32a1", "Gad1", 'Gad2', 'Sncg'
+                            # "Pdyn", "Pcsk1n", "Folh1", 
+                            )
 
 
-lgi_adam <- c('Kcna1', 'Adam22', 'Lgi1', 'Cacng2', 'Dlg4', 'Mpp3', 'Shank1', 'Fscn1',
+p4_SYN_exicitatory_LIT <- c('Camk2a', 'Syp', 'Dlg1', 'Dlg3', 'Dlg4', 'Gria1', 'Gria2', 'Gria3', 
+                            'Gria4', 'Grin1', 'Grin2a', 'Grin2b', 'Arc', 'Slc17a7', 'Grm1',
+                            'Cacng3', 'Gripap1', 'Cacng2') 
+                   
+p4_SYN_Nrxn_Nlgn <- c('Nrxn1', 'Nrxn2', 'Nrxn3', 'Nlgn1', 'Nlgn2', 'Nlgn3')
+
+p4_SYN_lgi_adam <- c('Kcna1',  'Adam22', 'Adam23',  'Lgi1',   'Cacng2', 'Dlg4', 
               'Gria1', 'Gria2', 'Gria3', 'Gria4')
 
+
+# 'Fscn1', 'Mpp3', 'Shank1',
+# Lgi4 , 'Adam11' 
 ```
 
 ```{r}
-EE_syn_check <- mapped_psum %>%
+selected_psums <- mapped_psum %>%
   
   mutate(Condition = forcats::fct_reorder(Condition, PND)) %>% # reoder by PND (no)
   # mutate(Cohort = forcats::fct_relevel(Cohort, "4", "3b", "3a")) %>%
@@ -269,13 +245,20 @@ EE_syn_check <- mapped_psum %>%
   # filter( #gene %in% c("Camk2a") | #glutamate
   #        grepl("^Gria|^Grin|^Grm|Grik|Slc17a6|Slc17a7|Slc17a8|Cacng|Reln|^Htr", gene)) %>%
     # 
+
+  # filter(gene %in%  p1_NTS_ntroph_grwf) %>%
     # filter(gene %in%  p3_EM_oxphos) %>%
     # filter(gene %in%  p3_EM_sterol) %>%
 
   # filter(gene %in%  p4_SYN_presynaptic) %>%
   # filter(gene %in%  p4_SYN_electro) %>%
-  filter(gene %in%  p4_SYN_neuropep) %>%
-  
+  # filter(gene %in%  p4_SYN_neuropep) %>%
+  filter(gene %in%  p4_SYN_neuropep_large) %>%
+  # filter(gene %in%  p4_SYN_exicitatory_LIT) %>%
+  # filter(gene %in%  p4_SYN_lgi_adam) %>%
+    # filter(gene %in%  p4_SYN_Nrxn_Nlgn) %>%
+
+
   ##_(づ ◕‿◕ )づ  ____Synaptic Adhesion
   # filter(grepl("^Nrxn|Nlgn", gene)) %>% # Neurexins (+Cntnap) & Neuroligins
   # filter(grepl("Lgi1|Lgi2|Lrrc7|Adam11|Adam22", gene)) %>% # LGI-ADAM
@@ -299,8 +282,8 @@ EE_syn_check <- mapped_psum %>%
     fill = Housing, color = Sex)) +
   
 
-  geom_text(aes(x = 3.9, y = Inf, label = crank), color ="grey30",
-            vjust = 2, size = 2.1, alpha = 0.75) +
+  geom_text(aes(x = 3.85, y = Inf, label = crank), color ="grey10", alpha = 0.75,
+            vjust = 2, size = 2.2, stat = "unique") + # stat unq, otherwise fuzzy!
   
   geom_rect(data = data.frame(xmin = -Inf, xmax = 2.5, linewidth = 0.05),
             aes(xmin = xmin, xmax = xmax, ymin = -Inf, ymax = Inf),
@@ -313,13 +296,13 @@ EE_syn_check <- mapped_psum %>%
   
   annotate("text", x = 1,   y = -Inf, label = "YNG", vjust = -0.65, size = 2,
            fontface = "italic", color = "#BFBBD5", alpha =0.9) +
-  annotate("text", x = 3, y = -Inf, label = "OLD",   vjust = -0.65, size = 2,
+  annotate("text", x = 3.05, y = -Inf, label = "OLD",   vjust = -0.65, size = 2,
            fontface = "italic", color = "burlywood", alpha =0.9) +
   
   
   
   
-  geom_boxplot(width = 0.55, size = 0.7, median.linewidth = .45, linewidth = 0.2,
+  geom_boxplot(width = 0.5, size = 0.6, median.linewidth = .45, linewidth = 0.2,
                position = position_dodge(width = 0.7),
                outlier.shape = NA,
                color = "grey10", alpha = 0.9) +
@@ -336,11 +319,12 @@ EE_syn_check <- mapped_psum %>%
                      name = "Sex (Year)") +
   # guides(y.sec = 'axis') + # adds 2nd y axis (right side)
   scale_y_continuous(labels = label_number(accuracy = 0.1), # 1dp
-                     expand = expansion(mult = c(0.1, 0.15))) +
+                     expand = expansion(mult = c(0.05, 0.1))) +
   scale_x_discrete(labels = function(x) sub("^[^\n]+\n", "", x)) + # removes extra YNG OLD bit
-  facet_wrap(~reorder(gene, rank), ncol =7, scale = "free_y") +
+  # facet_wrap(~reorder(gene, rank), ncol =6, scale = "free_y") +
+    facet_wrap(~gene, ncol =7, scale = "free_y") +
     theme_bw() +
   my_psum_facet_theme 
 
-EE_syn_check
+selected_psums
 ```

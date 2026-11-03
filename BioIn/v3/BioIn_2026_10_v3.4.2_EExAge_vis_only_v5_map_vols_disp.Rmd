@@ -492,16 +492,48 @@ plot_grid(
   #kegg_volcano_list$REACTOME_, #PPinER(rno04141)
   p4_reactome_volcano_list$REACTOME_NEURONAL_SYSTEM,
   p4_reactome_volcano_list$REACTOME_NERVOUS_SYSTEM_DEVELOPMENT,
-
   labels = c("a", "b", "c", "d", "e", "f"),
   label_colour = "grey10", label_size = 11,  ncol = 1)
 #2026_10_30_p4_2_gen_NEURONAL_map_vol
 ```
 
 ```{r}
-
+# KEGG synaptic vesicle cycle & REACTOME MAP vol
+plot_grid( 
+  kegg_volcano_list$rno04721, #synaptic vescile(rno04721)
+  p4_reactome_volcano_list$REACTOME_POTASSIUM_CHANNELS,
+  labels = c("a", "b", "c", "d", "e", "f"),
+  label_colour = "grey10", label_size = 11,  ncol = 1)
+#2026_10_30_p4_2_SynVesCyc_potas_map_vol
 ```
 
 ```{r}
+# 5/6 KEGG - NT & NeuroPep- GABA, ret_endoca, neuroa_lig x 2,  nicotine +REACT AMPA
+plot_grid(
+  kegg_volcano_list$rno04723, # rno04723(retro_endo)
+  kegg_volcano_list$rno04727, # rno04727(GABA)
+  kegg_volcano_list$rno04082, # rno04082(neuroactive ligand)
+  kegg_volcano_list$rno04080, # rno04080(Neuroactive lig-recept)
+  kegg_volcano_list$rno05033, # rno05033(nicotine addition)
+  p4_reactome_volcano_list$REACTOME_TRAFFICKING_OF_AMPA_RECEPTORS,
+  # kegg_volcano_list$rno04360, # axon guidance
+  labels = c("a","b", "c", "d", "e", "f"),
+  ncol = 1, label_colour = "grey10", label_size = 11)
 
+#2026_11_02_p4_5_SYNP_KEGG_NT_NeuroPep_map_vols
+#2026_11_02_p4_6_SYNP_KEGG_NT_NeuroPep_RCT_AMPA_map_vols # 6 PLOTS 
+```
+
+```{r}
+# 
+plot_grid(
+  p4_reactome_volcano_list$REACTOME_TRAFFICKING_OF_AMPA_RECEPTORS,
+  p4_reactome_volcano_list$REACTOME_UNBLOCKING_OF_NMDA_RECEPTORS_GLUTAMATE_BINDING_AND_ACTIVATION,
+  p4_reactome_volcano_list$REACTOME_ASSEMBLY_AND_CELL_SURFACE_PRESENTATION_OF_NMDA_RECEPTORS,
+  # kegg_volcano_list$rno04360, # axon guidance
+  
+  labels = c("a","b", "c", "d", "e", "f"),
+  ncol = 1, label_colour = "grey10", label_size = 11)
+
+#2026_11_02_p4_3_SYNP_REACT_AMPA_NMDA_map_vols
 ```
