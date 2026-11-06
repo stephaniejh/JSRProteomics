@@ -93,7 +93,7 @@ mapped_psum <- left_join(mapped_psum_v3.2.2_EExAge,
 #                                               "Litter", "Sex"))
   
 #Check 
-colnames(mapped_psum)
+# colnames(mapped_psum)
 ```
 
 ##### lil checks
@@ -115,7 +115,75 @@ colnames(mapped_psum)
 # length(unique(mapped_comp_v3.2.2_EExAge_t1$Label)) #8
 ```
 
-### 
+```{r}
+mapped_comp <- mapped_comp_v3.2.2_EExAge_t1
+```
+
+```{r}
+mapped_comp_housing <- mapped_comp %>% # 64392
+  filter(Label == "H_EE_vs_SH") %>% # 8049
+  arrange(adj.pvalue) %>%
+  mutate(no. = row_number(), .before = Protein) %>%
+  rename(DB = database, PE = protein_existence)
+  # filter(!str_detect(log2FC, "Inf")) # %>% # drops 1 ? - 8048
+  # filter(is.na(issue)) %>% # 8048
+
+```
+
+```{r}
+mapped_comp_housing_existence <- mapped_comp_housing %>%
+  filter(PE == 2) #4906/8048 = 1| 1105 = 2| 1295 = 3| 742 = 4| 0 = 5
+
+mapped_comp_housing_swissprot <- mapped_comp_housing %>%
+  filter(DB == "tr") # 3929 swiss prot
+
+mapped_comp_housing_checks <- mapped_comp_housing %>%
+  filter(gene %in% c('Hmgcs1','Atp1a3', 'Syt12', 'Nrn1', 'Rasa3',
+                     'Camk2a', 'Rbm3', 
+                     'Angel2', 'Plxnb2', 'Sos1', 'Pcdh17')|
+           adj.pvalue < 0.7)
+
+
+mapped_comp_housing_counts <- mapped_comp_housing %>%
+  count(gene)
+```
+
+#### gt - for proteomics experiment methods group comp excerpt table
+
+```{r}
+excerpt_comp_EE_gt <- mapped_comp_housing %>%
+  select(no., gene, Protein, Label, log2FC, SE, DF, pvalue, adj.pvalue, issue,
+         DB, PE, description) %>%
+  
+  filter(gene %in% c('Hmgcs1','Atp1a3', 'Syt12', 'Nrn1', 'Rasa3', 
+                     'Tsn', 'Fdps', 'Nwd2',  'Cd200', 'Plxnb2', 'Pcdh17', 
+                     'Camk2a', 'Adam22', 'Ago1', 'Ciao1', 'Nptx2', 'Stxbp5l',
+                     'Dglucy', 'Dguok', 'Vgf', 'Kat7', 'Kat14', 'Cat', 'Kit',
+                     'Pigs', 'Endog', 'Yes1',  'Nono', 'Cnih3', 'Cnih2',
+                     'Angel2', 'Bad', 'Star', 'Son', 'Robo2', 'Oat',
+                     'Ntf3', 'Lynx1', 'Foxo6', 'Elmo1', 'Tub', 'Trex2',
+                     'Crabp1', 'Flywch1',  'Mink1', 'Pcsk1n', 'Dscaml1',
+                     'Abat', 'ZNF418', 'Cxhxorf58', 'S100b', 'Kcna1', 'Kcna2',
+                     'Epha3', 'Sos1', 'Nova1', 'Cend1', 'Npy', 'Ncan', 'Synj1',
+                     'Syndig1l', 'Neurod6', 'Syn1', 'Dlg4', 'Homer1', 'Synpo',
+                     'Rtn4', 'L1cam', 'Mtor', 'Nptxr', 'Kras', 'Igf1r', 'Nrgn',
+                     'Sox6', 'Svop', 'Prnp', 'Begain', 'Api5', 'Vti1a', 'Abca8a'
+                     )) %>%
+  gt() %>% 
+  fmt_number(columns = c(log2FC, SE), decimals = 3) %>%
+  fmt_number(columns = DF, decimals = 2) %>%
+  fmt_number(columns = pvalue, decimals = 8) %>%
+  fmt_number(columns = adj.pvalue, decimals = 6) %>%
+# gtExtras::gt_theme_nytimes() 
+  gtExtras::gt_theme_espn()
+   # gtExtras::gt_theme_538()
+  # gtExtras::gt_theme_pff()
+  # gtExtras::gt_theme_guardian()
+  # gtExtras::gt_theme_excel()
+
+ 
+excerpt_comp_EE_gt 
+```
 
 ------------------------------------------------------------------------
 
