@@ -355,11 +355,11 @@ plot_grid(custom_dopplot, custom_dopplot_2, ncol = 1)
 
 ### Working with lists (side tangent
 
--   [https://stackoverflow.com/questions/32819539/proper-way-to-access-list-elements-in-r](https://stackoverflow.com/questions/32819539/proper-way-to-access-list-elements-in-r#){.uri}
--   [https://www.r-bloggers.com/2023/07/how-to-subset-list-objects-in-r](https://www.r-bloggers.com/2023/07/how-to-subset-list-objects-in-r/#){.uri}
--   <https://www.reddit.com/r/rstats/comments/sd3n8k/extract_data_from_a_list_within_a_list_that_is/>
--   <https://pratikunterwegs.github.io/tres-tidy-tutorial/working-with-lists-and-iteration.html>
--   SOLUTION ! - purrr:::map_dfr() <https://purrr.tidyverse.org/reference/map_dfr.html>
+- [https://stackoverflow.com/questions/32819539/proper-way-to-access-list-elements-in-r](https://stackoverflow.com/questions/32819539/proper-way-to-access-list-elements-in-r#){.uri}
+- [https://www.r-bloggers.com/2023/07/how-to-subset-list-objects-in-r](https://www.r-bloggers.com/2023/07/how-to-subset-list-objects-in-r/#){.uri}
+- <https://www.reddit.com/r/rstats/comments/sd3n8k/extract_data_from_a_list_within_a_list_that_is/>
+- <https://pratikunterwegs.github.io/tres-tidy-tutorial/working-with-lists-and-iteration.html>
+- SOLUTION ! - purrr:::map_dfr() <https://purrr.tidyverse.org/reference/map_dfr.html>
 
 ```{r}
 # baseR - nope assumes list
@@ -434,7 +434,7 @@ lolly_KEGG_facet
 
 ## Pathview test
 
--   <https://pathview.r-forge.r-project.org/pathview.pdf>
+- <https://pathview.r-forge.r-project.org/pathview.pdf>
 
 ```{r}
 # data(gse16873.d)
@@ -570,12 +570,12 @@ lolly_GO_facet
 
 ### Top Go (maybe later)
 
--   <https://bioconductor.org/packages/release/bioc/vignettes/topGO/inst/doc/topGO_manual.html>
--   <https://davidzhao1015.github.io/blog/2024/go-enrichment/#5-comparing-results>
+- <https://bioconductor.org/packages/release/bioc/vignettes/topGO/inst/doc/topGO_manual.html>
+- <https://davidzhao1015.github.io/blog/2024/go-enrichment/#5-comparing-results>
 
 ### **ClusterProfiler Simplify() (from GOSemSim orginally)**
 
--   <https://yulab-smu.top/biomedical-knowledge-mining-book/utilities.html#reduce-redundancy-of-enriched-go-terms>
+- <https://yulab-smu.top/biomedical-knowledge-mining-book/utilities.html#reduce-redundancy-of-enriched-go-terms>
 
 ```{r}
 
@@ -768,19 +768,19 @@ cells_plot
 
 drawCell:drawCell
 
--   TaxonId - <https://www.ncbi.nlm.nih.gov/taxonomy/>
+- TaxonId - <https://www.ncbi.nlm.nih.gov/taxonomy/>
 
--   list_sl_colors (subcellular location) - <http://current.geneontology.org/ontology/external2go/uniprotkb_sl2go>
+- list_sl_colors (subcellular location) - <http://current.geneontology.org/ontology/external2go/uniprotkb_sl2go>
 
-    -   <https://www.uniprot.org/locations?query=>\*
+  - <https://www.uniprot.org/locations?query=>\*
 
--   Code for neuron is 6072
+- Code for neuron is 6072
 
--   export widget <https://stackoverflow.com/questions/40089207/how-to-arrange-html-widget-plots-in-a-grid-for-export-as-pdf>
+- export widget <https://stackoverflow.com/questions/40089207/how-to-arrange-html-widget-plots-in-a-grid-for-export-as-pdf>
 
-    -   <https://forum.posit.co/t/save-viewer-object-rendered-in-rstudio-as-image/32796/10>
+  - <https://forum.posit.co/t/save-viewer-object-rendered-in-rstudio-as-image/32796/10>
 
-    -   <https://github.com/wch/webshot/issues/72>
+  - <https://github.com/wch/webshot/issues/72>
 
 ```{r}
 # # read in mapped subcellelular infor from uniprot
@@ -999,13 +999,13 @@ neuron_map_2026_01_28
 
 tutorials
 
--   <https://www.youtube.com/watch?v=JEaNhUq_8rA>
+- <https://www.youtube.com/watch?v=JEaNhUq_8rA>
 
--   <https://almeidasilvaf.github.io/NASB/chapters/04_analysis_of_PPI_networks.html>
+- <https://almeidasilvaf.github.io/NASB/chapters/04_analysis_of_PPI_networks.html>
 
--   <https://rpubs.com/HWH/913747>
+- <https://rpubs.com/HWH/913747>
 
--   <https://string-db.org/cgi/access?footer_active_subpage=archive>
+- <https://string-db.org/cgi/access?footer_active_subpage=archive>
 
 Running test/tutorial
 
@@ -1057,9 +1057,9 @@ string_db$plot_network(top200)
 
 ### 4.3 - Interacting w the STRING server
 
--   <https://almeidasilvaf.github.io/NASB/chapters/04_analysis_of_PPI_networks.html#interacting-with-the-string-server>
+- <https://almeidasilvaf.github.io/NASB/chapters/04_analysis_of_PPI_networks.html#interacting-with-the-string-server>
 
--   Payload mechism of STRING (adds colored border halo to nodes based on a specified variable) - here send data to STRING serves & use output as
+- Payload mechism of STRING (adds colored border halo to nodes based on a specified variable) - here send data to STRING serves & use output as
 
 ```{r}
 # Remove non-DE genes & add `color` column
@@ -1089,9 +1089,9 @@ string_db$plot_network(top200, # used the top 200 from before
 
 ### Find PPI Clusters
 
--   <https://almeidasilvaf.github.io/NASB/chapters/04_analysis_of_PPI_networks.html#find-ppi-clusters>
+- <https://almeidasilvaf.github.io/NASB/chapters/04_analysis_of_PPI_networks.html#find-ppi-clusters>
 
--   To detect clusters in the PPI network, use get_clusters() method, which in turn uses the clustering algorithim in cluster\_ in igraph functions - see `??igraph::cluster_` 
+- To detect clusters in the PPI network, use get_clusters() method, which in turn uses the clustering algorithim in cluster\_ in igraph functions - see `??igraph::cluster_` 
 
 ```{r}
 # find clusters using only the 1st 600 genes
@@ -1211,7 +1211,7 @@ par(mfrow = c(1,1))
 
 note stringdb ranked analysis actually uses full list (e.g. entrez ranked genelist)
 
--   Permalink to EEvsSH analysis on StringDB - <https://version-12-0.string-db.org/cgi/globalenrichment?networkId=b5VSFSgnPE4Z>
+- Permalink to EEvsSH analysis on StringDB - <https://version-12-0.string-db.org/cgi/globalenrichment?networkId=b5VSFSgnPE4Z>
 
 ```{r}
 # get 250 most significant (smallest adjp for each label/comparison set)
@@ -1231,9 +1231,9 @@ protein_comp_entrez_top_250 <- protein_comp_entrez %>%
 
 ## Make & Export as tabs in excel!
 
--   Actually make a bunch of tab in excel with lists for each label (easier than way!)
+- Actually make a bunch of tab in excel with lists for each label (easier than way!)
 
--   btw look at differences with Uniprot org vs entrez (possible minor differences) but using the protein_comp_entrez df just to be consistent with other analyses!
+- btw look at differences with Uniprot org vs entrez (possible minor differences) but using the protein_comp_entrez df just to be consistent with other analyses!
 
 #### Export
 
@@ -1292,7 +1292,7 @@ split_protein_comp_entrez_syngo_ranked <- split(
 
 ```
 
--   <https://stats.oarc.ucla.edu/r/library/r-library-advanced-functions/>
+- <https://stats.oarc.ucla.edu/r/library/r-library-advanced-functions/>
 
 ```{r}
 # TAKING DATA STORED INTHE KEGG .rda 
