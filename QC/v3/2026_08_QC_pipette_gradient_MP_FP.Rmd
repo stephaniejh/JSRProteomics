@@ -30,7 +30,8 @@ library(tidyverse)
 ```{r}
 #set_wd to sourcefile location
 
-PSMs_2_read <- list.files("input/PD/2025_08_Steph_TMTpro_PSMs_MSstatsTMT_EEvsSH_for_PhD/txt_exports",
+PSMs_2_read <- list.files("input/txt_exports",
+                          # "input/PD/2025_08_Steph_TMTpro_PSMs_MSstatsTMT_EEvsSH_for_PhD/txt_exports",
                           # pattern = "(F3|F7).*PSM.*\\.txt$",  # pattern PSM & ends .txt
                           pattern = ".*PSM.*\\.txt$",  # pattern PSM & ends .txt
                           full.names = TRUE, # gets full names including path,
@@ -39,6 +40,7 @@ PSMs_2_read <- list.files("input/PD/2025_08_Steph_TMTpro_PSMs_MSstatsTMT_EEvsSH_
 PD_PSMs_raw <- read_tsv(PSMs_2_read, # read all files from list above
                     id = "file_path") # keep file path as an id column
 ```
+
 
 ```{r}
 unique(PD_PSMs_raw$file_path)
@@ -113,25 +115,121 @@ PD_PSMs_pipette_gg_plot <- ggplot(PD_PSMs_pipette_gg,
                                   aes(x=TMT_tag, y = Abundance, fill = PoolRef,
                                       color = RunYear)) +
   geom_boxplot(alpha = 0.95,
-    outlier.shape = 1,outlier.size = .5, outlier.alpha = 0.1) +
-  ylim(0,2000) +
+    outlier.shape = 1,outlier.size = .5, outlier.alpha = 0.03) +
   facet_grid(~RunYear+PoolRef+Batch)+
   scale_fill_manual(values = c("#d9d9d9", "#fddaec")) +
-    scale_color_manual(values = c("#27408B", "#8B2252")) +
-  labs(title = "Pipette Tips & Pipetting Errors!",
-       subtitle = "Raw abundance values across TMT channels by Batch/Year (& Pooled Reference)")+
+  scale_color_manual(values = c("#384e8a", "#a8405e")) +
+  scale_y_continuous(limits = c(0, 2000), expand = expansion(mult = 0.03)) + # 1%
+  # labs(title = "Pipette Tips & Pipetting Errors!",
+  #      subtitle = "Raw abundance values across TMT channels by Batch/Year (& Pooled Reference)")+
   theme_bw() +
   theme(legend.position = "none",
-        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size =7)) 
+        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size =7),
+        panel.border = element_rect(fill = NA, color = "grey10",linewidth = 0.3), #plot bord
+        plot.background  = element_rect(fill = "transparent", colour = NA),
+        panel.background  = element_rect(fill = "transparent", colour = NA),
+        strip.background = element_rect(color = 'grey10',
+                                        fill = 'grey91',linewidth = .2),
+        strip.text = element_text(face = "italic", size = 9, color = "grey10",
+                                  margin = margin(b = 1, t = 1)),
+        axis.ticks = element_line(linewidth = .1, colour = "grey15"),
+        axis.title = element_text(color = "grey10",, size = 9),
+        panel.grid.major = element_line(color = "grey85", linewidth = 0.15),
+        panel.grid.minor = element_line(color = "grey92", linewidth = 0.15),
+         panel.spacing.x = unit(0.1, "cm"), #
+  ) 
 
 
 PD_PSMs_pipette_gg_plot 
 ```
 
 ```{r}
-ggsave("output/2026_08_17_Pipetting_errors_abundance_by_channel.png", dpi = 300)
+# ggsave("output/2026_11_06_Pipette_errors_abund_by_chan_v3_300dpi.png", dpi = 300,
+#        bg = "transparent")
 ```
 
 ```{r}
 
 ```
+
+
+
+```{r}
+#set_wd to sourcefile location
+
+PD_resuts_stats_2_read <- list.files("input/txt_exports",
+                                     # "input/PD/2025_08_Steph_TMTpro_PSMs_MSstatsTMT_EEvsSH_for_PhD/txt_exports",
+                                     # pattern = "(F3|F7).*ResultsS.*\\.txt$",  # pattern PSM & ends .txt
+                                     pattern = ".*Statistics.*\\.txt$",  # pattern PSM & ends .txt
+                                     full.names = TRUE, # gets full names including path,
+                                     recursive = TRUE)
+
+PD_results_stats_raw <- read_tsv(PD_resuts_stats_2_read,  # read all files from list above
+                                 id = "file_path") # keep file path as an id column
+```
+
+
+```{r}
+PD_results_stats_df <- PD_results_stats_raw %>%
+  separate_wider_delim(file_path, # splits file path into folder variables
+                       delim = "/",
+                       names = c(NA, NA, NA, NA, "extra", "details", "file_name"),
+                       too_few = "align_end") %>%
+  
+  mutate(extra = if_else(extra == "extra", extra, NA)) %>% # rm extra non dets
+  mutate(details = if_else(details == "txt_exports", NA, details)) 
+  
+```
+
+```{r}
+PD_results_stats_df_F3_F7 <- PD_results_stats_df %>%
+  filter(!grepl("TR1_|TR2_", file_name))  %>% # 16 files | keeps only F3 
+  mutate(HpHF = case_when( # add fraciton row
+    str_detect(file_name, "_F3") ~ "F3",
+    str_detect(file_name, "_F7") ~ "F7",
+    .default = NA)) %>%
+  mutate(PoolRef = if_else(str_detect(file_name, "FP_"), "FP", "MP")) %>%
+  mutate(RunYear = case_when( # add fraciton row
+    str_detect(file_name, "DEC2021_") ~ "2021",
+    str_detect(file_name, "NOV2022_") ~ "2022",
+    .default = NA)) %>%
+  mutate(Batch = case_when( # add fraciton row
+    str_detect(file_name, "B1_") ~ "B1",
+    str_detect(file_name, "B2_") ~ "B2",
+    str_detect(file_name, "B3_") ~ "B3",
+    str_detect(file_name, "B4_") ~ "B4",
+    .default = NA)) %>%
+  filter(!is.na(HpHF)) # 7232
+  # filter(!grepl("gradient_check", file_name))  # actually rm gradient check one | now 12
+```
+
+```{r}
+PD_results_stats_df_F3_F7_global <- PD_results_stats_df_F3_F7 %>% #
+  filter(!str_detect(Name, regex("Abundance|Decoy", ignore_case = TRUE))) %>% #2624
+  separate_wider_delim(Name, # splits file path into folder variables
+                       delim = " -",
+                       # names = c("PD_stat_tab", "test"),
+                       names = c("PD_stat_tab"),
+                       too_many = "drop") %>%
+  group_by(file_name, PD_stat_tab) %>%
+  slice_head(n=1)
+
+#unique(PD_results_stats_df_F3_F7_global$file_name)
+```
+
+```{r}
+PD_results_stats_df_F3_F7_global_wide <- PD_results_stats_df_F3_F7_global %>%
+  select(extra:file_name, PD_stat_tab, Count, HpHF:Batch ) %>%
+    pivot_wider(names_from = PD_stat_tab, values_from = Count) %>%
+  mutate(trm_name = gsub("2025_08_Steph_TMTpro-16plex_|_ResultStatistics.txt",
+                         "", file_name,), .after = file_name) %>%
+  mutate(PSM2MS2 = round(((PSMs/`MS/MS Spectrum Info`)*100),2)) %>%
+  arrange(RunYear, PoolRef) %>%
+  ungroup() %>%
+  select(!file_name) %>%
+  gt()
+
+PD_results_stats_df_F3_F7_global_wide
+
+```
+
