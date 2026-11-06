@@ -183,7 +183,7 @@ PD_results_stats_df <- PD_results_stats_raw %>%
 
 ```{r}
 PD_results_stats_df_F3_F7 <- PD_results_stats_df %>%
-  filter(!grepl("TR1_|TR2_", file_name))  %>% # 16 files | keeps only F3 
+  # filter(!grepl("TR1_|TR2_", file_name))  %>% # 16 files | keeps only F3 
   mutate(HpHF = case_when( # add fraciton row
     str_detect(file_name, "_F3") ~ "F3",
     str_detect(file_name, "_F7") ~ "F7",
@@ -198,6 +198,11 @@ PD_results_stats_df_F3_F7 <- PD_results_stats_df %>%
     str_detect(file_name, "B2_") ~ "B2",
     str_detect(file_name, "B3_") ~ "B3",
     str_detect(file_name, "B4_") ~ "B4",
+    .default = NA)) %>%
+  mutate(TechRep = case_when( # add tech rep
+    str_detect(file_name, "TR1_") ~ "TR1",
+    str_detect(file_name, "TR2_") ~ "TR2",
+    str_detect(file_name, "TR3_") ~ "TR3",
     .default = NA)) %>%
   filter(!is.na(HpHF)) # 7232
   # filter(!grepl("gradient_check", file_name))  # actually rm gradient check one | now 12
@@ -219,12 +224,13 @@ PD_results_stats_df_F3_F7_global <- PD_results_stats_df_F3_F7 %>% #
 
 ```{r}
 PD_results_stats_df_F3_F7_global_wide <- PD_results_stats_df_F3_F7_global %>%
-  select(extra:file_name, PD_stat_tab, Count, HpHF:Batch ) %>%
+  select(extra:file_name, PD_stat_tab, Count, HpHF:TechRep) %>%
     pivot_wider(names_from = PD_stat_tab, values_from = Count) %>%
   mutate(trm_name = gsub("2025_08_Steph_TMTpro-16plex_|_ResultStatistics.txt",
                          "", file_name,), .after = file_name) %>%
   mutate(PSM2MS2 = round(((PSMs/`MS/MS Spectrum Info`)*100),2)) %>%
   arrange(RunYear, PoolRef) %>%
+  filter(trm_name != "2028_08_Steph_TMTpro-16plex_DEC2021_B1_TR2_HpHF_F7") %>% #???
   ungroup() %>%
   select(!file_name) %>%
   gt()
