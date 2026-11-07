@@ -1,0 +1,746 @@
+---
+title: "2026_11_07_QC_v3.2.3_LCMS_composite_plots"
+output: html_document
+date: "`r Sys.Date()`"
+output: html_document
+editor_options: 
+  markdown: 
+    wrap: 100
+---
+
+# Setup
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Load packages
+
+```{r}
+library(readr) # read csv files read_csv
+library(readxl) # read in excel files read_excel
+library(tidyr) # pivot longer
+library(stringr)
+library(dplyr)
+#library(vroom) # fast loading
+#library(mzR) # for chromatagrams
+#library(ggvenn) # vennys
+library(ggh4x) # facet_nested - extensions of facet_grid for nesting
+library(cowplot) # for plot_grid()
+#library(gtable) # not used?
+library(gt)
+library(ggridges)
+library(forcats) #fct_rev
+library(purrr) # for map()
+library(ggvenn) #for ggvenn
+library(scales) # for label_wrap when using scale_x_discrete
+
+library(pcaMethods)
+```
+
+## Input Data
+
+MSMS_2_read
+
+```{r}
+## set_wd to sourcefile location
+
+# ## Proteins -------------------
+# Prots_2_read <- list.files(
+#   #"input/txt_exports", # comp
+#   "input/PD/2025_08_Steph_TMTpro_PSMs_MSstatsTMT_EEvsSH_for_PhD/txt_exports", # jenn
+#   pattern = ".*Proteins.*\\.txt$",  # pattern Proteins & ends .txt
+#   full.names = TRUE) # gets full names including path,
+# 
+# PD_Prots_raw <- read_tsv(Prots_2_read, # read all files from list above
+#                     id = "file_path") # keep file path as an id column
+
+## Protein read in has error?
+#Error: Files must have consistent column names:
+#* File 1 column 37 is: Found in Sample in S1 F1 126 Sample one
+#* File 2 column 37 is: Found in Sample in S2 F2 126 Sample one
+
+
+## PSMs -------------------------------
+PSMs_2_read <- list.files(
+  #"input/txt_exports", # comp
+  "input/PD/2025_08_Steph_TMTpro_PSMs_MSstatsTMT_EEvsSH_for_PhD/txt_exports", # jenn
+  pattern = ".*PSM.*\\.txt$",  # pattern PSM & ends .txt
+  full.names = TRUE, # gets full names including path,
+  recursive = TRUE # get subfolders/extras
+    ) 
+
+PD_PSMs_raw <- read_tsv(PSMs_2_read, # read all files from list above
+                    id = "file_path") # keep file path as an id column
+
+
+## MS/MS Spectrum Info -----------------
+MSMS_2_read <- list.files(
+  #"input/txt_exports", # comp
+  "input/PD/2025_08_Steph_TMTpro_PSMs_MSstatsTMT_EEvsSH_for_PhD/txt_exports", # jenn
+  pattern = ".*MSMSSpectrumInfo.*\\.txt$",  # pattern MSMSSpectrumInfo & ends .txt
+  full.names = TRUE, # gets full names including path,
+  recursive = TRUE # get subfolders/extras
+    ) 
+
+PD_MSMS_raw <- read_tsv(MSMS_2_read, # read all files from list above
+                    id = "file_path") # keep file path as an id column
+
+
+## Results Statstics ---  has the protein peptide & all that info -------------
+## note - weirdly doesnt match ResultsStatistics but matches Statistics
+ResStats_2_read <- list.files(
+  #"input/txt_exports", # comp 
+  "input/PD/2025_08_Steph_TMTpro_PSMs_MSstatsTMT_EEvsSH_for_PhD/txt_exports", # jenn 
+  pattern = ".*Statistics.*\\.txt$",  # pattern Statistics & ends .txt
+  full.names = TRUE, # gets full names including path,
+  recursive = TRUE # get subfolders/extras
+    ) 
+
+PD_ResStats_raw <- read_tsv(ResStats_2_read, # read all files from list above
+                    id = "file_path") # keep file path as an id column
+```
+
+### Annotation File
+
+```{r}
+anno_96 <- read_csv("input/anno/TMT_B1-4_lcms_run_info_anno_96_20260818.csv")
+
+TMT_anno_96 <- read_csv("input/anno/2026_01_22_mssTMT_EExAGE_anno_HA_56.csv") 
+
+TMT_anno_96 <- TMT_anno_96 %>%
+  mutate(rc = paste0(Run, "_", Channel))
+```
+
+#### Checks
+
+```{r}
+colnames(PD_PSMs_raw) 
+colnames(PD_MSMS_raw) 
+colnames(PD_ResStats_raw) 
+
+# head(PD_PSMs_raw) 
+# head(PD_MSMS_raw) 
+# head(PD_ResStats_raw) 
+
+unique(PD_PSMs_raw$`Spectrum File`)
+unique(PD_MSMS_raw$`Spectrum File`)
+unique(PD_ResStats_raw$`File ID`) # annoying does not contain spectrum name! 
+```
+
+### Get unique names & extract key!
+
+```{r}
+PD_2_run_names <- PD_PSMs_raw %>%
+  select(file_path, `Spectrum File`) %>%
+  distinct() %>%
+  mutate(file_path_trm = str_remove(file_path, "^.*txt_exports/"), # rm b4 txt_exp/
+         F_PD_key = str_remove(file_path_trm, "_PSMs\\.txt$")) %>% # strip end pattern
+  
+  separate_wider_delim(
+    F_PD_key, 
+    delim = "/", # split by folder
+    names =  c("extra", "details", "PD_key"),
+    too_few  = "align_end", # deal w uneven
+    cols_remove = FALSE )
+```
+
+```{r}
+anno_110_PD_key <- left_join(PD_2_run_names, anno_96,
+                             by = join_by(`Spectrum File` == Run)) %>%
+  
+  #only_touch extra folder fikles 
+  mutate(
+    has_extra = !is.na(extra), # just those from the extra folder
+    
+    Mixture = if_else(has_extra, str_extract(PD_key, "(?<=_)B\\d+(?=_)"), Mixture),
+    
+    Fraction = if_else(has_extra,
+                       as.numeric(str_extract(PD_key, "(?<=_F)\\d+")), Fraction), #1-8
+    
+    PoolRef = if_else(has_extra,
+                      str_extract(PD_key, "(?<=_)(MP|FP)(?=_)"), PoolRef), #most
+    
+    PoolRef = if_else(has_extra & details == "gradientcheck", "MP", PoolRef), #rest
+    
+    RunYear = if_else(has_extra, 
+                as.numeric(str_extract(PD_key, "(?<=[A-Z]{3})20\\d{2}")), RunYear)) %>%
+  
+   select(-c(has_extra, file_path, file_path_trm)) %>%
+   rename(Spectrum_File = `Spectrum File`)
+  
+colnames(anno_110_PD_key)
+head(anno_110_PD_key)
+```
+
+```{r}
+# # #WRITE OUT NEW ANNO KEY
+# write_excel_csv(anno_110_PD_key,
+#                 "output/TMT_B1-4_lcms_run_info_anno_extras_110_20261107.csv")
+```
+
+## MERGE
+
+#### !st merge for PSMs & MSMS which nicely contain the spectrum file
+
+```{r}
+# PSMs
+PD_PSMs_df <- left_join(PD_PSMs_raw, anno_110_PD_key,
+                        by = join_by(`Spectrum File` == Spectrum_File)) %>%
+    rename(Spectrum_File = `Spectrum File`) %>%
+  mutate(across(c(Spectrum_File, extra:PD_key, Mixture:RunYear), as.factor))
+  
+
+# PSMs
+PD_MSMS_df <- left_join(PD_MSMS_raw, anno_110_PD_key,
+                        by = join_by(`Spectrum File` == Spectrum_File)) %>%
+  rename(Spectrum_File = `Spectrum File`) %>%
+  mutate(across(c(Spectrum_File, extra:PD_key, Mixture:RunYear), as.factor))
+```
+
+#### MERGE for results stats.
+
+```{r}
+PD_ResStats_raw_names <- PD_ResStats_raw %>%
+  select(file_path) %>%
+  distinct() %>%
+  mutate(file_path_trm = str_remove(file_path, "^.*txt_exports/"), # rm b4 txt_exp/
+         F_PD_key = str_remove(file_path_trm,
+                               "_ResultStatistics\\.txt$")) %>% # strip end pattern
+  
+  separate_wider_delim(
+    F_PD_key, 
+    delim = "/", # split by folder
+    names =  c("extra", "details", "PD_key"),
+    too_few  = "align_end", # deal w uneven
+    cols_remove = FALSE) %>%  # check & then...
+  
+  select(c(file_path, PD_key)) # keep only keys
+```
+
+```{r}
+PD_ResStats_df <- left_join(PD_ResStats_raw, PD_ResStats_raw_names, # 1st joinby (filep)
+                            by = join_by(file_path == file_path)) %>%
+  
+                  left_join(anno_110_PD_key, # 2nd joibn PD_key
+                            by = join_by(PD_key == PD_key)) 
+```
+
+## 
+
+------------------------------------------------------------------------
+
+------------------------------------------------------------------------
+
+### Colors
+
+```{r}
+HpHF_colors <- setNames(c("grey15", "#a75151", "#518c51", "#3a3a9f",
+                          "#c49f51", "#be86be", "#55a7a7", "#b7b7b7"),  c(1:8))
+
+Batch_colors <- setNames(c("#d5a6bd", "#9fc5e8",
+                           "#ea9999", "#f9cb9c"), 
+                         c("B1", "B2", "B3", "B4"))
+
+```
+
+------------------------------------------------------------------------
+
+------------------------------------------------------------------------
+
+# Wrangling Calculations
+
+------------------------------------------------------------------------
+
+## MS/MS
+
+BINBIN CACLULATION
+
+```{r}
+# checks
+# colnames(PD_MSMS_df)
+# head(PD_MSMS_df)
+# unique(MSMS_hist$`RT in min`)
+
+
+# Lazy people's way! Make RT in min 1 min bin & summ PSMs per bin
+MSMS_hist_96 <- PD_MSMS_df %>% #
+  ungroup() %>%
+  filter(is.na(extra)) %>% #4318318 | 3769151
+  
+  filter(`MS Order` == 'MS2') %>% # only MS2! 
+  
+  # round RT to the nearest min by setting round to 0 (0 dp)
+  mutate(RT_min = round(`RT in min`), 0) %>%
+
+  # group by sample run rep & then RT 1 min bin
+  # group_by(Spectrum_File, RunYear, Mixture, TechRepMixture, Fraction, RT_min) %>%
+  group_by(pick(where(is.factor)), RT_min) %>% #group by 
+
+  #sum PSMs no. per 1 min bin
+  summarise(Sum_PSMs = sum(`Number of PSMs`), # PSM equiv | same as non
+            Unidentified = sum(`Number of PSMs` == 0), # precursor but id
+            Identified = sum(`Number of PSMs` != 0), #aka id'd precursor
+            n = n()) # MSMS equiv
+```
+
+GRAPH
+
+```{r}
+RT_hist_gg <- MSMS_hist_96 %>%
+  filter(Mixture == "B1" & TechRepMixture == 1) %>%
+  pivot_longer(cols = c(Identified, Unidentified), 
+               values_to = 'Count',
+               names_to = 'Precursor') %>%
+  ggplot(aes(x = RT_min, y = Count, 
+             group = Spectrum_File,
+                         # color = factor(Mixture),
+             fill = factor(Fraction),
+                         alpha = Precursor)) +
+  geom_col( linewidth = .001) +
+  geom_hline(aes(yintercept = 0, color = "grey10"), linewidth=0.1,
+             show.legend = FALSE) +
+  # geom_vline(aes(xintercept = 95,
+  #                color = "grey10"), linewidth=0.05,
+  #            show.legend = FALSE) +
+  # geom_text(aes(label = paste0(sample_no)),
+  #               x = 3, y = 1450,
+  #           size = 3, show.legend = FALSE) +
+  geom_text(aes(label = paste0(Mixture, '  TR', TechRepMixture,
+                               '  F', Fraction, '  (', RunYear, ")")),
+            stat = "unique", # prevents overplotting label
+            x = 15, y = 275, color = "grey10",
+            size = 3, show.legend = FALSE) +
+  scale_x_continuous(breaks = seq(0,193, 10), # breaking
+                     limits = c(-3, 193), # set hard limit regrdls of data
+                     expand = c(0,0)) + #expand removes leading white space
+  scale_y_continuous(breaks = seq(0, 350, 100),
+                     limits = c(-5, 350),
+                     expand = c(0,0)) +
+  scale_fill_manual(values = HpHF_colors)+ 
+
+# , #in alpbt or
+#                     guide = guide_legend(nrow = 3, byrow = TRUE)) +
+  # scale_color_manual(values = Batch_colors,
+  #                    guide = 'none') +
+  scale_alpha_discrete(range = c(1, 0.3)) +
+  labs(x = 'Retention Time (min)',
+       y = 'Count',
+       fill = 'Sample No.') +
+  guides(#y.sec = 'axis', # adds 2nd y axis (right side)
+         color ='none') + # adds 2nd y axis (right side)
+  facet_wrap(Spectrum_File~., ncol = 1 ) +
+  # barplot_theme +
+  # theme_void() +
+  theme(
+    strip.text = element_blank(),
+    strip.background = element_blank(),
+     # axis.text.y = element_text(size = 7, color = 'grey10'),
+    legend.margin = margin(-10,0,0,0), # space between plot & legend
+    # axis.title.y = element_text(size = 9.5, color = "grey10"), 
+    axis.title.x = element_text(size = 9.5, color = 'grey10'),
+    axis.ticks.x = element_line(linewidth = .2),
+    legend.direction = 'vertical',
+    legend.title = element_text(size = 8.5, face="italic", 
+                                color = "grey10"),
+    legend.text = element_text(size = 7.5, color = "grey10"),
+    legend.key.size = unit(0.4, "cm"), # size of legend key icon
+    # panel.background = element_rect(fill = "gray97", color = "grey5",
+    #                                 linewidth = 0.1),
+
+    panel.background = element_rect(fill = "#E7F1F9", color = "grey5", 
+                                    linewidth = 0.1),
+    legend.position = "none",
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank(),
+    axis.title.y = element_blank(),
+  )
+
+plot(RT_hist_gg)
+```
+
+```{r}
+Batch_colors <- setNames(c("#d5a6bd", "#9fc5e8",
+                           "#ea9999", "#f9cb9c"), 
+                         c("B1", "B2", "B3", "B4"))
+
+Batch_colors <- setNames(c("#d5a6bd", "#E7F1F9",
+                           "#ea9999", "#f9cb9c"), 
+                         c("B1", "B2", "B3", "B4"))
+```
+
+
+```{r}
+# RT_hist_gg <- MSMS_hist_96 %>%
+#   filter(Mixture == "B1" & TechRepMixture == 2) %>%
+#   pivot_longer(cols = c(Identified, Unidentified), 
+#                values_to = 'Count',
+#                names_to = 'Precursor') %>%
+#   ggplot(aes(x = RT_min, y = Count, 
+#              group = Spectrum_File,
+#                          color = factor(Mixture),
+#              fill = factor(Fraction),
+#                          alpha = Precursor)) +
+#   
+#   geom_hline(aes(yintercept = 0, color = "grey10"), linewidth=0.15,
+#              show.legend = FALSE) +
+#   # geom_vline(aes(xintercept = 95), alpha = 0.5, color = "grey10",
+#   #            linewidth=0.11,show.legend = FALSE) +
+#   
+#   geom_col(linewidth = .05) +
+#   # geom_text(aes(label = paste0(sample_no)),
+#   #               x = 3, y = 1450,
+#   #           size = 3, show.legend = FALSE) +
+#   geom_text(aes(label = paste0(Mixture, ' F', Fraction,
+#                                 ' TR', TechRepMixture, ' (', RunYear, ")")),
+#             stat = "unique", # prevents overplotting label
+#             x = 10, y = 280, color = "grey10",
+#             size = 3, show.legend = FALSE) +
+#   scale_x_continuous(breaks = seq(0,193, 10), # breaking
+#                      limits = c(-3, 193), # set hard limit regrdls of data
+#                      expand = c(0,0)) + #expand removes leading white space
+#   scale_y_continuous(breaks = seq(0, 335, 100),
+#                      limits = c(-5, 335),
+#                      expand = c(0,0)) +
+#   scale_fill_manual(values = HpHF_colors)+ 
+# 
+# # , #in alpbt or
+# #                     guide = guide_legend(nrow = 3, byrow = TRUE)) +
+#   scale_color_manual(values = Batch_colors,
+#                      guide = 'none') +
+#   scale_alpha_discrete(range = c(1, 0.1)) +
+#   labs(x = 'Retention Time (min)',
+#        y = 'Count',
+#        fill = 'Sample No.') +
+#   guides(#y.sec = 'axis', # adds 2nd y axis (right side)
+#          color ='none') + # adds 2nd y axis (right side)
+#   facet_wrap(Spectrum_File~., ncol = 1 ) +
+#   # barplot_theme +
+#   # theme_void() +
+#   theme(
+#     strip.text = element_blank(),
+#     strip.background = element_blank(),
+#      # axis.text.y = element_text(size = 7, color = 'grey10'),
+#     legend.margin = margin(-10,0,0,0), # space between plot & legend
+#     # axis.title.y = element_text(size = 9.5, color = "grey10"), 
+#     axis.title.x = element_text(size = 9.5, color = 'grey10'),
+#     axis.ticks.x = element_line(linewidth = .2),
+#     legend.direction = 'vertical',
+#     legend.title = element_text(size = 8.5, face="italic", 
+#                                 color = "grey10"),
+#     legend.text = element_text(size = 7.5, color = "grey10"),
+#     legend.key.size = unit(0.4, "cm"), # size of legend key icon
+#     panel.background = element_rect(fill = "gray97", color = "grey5",
+#                                     linewidth = 0.1),
+#     legend.position = "none",
+#     axis.text.y = element_blank(),
+#     axis.ticks.y = element_blank(),
+#     axis.title.y = element_blank(),
+#   )
+# 
+# plot(RT_hist_gg)
+```
+
+------------------------------------------------------------------------
+
+## PSMs
+
+### Carbs
+
+Nevermind doesn't include carbamyl in serach
+
+------------------------------------------------------------------------
+
+### Cleavages
+
+```{r}
+cleav_calc <- PD_PSMs_df %>%
+  group_by(pick(where(is.factor))) %>% 
+  mutate(PSMs = n()) %>% # obs/no. of rows in grouping - so no. PSMs per run
+  add_count(`Number of Missed Cleavages`)  %>% # count of 0,1,& 2 miss cleav
+  rename(miss_cleav = n) %>% # renames calc col (n) to a descriptive name
+  mutate(miss_cleav_percent = round((miss_cleav/PSMs) * 100, 1)) # 1dp
+
+
+cleav_stats <- cleav_calc %>%
+  group_by(pick(where(is.factor))) %>% 
+  select(c(`Number of Missed Cleavages`, # missed cleav (1, 2, or 0)
+           PSMs:miss_cleav_percent)) %>% #PSMs + miss cleavs no. & %
+  unique() # keep unique (which should be based on calc over the group)
+
+cleav_stats$`Number of Missed Cleavages` = factor(
+  cleav_stats$`Number of Missed Cleavages`,
+  levels = c(0,1,2))
+```
+
+```{r}
+cleav_gg <- cleav_stats %>%
+  filter(is.na(extra)) %>%
+  # filter(Mixture == "B4") %>%
+  ggplot(aes(
+    x = Fraction,
+    # x = interaction(TechRepMixture, Fraction,
+    #                 sep = ' ',
+    #                 lex.order = TRUE),
+             y = miss_cleav_percent,
+             alpha = `Number of Missed Cleavages`))  +
+  geom_col(width = 0.75, color = 'grey10', fill = "orange", linewidth = 0.3) +
+  geom_text(aes(label = paste0(miss_cleav_percent, '%')),
+            position = position_stack(), vjust = -.3,
+            size = 2.5, show.legend = F) + # show.legend = F removes the a
+  facet_nested(Mixture~TechRepMixture, 
+             scales = "free_x", space = "free") +
+  scale_y_continuous(breaks = seq(0,115, 25),
+                     limits = c(-1,115)) +
+  scale_x_discrete(label = label_wrap(7)) +
+  coord_cartesian(clip = "off") + # to avoid clipping @ top 
+  guides(y.sec = 'axis') + # adds 2nd y axis (right side)
+  scale_alpha_discrete(name = 'No. of Missed Cleavages', 
+                       range = c(0.25,1)) + # 
+  labs(y = 'Percentage (%)',
+       x = 'Sample Test & LC-MS Run No.'
+       ) +
+  theme_bw() +
+  theme(
+    legend.position = "bottom",
+     panel.spacing = unit(0, "cm"),  # Removes space between panel 
+  )
+
+plot(cleav_gg)
+```
+
+No TMT stats because fixed modification
+
+```{r}
+
+```
+
+### PCAs & HEAT MAPS
+
+```{r}
+PD_PSMs_df_long <- PD_PSMs_df %>%
+  filter(is.na(extra)) %>%
+  rename(anno_seq = `Annotated Sequence`,
+         m_pa = `Master Protein Accessions`) %>%
+  rename_with(~ str_remove(.x, "^Abundance "), `Abundance 126`:`Abundance 134N`) %>%
+  # group_by(Spectrum_File) %>% 
+  # summarise(across(`126`:`134N`, ~ mean(.x, na.rm = TRUE))) %>%
+  pivot_longer(`126`:`134N`, names_to = "Channel", values_to =  "Abundance") 
+```
+
+### Heatmap
+
+<https://biostatsquid.com/step-by-step-heatmap-tutorial-with-pheatmap/>
+
+```{r}
+# PSM_TMT_anno_96 <- PD_PSMs_df_long %>%
+#   left_join(TMT_anno_96,
+#             by = join_by(Spectrum_File == Run,
+#                          Channel == Channel)) 
+# anno_row <- anno_96 %>%
+#   distinct(Run, RunYear, Mixture, TechRepMixture, Fraction) %>%
+#   tibble::column_to_rownames("Run")
+
+anno_row <- anno_row %>%
+  mutate(across(c(Fraction, TechRepMixture, RunYear), factor),
+         Mixture = factor(Mixture, levels = c("B1", "B2", "B3", "B4")))
+
+anno_colors <- list(
+  Fraction      = HpHF_colors,       # names "1".."8" match the factor levels
+  Mixture       = Batch_colors,      # names "B1".."B4"
+  TechRepMixture = setNames(c("#737373", "#bdbdbd", "#f0f0f0"), levels(anno_row$TechRepMixture)),
+  RunYear       = setNames(c( "#90A2CC","#e99f88"), levels(anno_row$RunYear))
+)
+```
+
+```{r}
+# matrix df for heatmap &  PCAs
+heatmap_matrix <- PD_PSMs_df_long  %>%
+  group_by(Spectrum_File, Channel) %>%
+  summarise(Abundance = mean(Abundance, na.rm = TRUE), .groups = "drop") %>%
+  pivot_wider(id_cols = Spectrum_File, 
+              names_from = Channel,
+              values_from = Abundance) %>%
+  tidyr::drop_na() %>%
+  tibble::column_to_rownames(var = "Spectrum_File") %>% # set Accession to rowname
+  as.matrix()
+
+```
+
+```{r}
+ref_channels <- c("126", "127N")   # pool refs
+
+# Order TMT chanel
+chan_order <- c(setdiff(colnames(heatmap_matrix), ref_channels), ref_channels)
+chan_order <- c(sort_by_channel <- setdiff(chan_order, ref_channels), ref_channels)
+
+blocks <- c("B1", "B2", "B3", "B4") #
+
+
+heatmap_matrix <- heatmap_matrix[, chan_order]
+
+
+heatmap_1 <- pheatmap(heatmap_matrix,
+                      clustering_distance_cols = 'euclidean',
+                      clustering_distance_rows = 'euclidean',
+                      clustering_method = 'ward.D',
+                      cluster_rows      = FALSE,
+                      cluster_cols      = FALSE,
+                      gaps_col = length(chan_order) - length(ref_channels),  # gap after 
+                      gaps_row = c(24,48,72),
+                      
+                      # main = "QC Check - Mean Abundance Across Samples (55/56)",
+                      show_rownames =  FALSE, # rms overplotted protein names
+                      # border_color = "grey10",
+                      annotation_row = anno_row, 
+                      annotation_colors = anno_colors, 
+                      annotation_names_row = F, 
+                      annotation_names_col = F,
+                      angle_col = 45, # sample names at an angle
+                      fontsize = 9.5,
+                      fontsize_col = 9,
+                      border_color = "grey30",
+                      )
+# exported as 2026_01_19_pheatmap_QC_check_mean_abund_rm129_outlier_v1
+# basic QC
+```
+
+------------------------------------------------------------------------
+
+## Results Stats
+
+```{r}
+length(unique(PD_ResStats_df$Spectrum_File)) # 110
+length(unique(PD_ResStats_df$file_path)) # 110
+length(unique(PD_ResStats_df$Count)) #1249 
+length(unique(PD_ResStats_df$Name)) #9348
+(length(unique(PD_ResStats_df$Name)) / length(unique(PD_ResStats_df$Count))) # 7.48?
+
+unique(PD_ResStats_df$Name) #print | ok safe 2 split by " - " 
+```
+
+Note need to drop those with "Abundance" or "Decoy" for counts to be the correct summary - seems cols with \# are the same
+
+```{r}
+PD_ResStats_df_cat_stats <- PD_ResStats_df %>%
+  filter(!str_detect(Name, regex("Abundance|Decoy", ignore_case = TRUE))) %>%
+  # filter(str_detect(Name, "# " )) %>% # match | "# " & "#" the same
+  separate_wider_delim(Name,
+                       delim = " - ",
+                       names = c("PD_stat_cat", "PD_stat_name"),
+                       too_many = "drop") %>% # check @ this stage
+  group_by(Spectrum_File, PD_stat_cat) %>%
+  slice_head(n = 1)
+  
+
+mean(PD_ResStats_df_cat_stats$Count) # 16992.33  | 16992.33
+colnames(PD_ResStats_df_cat_stats)
+```
+
+```{r}
+PD_ResStats_df_cat_stats_wide <- PD_ResStats_df_cat_stats %>%
+  select(extra, details,Spectrum_File, Mixture:RunYear, PD_stat_cat, Count) %>%
+  pivot_wider(names_from = PD_stat_cat, values_from = Count) %>%
+  mutate(PSM_MS2 = round(((PSMs/`MS/MS Spectrum Info`)*100),2)) 
+
+colnames(PD_ResStats_df_cat_stats_wide)
+```
+
+```{r}
+PD_ResStats_df_cat_stats_gt <- PD_ResStats_df_cat_stats_wide  %>%
+  
+  ## FOR SPECIAL CHECKS 
+  filter(Fraction %in% c(3, 7)) %>%
+  filter(details != 'spares'| is.na(details)) %>%
+  # filter(TechRepMixture != 2 | is.na(TechRepMixture)) %>%
+  filter(TechRepMixture == 1 | is.na(TechRepMixture)) %>%
+  mutate(details = if_else(details == "gradientcheck", "GC", details,
+                           missing = " ")) %>%
+  mutate(TechRepMixture = if_else(!is.na(TechRepMixture), 
+                                  as.character(TechRepMixture), " ")) %>%
+  arrange(Fraction) %>%
+  #__SPECIAL_CHECKS___________________________________________________
+  
+  # filter(Mixture %in% c("B1", "B2")) %>%
+    # filter(Mixture %in% c("B3", "B4")) %>%
+  ungroup() %>%
+  # filter(!is.na(extra)) %>%
+  select(c(
+    # Spectrum_File,
+    RunYear,
+           # extra,
+           TechRepMixture, details,
+    
+           Mixture, Fraction, Proteins,
+           # `Protein Groups`, 
+           `Peptide Groups`,PSM_MS2, PSMs, `MS/MS Spectrum Info`, `Quan Spectra`,
+           # PoolRef,
+           # RunYear,
+           # # extra,
+           # TechRepMixture, details
+    )) %>%
+  # mutate(extra = if_else(is.na(extra), "used", extra)) %>%
+   gt(
+    # rowname_col = 'Spectrum_File', # needs 2 be in quotes
+     # rowname_col = c('TechRepMixture', 'Fraction'), # needs 2 be in quotes
+   rowname_col = c('Fraction'), # needs 2 be in quotes
+     
+    # groupname_col = 'testing_phase'
+    groupname_col = c('Mixture')
+  ) %>%
+  
+  cols_label(
+    # `MS/MS Spectrum Info` = 'MS\u00B2 Info',
+    `MS/MS Spectrum Info` = ' MS\u00B2 ',
+    TechRepMixture = 'TR',
+    Mixture = 'Batch',
+    Fraction = 'HpHF',
+    PSM_MS2 = 'PSM/MS\u00B2 (%)',
+    `Peptide Groups` = "Peptides",
+    `Quan Spectra` = " MS\u00B3 ",
+    # PoolRef = 'PR',
+    details = '+',
+    RunYear = "RunYr"
+  ) %>%
+    tab_spanner(
+    # label = 'PD 2.4 Summary Counts (B1 & B2 - 2021)',
+    # label = 'PD 2.4 Summary Counts (B3 & B4 - 2022)',
+    label = 'PD 2.4 Summary Counts (Extra Checks)',
+    # columns = 4:9
+    columns = 6:11
+  ) %>%
+ tab_spanner(
+    label = 'Details',
+    columns = 1:4
+ ) %>%
+  opt_vertical_padding(scale = 0.5) %>%
+  
+  tab_style(style = list(cell_fill(color = "#e7eef8")),
+            locations = cells_body(
+              rows = Fraction == 3 &  RunYear == 2022 & Mixture == "B1")) %>% 
+  
+  tab_style(style = list(cell_fill(color = "#d9e8ff")),
+            locations = cells_body(
+              rows = Fraction == 3 &  RunYear == 2021 & Mixture == "B1")) %>% 
+  
+    tab_style(style = list(cell_fill(color = "#f5dbe5")),
+            locations = cells_body(
+              rows = Fraction == 3 &  RunYear == 2022 & Mixture == "B3")) %>% 
+      tab_style(style = list(cell_fill(color = "#f8e7f5")),
+            locations = cells_body(
+   rows = Fraction == 3 &  RunYear == 2022 & Mixture == "B3" & details == "FP")) %>% 
+  
+  
+    cols_align(
+    align = "center",
+    columns = everything()) %>%
+   tab_options(table.font.size=11,
+               ) 
+
+PD_ResStats_df_cat_stats_gt
+```
+
+```{r}
+PD_ResStats_df_cat_stats_gt_M <- PD_ResStats_df_cat_stats_gt
+PD_ResStats_df_cat_stats_gt_F <- PD_ResStats_df_cat_stats_gt
+```
