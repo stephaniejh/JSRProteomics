@@ -50,6 +50,11 @@ ref_rat_trm <- rat_ref_proteome_2025_12_13 %>%
 ```
 
 ```{r}
+mapped_comp <- mapped_comp_v3.2.2_EExAge_t1
+mapped_psum <- mapped_psum_v3.2.2_EExAge
+```
+
+```{r}
 EE_main_ranks <- mapped_comp %>%
   filter(Label == "H_EE_vs_SH") %>%
   select(Protein, gene, log2FC, adj.pvalue) %>%
@@ -198,9 +203,9 @@ Just doing nooby manual way for now
 ```{r}
 my_psum_facet_theme <- 
   theme(
-    axis.text.y = element_text(size = 6.5, color ="grey10"),
+    axis.text.y = element_text(size = 6, color ="grey10"),
     axis.text.x = element_text(size = 6, color ="grey10"),
-    axis.title.y= element_text(size = 7.5, color ="grey10"),
+    axis.title.y= element_text(size = 7, color ="grey10"),
     axis.title.x = element_blank(),
     
     panel.spacing = unit(0.2, "cm"),  # Removes space between panel 
@@ -314,14 +319,14 @@ selected_psums <- mapped_psum %>%
   #        grepl("^Gria|^Grin|^Grm|Grik|Slc17a6|Slc17a7|Slc17a8|Cacng|Reln|^Htr", gene)) %>%
     # 
 
-  # filter(gene %in%  p1_NTS_ntroph_grwf) %>%
+  filter(gene %in%  p1_NTS_ntroph_grwf) %>%
     # filter(gene %in%  p3_EM_oxphos) %>%
     # filter(gene %in%  p3_EM_sterol) %>%
 
   # filter(gene %in%  p4_SYN_presynaptic) %>%
   # filter(gene %in%  p4_SYN_electro) %>%
   # filter(gene %in%  p4_SYN_neuropep) %>%
-  filter(gene %in%  p4_SYN_neuropep_large) %>%
+  # filter(gene %in%  p4_SYN_neuropep_large) %>%
   # filter(gene %in%  p4_SYN_exicitatory_LIT) %>%
   # filter(gene %in%  p4_SYN_lgi_adam) %>%
     # filter(gene %in%  p4_SYN_Nrxn_Nlgn) %>%
@@ -350,21 +355,21 @@ selected_psums <- mapped_psum %>%
     fill = Housing, color = Sex)) +
   
 
-  geom_text(aes(x = 3.85, y = Inf, label = crank), color ="grey10", alpha = 0.75,
-            vjust = 2, size = 2.2, stat = "unique") + # stat unq, otherwise fuzzy!
+  geom_text(aes(x = 3.65, y = Inf, label = crank), color ="grey10", alpha = 0.7,
+            vjust = 2, size = 2.3, stat = "unique") + # stat unq, otherwise fuzzy!
   
-  geom_rect(data = data.frame(xmin = -Inf, xmax = 2.5, linewidth = 0.05),
+  geom_rect(data = data.frame(xmin = -Inf, xmax = 2.5, linewidth = 0.02),
             aes(xmin = xmin, xmax = xmax, ymin = -Inf, ymax = Inf),
-          fill = "#BFBBD5", color = "grey60", alpha = 0.25, inherit.aes = FALSE) +
-  geom_rect(data = data.frame(xmin = 2.5, xmax = Inf),  linewidth = 0.05,
+          fill = "#BFBBD5", color = "grey60", alpha = 0.1, inherit.aes = FALSE) +
+  geom_rect(data = data.frame(xmin = 2.5, xmax = Inf),  linewidth = 0.02,
             aes(xmin = xmin, xmax = xmax, ymin = -Inf, ymax = Inf),
-        fill = "burlywood", color = "grey70", alpha = 0.25, inherit.aes = FALSE) +
+        fill = "burlywood", color = "grey70", alpha = 0.1, inherit.aes = FALSE) +
   
 
   
-  annotate("text", x = 1,   y = -Inf, label = "YNG", vjust = -0.65, size = 2,
+  annotate("text", x = .99,   y = -Inf, label = "YNG", vjust = -0.62, size = 2,
            fontface = "italic", color = "#BFBBD5", alpha =0.9) +
-  annotate("text", x = 3.05, y = -Inf, label = "OLD",   vjust = -0.65, size = 2,
+  annotate("text", x = 3.05, y = -Inf, label = "OLD",   vjust = -0.62, size = 2,
            fontface = "italic", color = "burlywood", alpha =0.9) +
   
   
@@ -373,7 +378,7 @@ selected_psums <- mapped_psum %>%
   geom_boxplot(width = 0.5, size = 0.6, median.linewidth = .45, linewidth = 0.2,
                position = position_dodge(width = 0.7),
                outlier.shape = NA,
-               color = "grey10", alpha = 0.9) +
+               color = "grey10", alpha = 0.85) +
   stat_summary(fun=mean, geom="point", position = position_dodge(width = 0.7),
                shape=4, size = 1.1, stroke = 0.3, color ="grey10") +
   
