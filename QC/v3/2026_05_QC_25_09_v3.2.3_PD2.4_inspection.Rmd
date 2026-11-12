@@ -22,7 +22,12 @@ doubling checking PD2.4 PSMs Master Protein Accession is the same as Protein Acc
 
 ```{r}
 # load("output/2025_10_03_QC_v3.2.1_PSMs_4s_96f_PD_db.rda")
+# or - Steph_2025_08_TMTpro_PD_PSMs_raw_4_mssTMT_EEvsSH_4PhD_96.RData
 fasta <- read_csv("input/anno/UP000002494_10116_Rat_Ref_Proteome_22403_1pspg_2025_04_UPfastadf.csv") 
+```
+
+```{r}
+PSMs <- PD_PSMs_raw
 ```
 
 ```{r}
@@ -79,3 +84,28 @@ PSMs_calcs_false <- PSMs_calcs %>%
 # which means defaults in msstatsTMTs avoids any issues!
 sum(is.na(PSMs_calcs_false$`Protein Accessions2`))
 ```
+
+The percentage of shared peptides in MPA column is 5.72% whereas in protein accession it is 14.3%
+
+```{r}
+PSMs_calcs_PA_v_MPA <- PSMs %>%
+  # mutate(MPA_shared_pep  = str_count(`Master Protein Accessions`, ";") + 1, # multi
+  #        PA_shared_pep = str_count(`Protein Accessions`, ";") + 1,
+  #        PSMs = n(),
+  #        .after = `Protein Accessions`) %>%
+  mutate(
+    MPA_shared_pep = if_else(str_detect(`Master Protein Accessions`, ";"), 1, 0, missing = 0),
+    PA_shared_pep  = if_else(str_detect(`Protein Accessions`, ";"), 1, 0, missing = 0),
+    .after = `Protein Accessions`
+  ) %>%
+  summarise(
+    PSMs            = n(),
+    MPA_shared_tally = sum(MPA_shared_pep),
+    PA_shared_tally  = sum(PA_shared_pep),
+    MPA_shared_per  = round((sum(MPA_shared_pep) / n() *100), 2), #5.72%
+    PA_shared_per   = round((sum(PA_shared_pep) / n() *100), 2) # 14.3%
+  )
+  # count(MPA_shared_pep, PA_shared_pep)
+  
+```
+
