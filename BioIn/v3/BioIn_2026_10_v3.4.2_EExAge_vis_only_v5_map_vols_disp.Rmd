@@ -505,6 +505,7 @@ plot_grid(
   labels = c("a", "b", "c", "d", "e", "f"),
   label_colour = "grey10", label_size = 11,  ncol = 1)
 #2026_10_30_p4_2_SynVesCyc_potas_map_vol
+#2026_11_14_p4_2_SynVesCyc_potas_map_vol
 ```
 
 ```{r}
@@ -515,7 +516,7 @@ plot_grid(
   kegg_volcano_list$rno04082, # rno04082(neuroactive ligand)
   kegg_volcano_list$rno04080, # rno04080(Neuroactive lig-recept)
   kegg_volcano_list$rno05033, # rno05033(nicotine addition)
-  p4_reactome_volcano_list$REACTOME_TRAFFICKING_OF_AMPA_RECEPTORS,
+  # p4_reactome_volcano_list$REACTOME_TRAFFICKING_OF_AMPA_RECEPTORS,
   # kegg_volcano_list$rno04360, # axon guidance
   labels = c("a","b", "c", "d", "e", "f"),
   ncol = 1, label_colour = "grey10", label_size = 11)
@@ -536,4 +537,98 @@ plot_grid(
   ncol = 1, label_colour = "grey10", label_size = 11)
 
 #2026_11_02_p4_3_SYNP_REACT_AMPA_NMDA_map_vols
+```
+
+### Wiring
+
+```{r}
+# 
+plot_grid(
+  # kegg_volcano_list$rno04360, #axon_guidance(rno04360)
+# p4_reactome_volcano_list$REACTOME_LAMININ_INTERACTIONS,
+  p4_reactome_volcano_list$REACTOME_RHO_GTPASE_CYCLE,
+p4_reactome_volcano_list$REACTOME_RHO_GTPASE_EFFECTORS,
+p4_reactome_volcano_list$REACTOME_SIGNALING_BY_WNT,
+# p4_reactome_volcano_list$REACTOME_SIGNALING_BY_ROBO_RECEPTORS, # robo redundant RPs27a
+# p4_reactome_volcano_list$REACTOME_ADHERENS_JUNCTIONS_INTERACTIONS,
+# p4_reactome_volcano_list$REACTOME_SIGNALING_BY_RHO_GTPASES_MIRO_GTPASES_AND_RHOBTB3,
+
+  
+  labels = c("a","b", "c", "d", "e", "f"),
+  ncol = 1, label_colour = "grey10", label_size = 11)
+
+#2026_11_18_p4_3_neuro_wiring_Rho_WNT_sig_map_vol
+```
+
+```{r}
+plot_grid(
+p4_reactome_volcano_list$REACTOME_L1CAM_INTERACTIONS,
+# p4_reactome_volcano_list$REACTOME_INTERACTION_BETWEEN_L1_AND_ANKYRINS,
+p4_reactome_volcano_list$REACTOME_EPH_EPHRIN_SIGNALING,
+p4_reactome_volcano_list$REACTOME_SEMAPHORIN_INTERACTIONS,
+# p4_reactome_volcano_list$REACTOME_INTERACTION_BETWEEN_L1_AND_ANKYRINS,
+p4_reactome_volcano_list$REACTOME_ADHERENS_JUNCTIONS_INTERACTIONS, 
+
+# p4_reactome_volcano_list$REACTOME_LAMININ_INTERACTIONS,
+# p4_reactome_volcano_list$REACTOME_NEUREXINS_AND_NEUROLIGINS,
+# p4_reactome_volcano_list$REACTOME_LGI_ADAM_INTERACTIONS,
+  labels = c("a","b", "c", "d", "e", "f"),
+  ncol = 1, label_colour = "grey10", label_size = 11)
+#2026_11_18_p4_5_REACT_axon_guidance_map_vols
+#2026_11_18_p4_4_REACT_axon_guidance_map_vols
+```
+
+```{r}
+plot_grid( #
+  p4_reactome_volcano_list$REACTOME_NEUREXINS_AND_NEUROLIGINS,
+  p4_reactome_volcano_list$REACTOME_LGI_ADAM_INTERACTIONS,
+  labels = c("a","b", "c", "d", "e", "f"),
+  ncol = 1, label_colour = "grey10", label_size = 11)
+```
+
+## P5 -
+
+```{r}
+plot_grid(
+  # p4_reactome_volcano_list$REACTOME_ECM_PROTEOGLYCANS,
+  p4_reactome_volcano_list$REACTOME_EXTRACELLULAR_MATRIX_ORGANIZATION,
+  p5_reactome_volcano_list$REACTOME_HEMOSTASIS,
+  # kegg_volcano_list$rno04610, # complement(rno04610)
+  #kegg_volcano_list$rno04666, # fceri+phagocytosis(rno04666) - nothing useful actin related
+  # p5_reactome_volcano_list$REACTOME_ADAPTIVE_IMMUNE_SYSTEM,
+  # p5_reactome_volcano_list$REACTOME_CYTOKINE_SIGNALING_IN_IMMUNE_SYSTEM,
+  # kegg_volcano_list$rno04360, # axon guidance
+  
+  labels = c("a","b", "c", "d", "e", "f"),
+  ncol = 1, label_colour = "grey10", label_size = 11)
+
+# 2026_11_18_p5_ECM_hemo_2_map_vol
+```
+
+```{r}
+plot_grid(
+  p5_reactome_volcano_list$REACTOME_HEMOSTASIS,
+  p5_reactome_volcano_list$REACTOME_ADAPTIVE_IMMUNE_SYSTEM,
+  p5_reactome_volcano_list$REACTOME_CYTOKINE_SIGNALING_IN_IMMUNE_SYSTEM,
+  # kegg_volcano_list$rno04360, # axon guidance
+  
+  labels = c("a","b", "c", "d", "e", "f"),
+  ncol = 1, label_colour = "grey10", label_size = 11)
+```
+
+```{r}
+plot_grid(
+  # p5_reactome_volcano_list$REACTOME_CLASS_I_MHC_MEDIATED_ANTIGEN_PROCESSING_PRESENTATION, # only s100a1
+  # p5_reactome_volcano_list$REACTOME_MHC_CLASS_II_ANTIGEN_PRESENTATION, # not much tubbs acton etc
+  p5_reactome_volcano_list$REACTOME_ADAPTIVE_IMMUNE_SYSTEM,
+    kegg_volcano_list$rno04610, # complement(rno04610)
+  # p5_reactome_volcano_list$REACTOME_CYTOKINE_SIGNALING_IN_IMMUNE_SYSTEM, # 177- not much e.g. Mapk3 Sos1 Fascn, Tubbs
+  p5_reactome_volcano_list$REACTOME_INTERLEUKIN_1_FAMILY_SIGNALING,
+  # kegg_volcano_list$rno04610, # complement(rno04610)
+  # p5_reactome_volcano_list$REACTOME_COMPLEMENT_CASCADE,
+  #   kegg_volcano_list$rno04610, # complement(rno04610)
+  # kegg_volcano_list$rno04360, # axon guidance
+  
+  labels = c("a","b", "c", "d", "e", "f"),
+  ncol = 1, label_colour = "grey10", label_size = 11)
 ```
