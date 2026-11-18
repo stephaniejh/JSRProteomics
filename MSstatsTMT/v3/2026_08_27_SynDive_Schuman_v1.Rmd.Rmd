@@ -22,10 +22,11 @@ library(readxl)
 library(tidyverse)
 library(arrow) # for parquet
 library(eulerr)
-library(UpSetR)
+# library(UpSetR)
 library(cowplot)
 library(ggh4x)
 library(ggrepel)
+library(ggh4x)
 ```
 
 ```{r}
@@ -198,29 +199,25 @@ df3_genes_2 <- df3_gene_counts %>% filter(n_types == 2) # genes in 2
 ### mapped tile plots of unique marker genes
 
 ```{r}
-comp_joined_1 <- left_join(comp, df3_unique_genes,
-                         by = join_by(gene == gene_symbol)) %>% # 64392 x 20 
-  drop_na(types) %>% # remove blank type -> 3328 x 20 
-  mutate(ranking = sign(log2FC)*(-log10(pvalue))) %>%
-  group_by(Label) %>%
-  filter(
-    min_rank(desc(ranking)) <= 50 | # most positive
-      min_rank(ranking) <=50# most negaitve
-  )
+# type_colors <- c( # type
+#   "Camk2a (cortex)" = "#2aa198",
+#   "Syn1 (cortex)" = "#859900",
+#   "Gad2 (cortex)" = "#b58900",
+#   "Gad2 (cortex-inhib)" = "#dc322f",
+#   "Pvalb (cortex-inhib)" = "#cb4b16",
+#   "Sst (cortex-inhib)" = "#d33682" ,
+#   "Vip (cortex-inhib)" = "#6c71c4" 
+# )
 
-unique(comp_joined_1$gene) # >400
-unique(comp_joined_1$types) # all 7 seen! 
-```
 
-```{r}
 type_colors <- c( # type
-  "Camk2a (cortex)" = "#2aa198",
-  "Syn1 (cortex)" = "#859900",
-  "Gad2 (cortex)" = "#b58900",
-  "Gad2 (cortex-inhib)" = "#dc322f",
-  "Pvalb (cortex-inhib)" = "#cb4b16",
-  "Sst (cortex-inhib)" = "#d33682" ,
-  "Vip (cortex-inhib)" = "#6c71c4" 
+  "Camk2a (cortex)" = "#2693D6",
+  "Syn1 (cortex)" = "#CEB11B",
+  "Gad2 (cortex)" = "#DB3233",
+  "Gad2 (cortex-inhib)" = "#DA6D67",
+  "Sst (cortex-inhib)" = "#cb4b16" ,
+    "Pvalb (cortex-inhib)" = "#d33682",
+  "Vip (cortex-inhib)" = "#70559A" 
 )
 
 
@@ -236,6 +233,194 @@ comp_colors <- c( # comparison colors
 labels4tile <- unique(comp_joined_1$Label)
 tile_plots_list <- list()
 tile_plots_list_w_labs <- list()
+```
+
+```{r}
+## OLD
+# comp_joined_1 <- left_join(comp, df3_unique_genes,
+#                          by = join_by(gene == gene_symbol)) %>% # 64392 x 20
+#   drop_na(types) %>% # remove blank type -> 3328 x 20
+#   mutate(ranking = sign(log2FC)*(-log10(pvalue))) %>%
+#   group_by(Label) %>%
+#   filter(
+#     min_rank(desc(ranking)) <= 50 | # most positive
+#       min_rank(ranking) <=50# most negaitve
+#   )
+# 
+# unique(comp_joined_1$gene) # >400
+# unique(comp_joined_1$types) # all 7 seen!
+```
+
+```{r}
+comp_joined_EE_ranked <- left_join(comp, df3_unique_genes,
+                         by = join_by(gene == gene_symbol)) %>% # 64392 x 20
+  filter(Label == "H_EE_vs_SH") %>% # 8048
+    drop_na(types) %>% # remove blank type -> 416 
+    mutate(ranking = sign(log2FC)*(-log10(pvalue)), .before = Protein) %>%
+  arrange(desc(ranking)) %>%
+  mutate(row_no = row_number(), .before = ranking) #%>%
+  
+  
+comp_joined_AGE_ranked <- left_join(comp, df3_unique_genes,
+                         by = join_by(gene == gene_symbol)) %>% # 64392 x 20
+  filter(Label == "A_YNG_vs_OLD") %>% # 8048
+    drop_na(types) %>% # remove blank type -> 416 
+    mutate(ranking = sign(log2FC)*(-log10(pvalue)), .before = Protein) %>%
+  arrange(desc(ranking)) %>%
+  mutate(row_no = row_number(), .before = ranking) #%>%
+
+```
+
+```{r}
+EE_segment_plot <- comp_joined_EE_ranked  %>%
+    group_by(types) %>%
+  mutate(log2FC_z = (log2FC - mean(log2FC, na.rm = TRUE)) / sd(log2FC, na.rm = TRUE)) %>%
+  ungroup()  %>%
+  
+  # mutate(ID = factor(ID, levels = EEvsSH_3obs_order$ID, ordered = TRUE)) %>%
+  # # mutate(CompMethodExp = paste0(comp, " - ", Method, ' - Exp ', ExpNo)) %>%
+  #   mutate(MethodExp = paste0(Method, ' - Exp ', ExpNo)) %>%
+  
+  ggplot(aes(x = reorder(gene,ranking), y = log2FC,
+             color = types, fill = types,
+             alpha = abs(adj.pvalue))) +
+  
+  geom_hline(yintercept = 0, color = 'grey20', linewidth = 0.1) +
+  geom_col(aes(y = log2FC, fill = types), width = 0.8) +
+  
+  # geom_segment(aes(x =  reorder(gene,ranking), 
+  #                  yend = log2FC_z, y = 0)) +
+  # geom_point(aes(fill = types), shape = 21, size = 3.5) +
+  scale_alpha(range = c( 0.9, 0.5), guide = 'none') + # rev alpha so darker = more significant
+  # geom_text(aes(label = gene_name), color = "grey10", size = 2.5,
+  #           position = position_stack()) +
+
+    scale_fill_manual(values = type_colors,
+                      guide = guide_legend(nrow = 2, byrow = TRUE)) +
+      scale_color_manual(values = type_colors,
+                      guide = guide_legend(nrow = 2, byrow = TRUE)) +
+  # colorspace::scale_color_continuous_diverging("Blue-Red 2") +
+  # scale_color_manual(breaks = c("Up", "Down"),
+  #                    values = c("#dc322f", "#268bd2"),
+  #                    guide = 'none') +
+  # 
+  # coord_flip() +
+  coord_flip(ylim = c(-0.35, 0.3)) +
+  # facet_grid(comp~MethodExp, scales = "free") +
+  # 
+    theme_bw() +
+  theme(
+    #axis.title = element_blank(),
+    panel.grid = element_blank(),
+    axis.title = element_blank(),
+    axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5, # 90, hj1 t/R, vj.5 cent
+                               size = 8),
+    axis.text.y = element_text(hjust = 1, color = "grey10",
+                               size = 7, face = 'italic'), # rota 90 & hjust=1 (top/right)
+    axis.ticks.y = element_blank(),
+    legend.position = "bottom"
+        ) 
+
+EE_segment_plot
+```
+
+```{r}
+comp_joined_1 <- left_join(comp, df3_unique_genes, # EE 
+                         by = join_by(gene == gene_symbol)) %>% # 64392 x 20
+  drop_na(types) %>% # remove blank type -> 3328 x 20
+  left_join(comp_joined_EE_ranked %>% distinct(gene, row_no), by = "gene") %>%
+  mutate(gene = reorder(gene, row_no))   # use -row_no to flip top/bottom
+  
+
+comp_joined_2 <- left_join(comp, df3_unique_genes, # AGE 
+                         by = join_by(gene == gene_symbol)) %>% # 64392 x 20
+  drop_na(types) %>% # remove blank type -> 3328 x 20
+  left_join(comp_joined_AGE_ranked %>% distinct(gene, row_no), by = "gene") %>%
+  mutate(gene = reorder(gene, row_no))   # use -row_no to flip top/bottom
+```
+
+```{r}
+
+composite_segment_plot_EE <- comp_joined_1  %>% # BY EE
+# composite_segment_plot_AGE <- comp_joined_2  %>% # BY AGE
+
+  group_by(Label) %>%
+  filter(
+    min_rank(desc(row_no)) <= 30 | # most positive
+      min_rank(row_no) <=30# most negaitve
+  ) %>%
+
+  
+  ggplot(aes(x = reorder(gene,-row_no), y = log2FC,
+             color = types, fill = types,
+             alpha = abs(adj.pvalue))) +
+  
+  geom_hline(yintercept = 0, color = 'grey20', linewidth = 0.1) +
+  geom_col(aes(y = log2FC, fill = types), width = 0.8) +
+  
+  # geom_segment(aes(x =  reorder(gene,ranking), 
+  #                  yend = log2FC_z, y = 0)) +
+  # geom_point(aes(fill = types), shape = 21, size = 3.5) +
+  scale_alpha(range = c( 0.95, 0.5), guide = 'none') + # rev alpha so darker = more significant
+  # geom_text(aes(label = gene_name), color = "grey10", size = 2.5,
+  #           position = position_stack()) +
+
+    scale_fill_manual(values = type_colors,
+                      guide = guide_legend(nrow = 1, byrow = TRUE)) +
+      scale_color_manual(values = type_colors,
+                      guide = guide_legend(nrow = 1, byrow = TRUE)) +
+  # colorspace::scale_color_continuous_diverging("Blue-Red 2") +
+  # scale_color_manual(breaks = c("Up", "Down"),
+  #                    values = c("#dc322f", "#268bd2"),
+  #                    guide = 'none') +
+  # 
+  # coord_flip() +
+  coord_flip(ylim = c(-0.2, 0.2)) +
+  facet_grid2(. ~ Label,
+              strip = strip_themed(
+                background_x = elem_list_rect(fill = comp_colors)),
+              labeller = label_wrap_gen(width = 20),
+              drop = FALSE) +
+  # 
+  theme_bw() +
+  theme(
+    #axis.title = element_blank(),
+    # strip.background = element_rect(fill =comp_colors), 
+    panel.grid = element_blank(),
+    axis.title = element_blank(),
+    axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5, # 90, hj1 t/R, vj.5 cent
+                               size = 7),
+    axis.text.y = element_text(hjust = 1, color = "grey10",
+                               size = 7.5, face = 'italic'), # rota 90 & hjust=1 (top/right)
+    axis.ticks.y = element_blank(),
+          # legend.position = "none",
+        strip.background = element_rect(linewidth = 0.25, color = "grey10"),
+    panel.border = element_rect(linewidth = 0.25, color = "grey10"),
+      strip.text = element_text(size =6, color = "grey10"),
+      axis.ticks = element_line(color = "grey10", linewidth = 0.25),
+      # legend.title = element_text(size =8, color = "grey10"),
+      legend.title = element_blank(),
+      legend.text = element_text(size =7, color = "grey10",
+                                 margin = margin(l = 0.05, unit = "cm")),
+      legend.key.size = unit(0.35, "cm"),
+        legend.margin = margin(-5,0,0,-5), # (top, right, bot, left) | right ver
+        panel.spacing.x = unit(.1, "cm"),
+    # panel.grid.major = element_line(color = "grey90", linewidth = 0.1),
+    # panel.grid.minor = element_line(color = "grey90", linewidth = 0.1),
+    # legend.position = "bottom"
+    legend.position = "none"
+  ) 
+
+# composite_segment_plot
+# composite_segment_plot_EE
+composite_segment_plot_AGE
+```
+
+```{r}
+plot_grid(composite_segment_plot_EE,composite_segment_plot_AGE,
+          ncol = 1, rel_heights = c(.95,1)
+          # labels = c('a', 'b'), label_size = 11, label_colour = 'grey10'
+          )
 ```
 
 ```{r}
@@ -258,7 +443,7 @@ for (lb in labels4tile) {
     scale_color_manual(values = c("#2380c1","#d33682"))+
     scale_fill_manual(values = type_colors,
                       guide = guide_legend(nrow = 2, byrow = TRUE)) +
-  scale_alpha_continuous(limits = c(0, 0.9), # fixed - so consistnet across
+  scale_alpha_continuous(limits = c(0, 0.95), # fixed - so consistnet across
                          range = c(1,0.5), # value range
                          # guide = "none",
                         guide = guide_legend(nrow = 2, byrow = TRUE),
@@ -331,6 +516,14 @@ list_dist_df3_tile <- df3_unique_genes %>%
     )
   
 list_dist_df3_tile      
+```
+
+------------------------------------------------------------------------
+
+------------------------------------------------------------------------
+
+```{r}
+
 ```
 
 ------------------------------------------------------------------------
